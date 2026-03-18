@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# Variables de entorno (¡Súper importante!)
+.env
+
+# Docker
+.dockerignore
+
+# IDEs
+.vscode/
+.idea/
+
+# Base de datos local (si usas SQLite)
+*.sqlite3
+
+# Alembic
+alembic/versions/*.pyc

@@ -1,0 +1,93 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "extensions": {
+    "recommendations": [
+      "shd101wyy.markdown-preview-enhanced"
+    ]
+  },
+  "settings": {
+    "workbench.colorTheme": "Light Pink",
+    "workbench.startupEditor": "none",
+    "files.autoSave": "onFocusChange",
+    "workbench.editor.empty.hint": "hidden",
+    "scm.showOutgoingChanges": "never",
+    "editor.largeFileOptimizations": false,
+    "editor.stickyScroll.enabled": false,
+    "diffEditor.ignoreTrimWhitespace": false,
+    "vscode-pets.theme": "beach",
+    "editor.tabSize": 2,
+    "scm.showActionButton": false,
+    "git.showCommitInput": false,
+    "git.enableStatusBarSync": false,
+    "scm.showIncomingChanges": "never",
+    "scm.showHistoryGraph": false,
+    "diffEditor.wordWrap": "off",
+    "html.format.wrapLineLength": 0,
+    "eslint.validate": [
+      "javascript",
+      "javascriptreact",
+      "vue",
+      "typescript",
+      "typescriptreact",
+      "html",
+      "json"
+    ],
+    "eslint.format.enable": true,
+    "[jsonc]": {
+      "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "[json]": {
+      "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "[javascript]": {
+      "editor.tabSize": 2
+    },
+    "[vue]": {
+      "editor.tabSize": 2
+    },
+    "[php]": {
+      "editor.tabSize": 4
+    },
+    "eslint.codeActionsOnSave.rules": null,
+    // "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "vetur.format.defaultFormatterOptions": {
+      "js-beautify-html": {
+        "wrap_attributes": "force-expand-multiline"
+      },
+      "prettyhtml": {
+        "printWidth": 100,
+        "singleQuote": false,
+        "wrapAttributes": false,
+        "sortAttributes": false
+      }
+    },
+    "php.validate.executablePath": "",
+    "editor.multiCursorModifier": "ctrlCmd",
+    "editor.renderWhitespace": "all",
+    "files.trimTrailingWhitespace": true,
+    "chat.instructionsFilesLocations": {
+      ".github/instructions": true,
+      ".claude/rules": true,
+      "/var/folders/tn/w_sjclkj5fb7mm6tzrfbrw3h0000gn/T/postman-http-request-post-response.instructions.md": true,
+      "/var/folders/tn/w_sjclkj5fb7mm6tzrfbrw3h0000gn/T/postman-http-request-pre-request.instructions.md": true,
+      "/var/folders/tn/w_sjclkj5fb7mm6tzrfbrw3h0000gn/T/postman-collections-post-response.instructions.md": true,
+      "/var/folders/tn/w_sjclkj5fb7mm6tzrfbrw3h0000gn/T/postman-collections-pre-request.instructions.md": true,
+      "/var/folders/tn/w_sjclkj5fb7mm6tzrfbrw3h0000gn/T/postman-folder-post-response.instructions.md": true,
+      "/var/folders/tn/w_sjclkj5fb7mm6tzrfbrw3h0000gn/T/postman-folder-pre-request.instructions.md": true
+    },
+    "github.copilot.nextEditSuggestions.enabled": true,
+    "terminal.integrated.stickyScroll.enabled": false,
+    "postman.mcp.notifications.postmanMCP": false,
+    "intelephense.inlayHint.parameterNames": false,
+    "intelephense.inlayHint.parameterTypes": false,
+    "intelephense.inlayHint.returnTypes": false,
+    "gitlens.ai.model": "vscode",
+    "gitlens.ai.vscode.model": "copilot:gpt-4.1",
+    "diffEditor.hideUnchangedRegions.enabled": true
+  }
+}
