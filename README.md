@@ -2,7 +2,7 @@
 
 > Para leer este README cómodo: instala la extensión **Markdown Preview Enhanced** en VS Code (se recomienda automáticamente) y abre el preview con `Cmd/Ctrl+Shift+V`.
 
-Backend SaaS multi‑tenant para rastrear y gestionar mensajes, servicios, canales y conversaciones en Telegram, listo para crecer a otros canales (p. ej. WhatsApp).
+Backend SaaS para rastrear y gestionar mensajes, servicios, canales y conversaciones en Telegram.
 
 ## 🧩 Stack
 - FastAPI (API REST)
