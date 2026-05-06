@@ -97,6 +97,8 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+> **Importante:** El entorno virtual debe estar activo y los paquetes deben estar instalados antes de ejecutar cualquier comando del proyecto.
+
 ---
 
 ## Instalación del frontend
@@ -205,12 +207,14 @@ Este script crea un negocio de demostración, cuatro servicios, un cliente y una
 | GET      | /health                                                     | Estado del backend                 |
 | GET/POST | /api/v1/businesses/                                         | Gestión de negocios                |
 | GET/POST | /api/v1/services/                                           | Gestión de servicios               |
+| GET      | /api/v1/services/?tenant_id=1                               | Servicios filtrados por negocio    |
 | GET/POST | /api/v1/clients/                                            | Gestión de clientes                |
 | GET      | /api/v1/clients/telegram/{telegram_id}                      | Consultar cliente por Telegram ID  |
 | GET/POST | /api/v1/appointments/                                       | Gestión de citas                   |
 | PATCH    | /api/v1/appointments/{id}/cancel                            | Cancelar una cita                  |
 | PATCH    | /api/v1/appointments/{id}/complete                          | Completar una cita                 |
 | GET      | /api/v1/availability/?tenant_id=1&service_id=1&date=FECHA   | Consultar horarios disponibles     |
+| GET      | /api/v1/conversations/                                      | Listado de conversaciones          |
 | GET      | /api/v1/conversations/{id}/messages                         | Mensajes de una conversación       |
 
 La documentación completa con esquemas de entrada y salida está disponible en la ruta `/docs` del backend.

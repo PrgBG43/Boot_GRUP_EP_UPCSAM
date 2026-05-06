@@ -111,10 +111,17 @@ def _get_or_create_conversation(db, client: Client, chat_id: int, tenant: Tenant
     return conv
 
 
-def _save_message(db, conversation_id: int, direction: str, content: str):
-    msg = Message(conversation_id=conversation_id, direction=direction, content=content)
-    db.add(msg)
-    db.commit()
+def _save_message(conversation_id: int, direction: str, content: str):
+    """Guarda un mensaje de conversación gestionando su propia sesión de base de datos."""
+    db = SessionLocal()
+    try:
+        msg = Message(conversation_id=conversation_id, direction=direction, content=content)
+        db.add(msg)
+        db.commit()
+    except Exception:
+        db.rollback()
+    finally:
+        db.close()
 
 
 def _get_default_tenant(db) -> Optional[Tenant]:
@@ -146,7 +153,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         client = _get_or_create_client(db, tg_user)
         conv = _get_or_create_conversation(db, client, update.effective_chat.id, tenant)
 
-        _save_message(db, conv.id, "incoming", "/start")
+        _save_message(conv.id, "incoming", "/start")
 
         greeting = (
             f"👋 ¡Hola, {client.full_name}! Bienvenido/a a *{tenant.name}*.\n\n"
@@ -160,7 +167,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
 
         await update.message.reply_text(greeting, parse_mode="Markdown", reply_markup=reply_markup)
-        _save_message(db, conv.id, "outgoing", greeting)
+        _save_message(conv.id, "outgoing", greeting)
 
         context.user_data["tenant_id"] = tenant.id
         context.user_data["client_id"] = client.id
@@ -212,7 +219,7 @@ async def show_services(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
         conv_id = context.user_data.get("conversation_id")
         if conv_id:
-            _save_message(db, conv_id, "outgoing", msg)
+            _save_message(conv_id, "outgoing", msg)
     finally:
         db.close()
 
@@ -242,7 +249,7 @@ async def start_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
         conv_id = context.user_data.get("conversation_id")
         if conv_id:
-            _save_message(db, conv_id, "outgoing", msg)
+            _save_message(conv_id, "outgoing", msg)
     finally:
         db.close()
 
@@ -279,9 +286,7 @@ async def service_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
     conv_id = context.user_data.get("conversation_id")
     if conv_id:
-        db = SessionLocal()
-        _save_message(db, conv_id, "outgoing", msg)
-        db.close()
+        _save_message(conv_id, "outgoing", msg)
 
     return ENTERING_DATE
 
@@ -333,9 +338,7 @@ async def date_entered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     conv_id = context.user_data.get("conversation_id")
     if conv_id:
-        db = SessionLocal()
-        _save_message(db, conv_id, "outgoing", msg)
-        db.close()
+        _save_message(conv_id, "outgoing", msg)
 
     return SELECTING_SLOT
 
@@ -375,9 +378,7 @@ async def slot_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     conv_id = context.user_data.get("conversation_id")
     if conv_id:
-        db = SessionLocal()
-        _save_message(db, conv_id, "outgoing", summary)
-        db.close()
+        _save_message(conv_id, "outgoing", summary)
 
     return CONFIRMING_APPOINTMENT
 
@@ -426,7 +427,7 @@ async def confirm_appointment(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         conv_id = context.user_data.get("conversation_id")
         if conv_id:
-            _save_message(db, conv_id, "outgoing", msg)
+            _save_message(conv_id, "outgoing", msg)
 
     finally:
         db.close()
@@ -469,7 +470,7 @@ async def show_my_appointments(update: Update, context: ContextTypes.DEFAULT_TYP
 
         conv_id = context.user_data.get("conversation_id")
         if conv_id:
-            _save_message(db, conv_id, "outgoing", msg)
+            _save_message(conv_id, "outgoing", msg)
     finally:
         db.close()
 
@@ -509,7 +510,7 @@ async def start_cancellation(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         conv_id = context.user_data.get("conversation_id")
         if conv_id:
-            _save_message(db, conv_id, "outgoing", msg)
+            _save_message(conv_id, "outgoing", msg)
     finally:
         db.close()
 
@@ -551,7 +552,7 @@ async def cancel_by_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
         conv_id = context.user_data.get("conversation_id")
         if conv_id:
-            _save_message(db, conv_id, "outgoing", msg)
+            _save_message(conv_id, "outgoing", msg)
     finally:
         db.close()
 

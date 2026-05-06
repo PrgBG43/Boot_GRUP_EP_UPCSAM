@@ -1,11 +1,16 @@
+from typing import Optional
+
 from sqlalchemy.orm import Session
 
 from app.models.service import Service
 from app.schemas.service import ServiceCreate, ServiceUpdate
 
 
-def list_services(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(Service).offset(skip).limit(limit).all()
+def list_services(db: Session, skip: int = 0, limit: int = 100, tenant_id: Optional[int] = None):
+    query = db.query(Service)
+    if tenant_id is not None:
+        query = query.filter(Service.tenant_id == tenant_id)
+    return query.offset(skip).limit(limit).all()
 
 
 def create_service(db: Session, service_in: ServiceCreate):

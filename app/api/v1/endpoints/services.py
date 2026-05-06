@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -16,8 +16,13 @@ def create_service(service: ServiceCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/", response_model=List[ServiceResponse])
-def list_services(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return service_repository.list_services(db, skip=skip, limit=limit)
+def list_services(
+    skip: int = 0,
+    limit: int = 100,
+    tenant_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    return service_repository.list_services(db, skip=skip, limit=limit, tenant_id=tenant_id)
 
 
 @router.get("/{service_id}", response_model=ServiceResponse)
