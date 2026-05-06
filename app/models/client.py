@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Integer, String
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -10,10 +10,14 @@ class Client(Base):
     __tablename__ = "clients"
 
     id = Column(Integer, primary_key=True, index=True)
-    telegram_user_id = Column(String, nullable=True, unique=True, index=True)
+    tenant_id = Column(
+        Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    telegram_user_id = Column(String, nullable=True, index=True)
     full_name = Column(String, nullable=False)
     username = Column(String, nullable=True)
     phone = Column(String, nullable=True)
+    email = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
     updated_at = Column(
         DateTime(timezone=True),
@@ -21,5 +25,6 @@ class Client(Base):
         onupdate=datetime.now(timezone.utc),
     )
 
+    tenant = relationship("Tenant", back_populates="clients")
     appointments = relationship("Appointment", back_populates="client")
     conversations = relationship("Conversation", back_populates="client")

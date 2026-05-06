@@ -51,17 +51,32 @@ class User(Base):
     person_id = Column(
         Integer, ForeignKey("persons.id", ondelete="CASCADE"), unique=True, nullable=False
     )
+    tenant_id = Column(
+        Integer, ForeignKey("tenants.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     email = Column(String, nullable=False, unique=True, index=True)
     password_hash = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
 
     person = relationship("Person", back_populates="user")
-    tenant_owned = relationship("Tenant", back_populates="owner_user", uselist=False)
+    tenant = relationship("Tenant", foreign_keys=[tenant_id], back_populates="users")
+    tenant_owned = relationship(
+        "Tenant", foreign_keys="Tenant.owner_user_id", back_populates="owner_user", uselist=False
+    )
     roles = relationship("Role", secondary=user_role_table, back_populates="users")
     permissions = relationship(
         "Permission", secondary=user_permission_table, back_populates="users"
     )
+
+    @property
+    def primary_role(self) -> str:
+        if self.roles:
+            priority = ["superadmin", "tenant_admin", "staff", "customer"]
+            for r in priority:
+                if any(role.name == r for role in self.roles):
+                    return r
+        return "customer"
 
 
 class Role(Base):

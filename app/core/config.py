@@ -17,6 +17,11 @@ class Settings(BaseSettings):
     POSTGRES_PORT: Optional[str] = "5432"
     POSTGRES_DB: Optional[str] = None
 
+    # JWT / Seguridad
+    SECRET_KEY: str = "changeme-turnix-secret-key-2026-demo"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 480  # 8 horas para demo
+
     # Telegram Bot
     TELEGRAM_BOT_TOKEN: Optional[str] = None
 

@@ -5,10 +5,12 @@ from pydantic import BaseModel
 
 
 class ClientBase(BaseModel):
+    tenant_id: int
     telegram_user_id: Optional[str] = None
     full_name: str
     username: Optional[str] = None
     phone: Optional[str] = None
+    email: Optional[str] = None
 
 
 class ClientCreate(ClientBase):
@@ -20,6 +22,7 @@ class ClientUpdate(BaseModel):
     full_name: Optional[str] = None
     username: Optional[str] = None
     phone: Optional[str] = None
+    email: Optional[str] = None
 
 
 class ClientResponse(ClientBase):
