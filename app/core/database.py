@@ -1,8 +1,10 @@
+"""Configuracion del motor de base de datos, sesion y utilidades."""
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+
 from app.core.config import settings
 
-# Para SQLite se necesita check_same_thread=False
+# SQLite requiere check_same_thread=False para uso con FastAPI
 connect_args = {}
 if settings.db_url.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
@@ -13,7 +15,7 @@ Base = declarative_base()
 
 
 def get_db():
-    """Dependencia para los endpoints (sesión de DB)."""
+    """Dependencia FastAPI: crea una sesion de DB y la cierra al terminar."""
     db = SessionLocal()
     try:
         yield db
@@ -22,6 +24,6 @@ def get_db():
 
 
 def create_tables():
-    """Crea todas las tablas en la base de datos (útil para desarrollo con SQLite)."""
+    """Crea todas las tablas definidas en los modelos (util con SQLite)."""
     import app.models  # noqa: F401 – importar todos los modelos antes de crear tablas
     Base.metadata.create_all(bind=engine)
