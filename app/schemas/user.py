@@ -43,6 +43,10 @@ class UserResponse(BaseModel):
     is_active: bool
     tenant_id: Optional[int] = None
     created_at: datetime
+    role: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    tenant_name: Optional[str] = None
 
     class Config:
         from_attributes = True

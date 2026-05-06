@@ -504,6 +504,41 @@ tr:hover td { background: #fafafa; }
   font-weight: 700;
 }
 
+/* ── Tenant selector (sidebar superadmin) ────── */
+.tenant-selector {
+  padding: .5rem .75rem;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  margin-bottom: .25rem;
+}
+.tenant-selector-label {
+  display: block;
+  font-size: .68rem;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: rgba(232,232,240,.45);
+  margin-bottom: .3rem;
+}
+.tenant-selector-select {
+  width: 100%;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12);
+  color: #e8e8f0;
+  border-radius: 6px;
+  padding: .35rem .5rem;
+  font-size: .8rem;
+  cursor: pointer;
+}
+.tenant-selector-select:focus { outline: none; border-color: var(--accent); }
+.tenant-selector-select option { background: #1e1a3e; color: #e8e8f0; }
+
+/* ── Form control static (display only) ─────── */
+.form-control-static {
+  padding: .45rem 0;
+  font-size: .9rem;
+  color: var(--text-primary);
+}
+.text-muted { color: var(--text-muted); font-size: .85rem; }
+
 /* ── Responsive tables ───────────────────────── */
 .table-responsive { overflow-x: auto; }
 
@@ -518,4 +553,5 @@ tr:hover td { background: #fafafa; }
   .form-row { grid-template-columns: 1fr; }
   .modal-lg { max-width: 98vw; }
 }
+
 

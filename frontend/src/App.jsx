@@ -1,4 +1,5 @@
 import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { useAuth } from './context/AuthContext.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import Login from './pages/Login.jsx'
@@ -12,12 +13,15 @@ import Staff from './pages/Staff.jsx'
 import TelegramConfig from './pages/TelegramConfig.jsx'
 import Unauthorized from './pages/Unauthorized.jsx'
 import AdminTenants from './pages/admin/Tenants.jsx'
+import AdminUsers from './pages/admin/Users.jsx'
+import api from './api.js'
 import './App.css'
 
 // ── Navegación por rol ──────────────────────────────────────
 const SUPERADMIN_NAV = [
   { to: '/',               label: 'Dashboard',         icon: '📊', end: true },
   { to: '/admin/tenants',  label: 'Negocios',           icon: '🏢' },
+  { to: '/admin/users',    label: 'Usuarios',           icon: '🔑' },
   { to: '/appointments',   label: 'Citas',              icon: '📅' },
   { to: '/clients',        label: 'Clientes',           icon: '👥' },
   { to: '/services',       label: 'Servicios',          icon: '✂️' },
@@ -54,8 +58,41 @@ function RoleBadge({ role }) {
   return <span className={`role-pill ${r.cls}`}>{r.label}</span>
 }
 
+// ── Selector de negocio activo (solo superadmin) ────────────
+function TenantSelector() {
+  const { activeTenant, setActiveTenant } = useAuth()
+  const [tenants, setTenants] = useState([])
+
+  useEffect(() => {
+    api.getBusinesses().then(t => setTenants(t || [])).catch(() => {})
+  }, [])
+
+  const handleChange = (e) => {
+    const id = parseInt(e.target.value)
+    if (!id) { setActiveTenant(null); return }
+    const t = tenants.find(t => t.id === id)
+    if (t) setActiveTenant({ id: t.id, name: t.name })
+  }
+
+  return (
+    <div className="tenant-selector">
+      <label className="tenant-selector-label">Negocio activo</label>
+      <select
+        className="tenant-selector-select"
+        value={activeTenant?.id || ''}
+        onChange={handleChange}
+      >
+        <option value="">— Vista global —</option>
+        {tenants.map(t => (
+          <option key={t.id} value={t.id}>{t.name}</option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 function Layout({ navItems }) {
-  const { user, logout } = useAuth()
+  const { user, isSuperadmin, activeTenantName, logout } = useAuth()
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -71,7 +108,9 @@ function Layout({ navItems }) {
           <span className="brand-name">Turnix</span>
         </div>
 
-        {user?.tenant_name && (
+        {isSuperadmin && <TenantSelector />}
+
+        {!isSuperadmin && user?.tenant_name && (
           <div className="sidebar-tenant">
             <span className="tenant-label">Negocio activo</span>
             <span className="tenant-name">{user.tenant_name}</span>
@@ -85,7 +124,6 @@ function Layout({ navItems }) {
         )}
 
         <nav className="sidebar-nav">
-          {navItems.map(({ to, label, icon, end }) => (
             <NavLink
               key={to}
               to={to}
@@ -115,9 +153,9 @@ function Layout({ navItems }) {
       <div className="main-wrapper">
         <header className="topbar">
           <div className="topbar-left">
-            {user?.tenant_name && <span className="topbar-tenant">{user.tenant_name}</span>}
-            {!user?.tenant_name && user?.role === 'superadmin' && (
-              <span className="topbar-tenant" style={{ color: 'var(--accent)' }}>Plataforma Turnix — Vista global</span>
+            {activeTenantName && <span className="topbar-tenant">{activeTenantName}</span>}
+            {isSuperadmin && !activeTenantName && (
+              <span className="topbar-tenant" style={{ color: 'var(--accent)' }}>Vista global — Plataforma Turnix</span>
             )}
           </div>
           <div className="topbar-right">
@@ -150,6 +188,11 @@ function Layout({ navItems }) {
             <Route path="/admin/tenants"  element={
               <ProtectedRoute roles={['superadmin']}>
                 <AdminTenants />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/users"    element={
+              <ProtectedRoute roles={['superadmin']}>
+                <AdminUsers />
               </ProtectedRoute>
             } />
             <Route path="/unauthorized"   element={<Unauthorized />} />

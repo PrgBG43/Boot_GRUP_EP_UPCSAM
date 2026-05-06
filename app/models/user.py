@@ -78,6 +78,23 @@ class User(Base):
                     return r
         return "customer"
 
+    # Alias para Pydantic schema
+    @property
+    def role(self) -> str:
+        return self.primary_role
+
+    @property
+    def first_name(self):
+        return self.person.first_name if self.person else None
+
+    @property
+    def last_name(self):
+        return self.person.last_name if self.person else None
+
+    @property
+    def tenant_name(self):
+        return self.tenant.name if self.tenant else None
+
 
 class Role(Base):
     __tablename__ = "roles"

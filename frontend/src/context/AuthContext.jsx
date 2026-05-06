@@ -2,15 +2,28 @@ import { createContext, useContext, useState, useEffect, useCallback } from 'rea
 
 const AuthContext = createContext(null)
 
-const TOKEN_KEY = 'turnix_token'
-const USER_KEY  = 'turnix_user'
+const TOKEN_KEY         = 'turnix_token'
+const USER_KEY          = 'turnix_user'
+const ACTIVE_TENANT_KEY = 'turnix_active_tenant'
 
 export function AuthProvider({ children }) {
   const [token, setToken]     = useState(() => localStorage.getItem(TOKEN_KEY))
   const [user, setUser]       = useState(() => {
     try { return JSON.parse(localStorage.getItem(USER_KEY)) } catch { return null }
   })
+  const [activeTenant, setActiveTenantState] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(ACTIVE_TENANT_KEY)) } catch { return null }
+  })
   const [loading, setLoading] = useState(false)
+
+  const setActiveTenant = useCallback((tenant) => {
+    if (tenant) {
+      localStorage.setItem(ACTIVE_TENANT_KEY, JSON.stringify(tenant))
+    } else {
+      localStorage.removeItem(ACTIVE_TENANT_KEY)
+    }
+    setActiveTenantState(tenant)
+  }, [])
 
   const login = useCallback(async (email, password) => {
     const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}/auth/login`, {
@@ -34,14 +47,19 @@ export function AuthProvider({ children }) {
     localStorage.setItem(USER_KEY, JSON.stringify(userData))
     setToken(data.access_token)
     setUser(userData)
+    // Limpiar tenant activo al hacer login nuevo
+    localStorage.removeItem(ACTIVE_TENANT_KEY)
+    setActiveTenantState(null)
     return userData
   }, [])
 
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY)
     localStorage.removeItem(USER_KEY)
+    localStorage.removeItem(ACTIVE_TENANT_KEY)
     setToken(null)
     setUser(null)
+    setActiveTenantState(null)
   }, [])
 
   const isAuthenticated = !!token && !!user
@@ -49,8 +67,17 @@ export function AuthProvider({ children }) {
   const isTenantAdmin   = user?.role === 'tenant_admin'
   const isStaff         = user?.role === 'staff'
 
+  // Tenant efectivo para llamadas a la API
+  const activeTenantId   = isSuperadmin ? (activeTenant?.id   ?? null) : user?.tenant_id
+  const activeTenantName = isSuperadmin ? (activeTenant?.name ?? null) : user?.tenant_name
+
   return (
-    <AuthContext.Provider value={{ token, user, loading, isAuthenticated, isSuperadmin, isTenantAdmin, isStaff, login, logout }}>
+    <AuthContext.Provider value={{
+      token, user, loading, isAuthenticated,
+      isSuperadmin, isTenantAdmin, isStaff,
+      activeTenant, activeTenantId, activeTenantName, setActiveTenant,
+      login, logout,
+    }}>
       {children}
     </AuthContext.Provider>
   )
@@ -61,3 +88,4 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider')
   return ctx
 }
+

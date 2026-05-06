@@ -118,21 +118,32 @@ function SuperadminDashboard() {
 
 // ── Dashboard Tenant Admin / Staff ────────────────────────
 function TenantDashboard() {
-  const { user } = useAuth()
+  const { user, isSuperadmin, activeTenantId } = useAuth()
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
 
   useEffect(() => {
-    api.getTenantDashboard()
+    if (isSuperadmin && !activeTenantId) {
+      setLoading(false)
+      setData(null)
+      return
+    }
+    setLoading(true)
+    api.getTenantDashboard(isSuperadmin ? activeTenantId : null)
       .then(setData)
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [])
+  }, [activeTenantId])
 
   if (loading) return <div className="spinner" />
   if (error)   return <div className="alert alert-error">Error: {error}</div>
-  if (!data)   return null
+  if (!data)   return (
+    <div className="empty-state">
+      <div className="icon">📊</div>
+      <p>Selecciona un negocio en el menú lateral para ver su dashboard.</p>
+    </div>
+  )
 
   return (
     <div>
@@ -231,6 +242,10 @@ function TenantDashboard() {
 }
 
 export default function Dashboard() {
-  const { isSuperadmin } = useAuth()
-  return isSuperadmin ? <SuperadminDashboard /> : <TenantDashboard />
+  const { isSuperadmin, activeTenantId } = useAuth()
+  // Superadmin sin tenant activo → Panel de plataforma global
+  // Superadmin con tenant activo → Dashboard del tenant seleccionado
+  if (isSuperadmin && !activeTenantId) return <SuperadminDashboard />
+  if (isSuperadmin && activeTenantId)  return <TenantDashboard />
+  return <TenantDashboard />
 }

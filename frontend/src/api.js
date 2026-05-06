@@ -99,6 +99,15 @@ export const api = {
   activateStaff:   (id)     => request(`/users/${id}/activate`, { method: 'PATCH' }),
   deactivateStaff: (id)     => request(`/users/${id}/deactivate`, { method: 'PATCH' }),
 
+  // Usuarios completos (superadmin / tenant_admin)
+  getUsers:          (params)  => request(`/users/?${new URLSearchParams(params || {})}`),
+  getUser:           (id)      => request(`/users/${id}`),
+  createUser:        (data)    => request('/users/', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser:        (id, d)   => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
+  activateUser:      (id)      => request(`/users/${id}/activate`, { method: 'PATCH' }),
+  deactivateUser:    (id)      => request(`/users/${id}/deactivate`, { method: 'PATCH' }),
+  deleteUser:        (id)      => request(`/users/${id}`, { method: 'DELETE' }),
+
   // Configuración de Telegram
   getTelegramConfig:    (tenant_id) => {
     const qs = tenant_id ? `?tenant_id=${tenant_id}` : ''

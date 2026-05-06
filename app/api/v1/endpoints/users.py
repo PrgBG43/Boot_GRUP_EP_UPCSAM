@@ -47,7 +47,12 @@ def list_staff(
     """
     if current_user.primary_role == "superadmin":
         if not tenant_id:
-            raise HTTPException(status_code=400, detail="Superadmin debe especificar tenant_id")
+            # Superadmin sin filtro → devuelve todo el staff de la plataforma
+            return (
+                db.query(User)
+                .filter(User.roles.any(Role.name == "staff"))
+                .all()
+            )
         tid = tenant_id
     else:
         tid = current_user.tenant_id

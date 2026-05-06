@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
 
 const EMPTY_FORM = {
@@ -6,6 +7,7 @@ const EMPTY_FORM = {
 }
 
 export default function Staff() {
+  const { isSuperadmin, activeTenantId } = useAuth()
   const [staff,    setStaff]    = useState([])
   const [loading,  setLoading]  = useState(true)
   const [error,    setError]    = useState(null)
@@ -16,12 +18,12 @@ export default function Staff() {
 
   const load = () => {
     setLoading(true)
-    api.getStaff()
+    api.getStaff(activeTenantId || undefined)
       .then(s => { setStaff(s || []); setLoading(false) })
       .catch(e => { setError(e.message); setLoading(false) })
   }
 
-  useEffect(load, [])
+  useEffect(load, [activeTenantId])
 
   const openCreate = () => { setForm(EMPTY_FORM); setModal(true); setFeedback(null) }
 
@@ -37,6 +39,7 @@ export default function Staff() {
         password:   form.password,
         phone:      form.phone || undefined,
         role_name:  'staff',
+        tenant_id:  activeTenantId || undefined,
       })
       setModal(false); load()
     } catch(e) {
@@ -46,7 +49,7 @@ export default function Staff() {
   }
 
   const toggleActive = async (s) => {
-    const action = s.is_active ? api.deactivateStaff : api.activateStaff
+    const action = s.is_active ? api.deactivateUser : api.activateUser
     try { await action(s.id); load() } catch(e) { alert(e.message) }
   }
 
