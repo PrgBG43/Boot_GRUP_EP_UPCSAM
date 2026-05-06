@@ -1,96 +1,197 @@
-# Sistema de gestión de citas para negocios del sector de belleza
+# Turnix — Plataforma SaaS multi-tenant de gestión de citas
 
-**Turnix** es un proyecto académico desarrollado para la asignatura **Electiva de profundización: Programación en Python**, de la **Universidad Piloto de Colombia**, orientado a la construcción de una herramienta digital para la gestión de citas en negocios del sector de belleza y cuidado personal.
+**Turnix** es una plataforma SaaS multi-tenant para la gestión de citas en negocios del sector de belleza y cuidado personal (barberías, peluquerías, salones de belleza). Permite que múltiples negocios operen de forma aislada bajo la misma plataforma, con autenticación JWT, roles de usuario y planes freemium.
 
-El proyecto fue desarrollado por:
+Desarrollado como proyecto académico para la asignatura **Electiva de profundización: Programación en Python** — **Universidad Piloto de Colombia, 2026**.
 
-- **Bryan Duván Gómez Bohórquez**
-- **Joab Jazed Munevar González**
-- **Juan Camilo Ibáñez Gaitán**
-
-**Universidad Piloto de Colombia**  
-**Facultad de Ingeniería**  
-**Electiva de profundización: Programación en Python**  
-**Año:** 2026
+**Autores:**
+- Bryan Duván Gómez Bohórquez
+- Joab Jazed Munevar González
+- Juan Camilo Ibáñez Gaitán
 
 ---
 
-## Descripción del proyecto
+## Características principales
 
-**Turnix** es una aplicación web diseñada para apoyar la gestión de citas en negocios del sector de belleza, como barberías, peluquerías, salones de belleza y establecimientos de cuidado personal.
-
-El sistema permite registrar negocios, servicios, clientes y citas, consultar disponibilidad de horarios y llevar un historial de conversaciones asociadas al proceso de atención. Además, integra un bot de Telegram que permite a los clientes interactuar con el sistema de forma conversacional para consultar servicios y realizar procesos de agendamiento.
-
-La solución está compuesta por un backend desarrollado con **FastAPI**, un panel administrativo construido con **React y Vite**, una base de datos relacional gestionada mediante **SQLAlchemy** y un bot conectado a la **API de Telegram**.
-
----
-
-## Objetivo del proyecto
-
-Desarrollar un sistema funcional de gestión de citas que integre una API REST, un panel administrativo web y un bot de Telegram, aplicando conceptos de programación en Python, arquitectura en capas, manejo de bases de datos relacionales, validación de datos, consumo de servicios y diseño de interfaces para la administración de información.
+- **Multi-tenant**: cada negocio tiene sus propios datos aislados (clientes, citas, servicios)
+- **Autenticación JWT**: tokens con expiración de 8 horas
+- **4 roles**: `superadmin`, `tenant_admin`, `staff`, `customer`
+- **Planes freemium**: Gratuito / Premium / Empresarial con límites configurables
+- **Dashboard de métricas**: global (superadmin) y por negocio (con gráfica de 7 días)
+- **Bot de Telegram**: flujo conversacional para agendar citas
+- **Frontend React**: panel administrativo con navegación basada en rol
 
 ---
 
-## Alcance del sistema
-
-El sistema está orientado a resolver una necesidad común en negocios del sector de belleza: la gestión informal de citas, servicios y conversaciones mediante agendas físicas, mensajes dispersos o registros manuales.
-
-Turnix busca centralizar esta información en una plataforma digital que permita:
-
-- Registrar y administrar negocios.
-- Gestionar servicios ofrecidos por cada negocio.
-- Registrar clientes.
-- Crear, consultar, actualizar y cancelar citas.
-- Validar disponibilidad de horarios.
-- Evitar cruces de citas.
-- Consultar conversaciones y mensajes asociados al proceso de atención.
-- Permitir agendamiento mediante un bot de Telegram.
-- Visualizar información desde un panel administrativo web.
-
----
-
-## Tecnologías utilizadas
+## Stack tecnológico
 
 | Capa | Tecnología |
 |---|---|
-| Backend | Python 3.11+, FastAPI, SQLAlchemy, Pydantic |
-| Base de datos | SQLite para desarrollo local y PostgreSQL como alternativa para producción |
-| Frontend | React 18, Vite 5 |
-| Bot conversacional | python-telegram-bot |
-| Servidor de desarrollo | Uvicorn |
-| Documentación de API | Swagger / OpenAPI |
+| Backend | Python 3.11+, FastAPI 0.135, SQLAlchemy 2.0 |
+| Auth | python-jose (JWT), passlib + bcrypt 4.0.1 |
+| Base de datos | SQLite (dev) / PostgreSQL (prod) |
+| Frontend | React 18, Vite 5, Recharts |
+| Bot | python-telegram-bot 21.6 |
+| Config | pydantic-settings, .env |
 
 ---
 
-## Arquitectura general
-
-El proyecto sigue una estructura organizada por capas, separando responsabilidades entre modelos, esquemas, repositorios, servicios, endpoints, configuración del sistema, frontend y bot de Telegram.
+## Arquitectura
 
 ```text
 Boot_GRUP_EP_UPCSAM/
 ├── app/
 │   ├── main.py
 │   ├── core/
-│   │   ├── config.py
-│   │   └── database.py
-│   ├── models/
-│   ├── schemas/
-│   ├── repositories/
+│   │   ├── config.py          # Settings (.env)
+│   │   ├── database.py        # SQLAlchemy engine
+│   │   ├── security.py        # hash_password, JWT
+│   │   └── auth.py            # FastAPI dependencies (roles)
+│   ├── models/                # SQLAlchemy ORM
+│   ├── schemas/               # Pydantic
+│   ├── repositories/          # DB queries
 │   ├── services/
 │   │   └── availability_service.py
-│   ├── api/
-│   │   └── v1/
-│   │       └── endpoints/
-│   ├── database/
-│   │   └── seed.py
-│   └── bot/
-│       └── telegram_bot.py
+│   ├── api/v1/endpoints/      # REST endpoints
+│   ├── database/seed.py       # Demo data
+│   └── bot/telegram_bot.py
 ├── frontend/
 │   ├── src/
-│   │   ├── api.js
-│   │   └── pages/
-│   └── .env.example
-├── alembic/
+│   │   ├── context/AuthContext.jsx
+│   │   ├── components/ProtectedRoute.jsx
+│   │   ├── pages/
+│   │   │   ├── Login.jsx
+│   │   │   ├── Dashboard.jsx  # Recharts + métricas reales
+│   │   │   └── admin/Tenants.jsx
+│   │   └── api.js             # Bearer token automático
+│   └── package.json
 ├── requirements.txt
-├── .env.example
 └── README.md
+```
+
+---
+
+## Instalación y ejecución
+
+### Backend
+
+```bash
+# Clonar y entrar al proyecto
+git clone https://github.com/PrgBG43/Boot_GRUP_EP_UPCSAM.git
+cd Boot_GRUP_EP_UPCSAM
+
+# Crear entorno virtual e instalar dependencias
+python -m venv venv
+venv\Scripts\activate        # Windows
+pip install -r requirements.txt
+
+# Cargar datos de demostración
+python -m app.database.seed
+
+# Iniciar servidor (http://localhost:8000)
+uvicorn app.main:app --reload
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev    # http://localhost:5173
+```
+
+### Variables de entorno opcionales
+
+Crear `.env` en la raíz del proyecto:
+
+```env
+DATABASE_URL=sqlite:///./turnix.db
+SECRET_KEY=cambia-esto-en-produccion
+TELEGRAM_TOKEN=tu_token_aqui
+```
+
+---
+
+## Credenciales demo
+
+Ejecuta `python -m app.database.seed` para crear los datos de demostración.
+
+| Rol | Email | Contraseña |
+|---|---|---|
+| Superadmin | `admin@turnix.demo` | `Admin123*` |
+| Administrador de negocio | `negocio@turnix.demo` | `Negocio123*` |
+| Personal / Staff | `staff@turnix.demo` | `Staff123*` |
+
+**Negocio demo:** Barbería Demo Turnix · slug: `barberia-demo` · plan: Premium
+
+---
+
+## Endpoints principales
+
+### Autenticación
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/api/v1/auth/login` | Login con email/password → JWT |
+| GET | `/api/v1/auth/me` | Datos del usuario autenticado |
+
+### Dashboard
+| Método | Ruta | Rol requerido |
+|---|---|---|
+| GET | `/api/v1/dashboard/superadmin` | superadmin |
+| GET | `/api/v1/dashboard/tenant` | tenant_admin, staff |
+
+### Recursos
+| Recurso | Ruta base |
+|---|---|
+| Negocios | `/api/v1/businesses/` |
+| Servicios | `/api/v1/services/` |
+| Clientes | `/api/v1/clients/` |
+| Citas | `/api/v1/appointments/` |
+| Planes | `/api/v1/plans/` |
+| Disponibilidad | `/api/v1/availability/` |
+
+Documentación interactiva disponible en `http://localhost:8000/docs`
+
+---
+
+## Roles y permisos
+
+| Acción | superadmin | tenant_admin | staff | customer |
+|---|:---:|:---:|:---:|:---:|
+| Gestionar todos los negocios | ✅ | ❌ | ❌ | ❌ |
+| Ver métricas globales | ✅ | ❌ | ❌ | ❌ |
+| Gestionar su negocio | ✅ | ✅ | ❌ | ❌ |
+| Gestionar servicios | ✅ | ✅ | ❌ | ❌ |
+| Ver citas y clientes | ✅ | ✅ | ✅ | ❌ |
+| Crear cita propia | ✅ | ✅ | ✅ | ✅ |
+
+---
+
+## Planes freemium
+
+| Plan | Citas/mes | Servicios | Personal |
+|---|---|---|---|
+| Gratuito | 30 | 5 | 1 |
+| Premium | 200 | 20 | 5 |
+| Empresarial | Ilimitado | Ilimitado | Ilimitado |
+
+---
+
+## Bot de Telegram
+
+El bot permite a los clientes agendar citas mediante conversación. Comandos:
+
+- `/start` — Iniciar conversación
+- `/servicios` — Ver servicios disponibles
+- `/agendar` — Iniciar flujo de agendamiento
+- `/miscitas` — Ver citas activas
+- `/cancelar` — Cancelar cita
+
+---
+
+## Universidad Piloto de Colombia
+
+**Asignatura:** Electiva de profundización: Programación en Python  
+**Facultad:** Ingeniería  
+**Año:** 2026
+
