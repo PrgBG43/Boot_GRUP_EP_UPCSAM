@@ -124,6 +124,7 @@ function Layout({ navItems }) {
         )}
 
         <nav className="sidebar-nav">
+          {navItems.map(({ to, end, icon, label }) => (
             <NavLink
               key={to}
               to={to}
