@@ -49,6 +49,7 @@ def run_seed():
         from app.models.service import Service
         from app.models.client import Client
         from app.models.appointment import Appointment
+        from app.models.telegram_config import TelegramConfig
 
         # ── Planes ────────────────────────────────────────
         print("\n📦 Creando planes…")
@@ -251,6 +252,29 @@ def run_seed():
         db.commit()
         total_appts = db.query(Appointment).filter(Appointment.tenant_id == demo_tenant.id).count()
         print(f"  ✅ Citas creadas: {total_appts} en total")
+
+        # ── Configuración Telegram demo ────────────────────
+        print("\n🤖 Configurando Telegram para negocio demo…")
+        tg_cfg = db.query(TelegramConfig).filter(TelegramConfig.tenant_id == demo_tenant.id).first()
+        if not tg_cfg:
+            tg_cfg = TelegramConfig(
+                tenant_id=demo_tenant.id,
+                welcome_message=f"¡Hola! Bienvenido/a a *{demo_tenant.name}*. ¿En qué puedo ayudarte?",
+                services_message="Estos son nuestros servicios disponibles:",
+                ask_date_message="¿Qué fecha prefieres? (Formato: DD/MM/AAAA)",
+                ask_time_message="¿A qué hora te gustaría tu cita?",
+                confirm_message="✅ ¡Tu cita ha sido confirmada! Te esperamos.",
+                cancel_message="Tu cita ha sido cancelada. ¡Hasta pronto!",
+                allow_cancellation=True,
+                show_prices=True,
+                show_duration=True,
+                use_global_bot=True,
+            )
+            db.add(tg_cfg)
+            db.commit()
+            print(f"  ✅ Configuración de Telegram creada para: {demo_tenant.name}")
+        else:
+            print(f"  ℹ️  Configuración Telegram ya existe para: {demo_tenant.name}")
 
         print("\n" + "="*52)
         print("🎉 Seed completado exitosamente")

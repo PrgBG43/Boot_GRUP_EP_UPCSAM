@@ -18,9 +18,23 @@ router = APIRouter()
 def create_user(
     user: UserCreateFull,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_superadmin),
+    current_user: User = Depends(require_tenant_admin_or_above),
 ):
-    # Crear person si se provee nombre
+    """
+    Superadmin puede crear usuarios en cualquier tenant.
+    Tenant_admin solo puede crear usuarios (staff/customer) en su propio tenant.
+    """
+    if current_user.primary_role == "tenant_admin":
+        # Forzar tenant_id al propio y solo permitir crear staff/customer
+        if user.role_name not in ("staff", "customer"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Como administrador de negocio solo puedes crear personal (staff)"
+            )
+        # Forzar tenant propio
+        user = user.model_copy(update={"tenant_id": current_user.tenant_id})
+
+    # Crear person
     person = Person(
         first_name=user.first_name,
         last_name=user.last_name,
@@ -57,6 +71,148 @@ def create_user(
 
 @router.get("/", response_model=List[UserResponse])
 def list_users(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_admin_or_above),
+):
+    """
+    Superadmin ve todos los usuarios.
+    Tenant_admin ve solo los usuarios de su tenant.
+    """
+    query = db.query(User)
+    if current_user.primary_role != "superadmin":
+        query = query.filter(User.tenant_id == current_user.tenant_id)
+    return query.offset(skip).limit(limit).all()
+
+
+@router.get("/staff", response_model=List[UserResponse])
+def list_staff(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_admin_or_above),
+):
+    """Lista el personal (staff) del tenant actual."""
+    from app.models.user import user_role_table
+    if current_user.primary_role == "superadmin":
+        raise HTTPException(status_code=400, detail="Especifica un tenant para listar staff")
+    staff_role = db.query(Role).filter(Role.name == "staff").first()
+    if not staff_role:
+        return []
+    return (
+        db.query(User)
+        .filter(User.tenant_id == current_user.tenant_id)
+        .filter(User.roles.any(Role.name == "staff"))
+        .all()
+    )
+
+
+@router.get("/{user_id}", response_model=UserResponse)
+def get_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.primary_role == "superadmin":
+        pass
+    elif current_user.primary_role == "tenant_admin":
+        # puede ver usuarios de su tenant o a sí mismo
+        pass
+    elif current_user.id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+    # tenant_admin solo puede ver usuarios de su propio tenant
+    if current_user.primary_role == "tenant_admin" and user.tenant_id != current_user.tenant_id and current_user.id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    return user
+
+
+@router.put("/{user_id}", response_model=UserResponse)
+def update_user(
+    user_id: int,
+    user_in: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.primary_role == "superadmin":
+        pass
+    elif current_user.primary_role == "tenant_admin":
+        # puede editar usuarios de su tenant
+        pass
+    elif current_user.id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+    if current_user.primary_role == "tenant_admin" and user.tenant_id != current_user.tenant_id and current_user.id != user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    data = user_in.model_dump(exclude_unset=True, exclude={"role_ids", "password"})
+    if user_in.password:
+        data["password_hash"] = hash_password(user_in.password)
+    for key, value in data.items():
+        setattr(user, key, value)
+    if user_in.role_ids is not None and current_user.primary_role == "superadmin":
+        roles = db.query(Role).filter(Role.id.in_(user_in.role_ids)).all()
+        user.roles = roles
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email ya existe")
+    db.refresh(user)
+    return user
+
+
+@router.patch("/{user_id}/deactivate", response_model=UserResponse)
+def deactivate_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_admin_or_above),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+    if current_user.primary_role == "tenant_admin" and user.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    user.is_active = False
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.patch("/{user_id}/activate", response_model=UserResponse)
+def activate_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_admin_or_above),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+    if current_user.primary_role == "tenant_admin" and user.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    user.is_active = True
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_superadmin),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado")
+    db.delete(user)
+    db.commit()
+
+
+@router.get("/", response_model=List[UserResponse])
+def list_users_superadmin(
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),

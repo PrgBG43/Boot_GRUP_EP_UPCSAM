@@ -1,4 +1,4 @@
-"""Endpoints de métricas y dashboard para superadmin y tenant_admin."""
+"""Endpoints de métricas y dashboard para superadmin, tenant_admin y staff."""
 from datetime import date, timedelta
 from typing import Optional
 
@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 
 from app.core.database import get_db
-from app.core.auth import get_current_user, require_superadmin, require_tenant_admin_or_above
+from app.core.auth import get_current_user, require_superadmin, require_staff_or_above
 from app.models.user import User
 from app.models.tenant import Tenant
 from app.models.service import Service
@@ -77,10 +77,10 @@ def superadmin_dashboard(
 @router.get("/tenant", summary="Dashboard del negocio (tenant_admin/staff)")
 def tenant_dashboard(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_tenant_admin_or_above),
+    current_user: User = Depends(require_staff_or_above),
     tenant_id: Optional[int] = Query(None),
 ):
-    # Superadmin puede consultar cualquier tenant; tenant_admin solo el suyo
+    # Superadmin puede consultar cualquier tenant; los demás solo el suyo
     if current_user.primary_role == "superadmin":
         tid = tenant_id
         if tid is None:
@@ -203,3 +203,81 @@ def tenant_dashboard(
         "daily_chart": daily_counts,
         "plan": plan_info,
     }
+
+
+@router.get("/staff", summary="Agenda del staff (personal del negocio)")
+def staff_dashboard(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Métricas simples para el personal: sus citas del día y próximas."""
+    if current_user.primary_role not in ("staff", "tenant_admin", "superadmin"):
+        from fastapi import HTTPException
+        raise HTTPException(status_code=403, detail="Acceso denegado")
+
+    today = date.today()
+    tid = current_user.tenant_id
+
+    # Para staff: citas del día (todo el negocio, staff no tiene assigned_staff_id aún)
+    today_appts = (
+        db.query(Appointment)
+        .filter(
+            Appointment.tenant_id == tid,
+            Appointment.appointment_date == today,
+            Appointment.status.in_(["pending", "confirmed"]),
+        )
+        .order_by(Appointment.start_time)
+        .all()
+    )
+
+    upcoming = (
+        db.query(Appointment)
+        .filter(
+            Appointment.tenant_id == tid,
+            Appointment.appointment_date > today,
+            Appointment.status.in_(["pending", "confirmed"]),
+        )
+        .order_by(Appointment.appointment_date, Appointment.start_time)
+        .limit(10)
+        .all()
+    )
+
+    completed_month = (
+        db.query(func.count(Appointment.id))
+        .filter(
+            Appointment.tenant_id == tid,
+            Appointment.appointment_date >= today.replace(day=1),
+            Appointment.status == "completed",
+        )
+        .scalar()
+    )
+
+    return {
+        "appointments_today": len(today_appts),
+        "upcoming_count": len(upcoming),
+        "completed_this_month": completed_month,
+        "today_appointments": [
+            {
+                "id": a.id,
+                "date": str(a.appointment_date),
+                "start_time": str(a.start_time),
+                "service_id": a.service_id,
+                "client_id": a.client_id,
+                "status": a.status,
+                "notes": a.notes,
+            }
+            for a in today_appts
+        ],
+        "upcoming_appointments": [
+            {
+                "id": a.id,
+                "date": str(a.appointment_date),
+                "start_time": str(a.start_time),
+                "service_id": a.service_id,
+                "client_id": a.client_id,
+                "status": a.status,
+            }
+            for a in upcoming
+        ],
+    }
+

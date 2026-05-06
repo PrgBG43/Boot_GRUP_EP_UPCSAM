@@ -1,14 +1,18 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import get_current_user, require_superadmin, require_tenant_admin_or_above
-from app.models.user import User
+from app.core.security import hash_password
+from app.models.user import User, Role
+from app.models.person import Person
 from app.models.tenant import Tenant
 from app.models.plan import Plan
 from app.schemas.tenant import TenantCreate, TenantResponse, TenantUpdate
+from app.schemas.user import UserCreateFull
 
 router = APIRouter()
 
@@ -24,6 +28,72 @@ def create_tenant(
     db.commit()
     db.refresh(new_tenant)
     return new_tenant
+
+
+@router.post("/with-admin", response_model=TenantResponse, status_code=status.HTTP_201_CREATED)
+def create_tenant_with_admin(
+    payload: dict,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_superadmin),
+):
+    """
+    Crea un negocio y su usuario administrador en una sola operación.
+    Payload esperado:
+    {
+      "tenant": { nombre, descripción, teléfono, dirección, ciudad, horarios, plan, slug, ... },
+      "admin": { first_name, last_name, email, password }
+    }
+    """
+    tenant_data = payload.get("tenant", {})
+    admin_data  = payload.get("admin", {})
+
+    if not admin_data.get("email") or not admin_data.get("password"):
+        raise HTTPException(status_code=400, detail="Se requiere email y contraseña para el administrador")
+
+    # Crear tenant
+    new_tenant = Tenant(**{k: v for k, v in tenant_data.items() if hasattr(Tenant, k)})
+    db.add(new_tenant)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Slug ya existe. Elige otro identificador.")
+
+    # Crear persona
+    person = Person(
+        first_name=admin_data.get("first_name", "Admin"),
+        last_name=admin_data.get("last_name", ""),
+        phone=admin_data.get("phone"),
+    )
+    db.add(person)
+    db.flush()
+
+    # Crear usuario admin
+    new_user = User(
+        person_id=person.id,
+        tenant_id=new_tenant.id,
+        email=admin_data["email"],
+        password_hash=hash_password(admin_data["password"]),
+        is_active=True,
+    )
+    db.add(new_user)
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Email del administrador ya existe")
+
+    # Asignar rol tenant_admin
+    role = db.query(Role).filter(Role.name == "tenant_admin").first()
+    if role:
+        new_user.roles = [role]
+
+    # Vincular owner
+    new_tenant.owner_user_id = new_user.id
+    db.commit()
+    db.refresh(new_tenant)
+    return new_tenant
+
 
 
 @router.get("/", response_model=List[TenantResponse])

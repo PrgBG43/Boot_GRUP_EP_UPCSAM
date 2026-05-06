@@ -8,6 +8,9 @@ import Clients from './pages/Clients.jsx'
 import Appointments from './pages/Appointments.jsx'
 import Conversations from './pages/Conversations.jsx'
 import BusinessConfig from './pages/BusinessConfig.jsx'
+import Staff from './pages/Staff.jsx'
+import TelegramConfig from './pages/TelegramConfig.jsx'
+import Unauthorized from './pages/Unauthorized.jsx'
 import AdminTenants from './pages/admin/Tenants.jsx'
 import './App.css'
 
@@ -23,7 +26,9 @@ const TENANT_ADMIN_NAV = [
   { to: '/services',       label: 'Servicios',      icon: '✂️' },
   { to: '/appointments',   label: 'Citas',          icon: '📅' },
   { to: '/clients',        label: 'Clientes',       icon: '👥' },
+  { to: '/staff',          label: 'Personal',       icon: '👤' },
   { to: '/conversations',  label: 'Conversaciones', icon: '💬' },
+  { to: '/telegram',       label: 'Telegram',       icon: '🤖' },
   { to: '/business',       label: 'Mi Negocio',     icon: '⚙️' },
 ]
 
@@ -114,11 +119,22 @@ function Layout({ navItems }) {
             <Route path="/appointments"   element={<Appointments />} />
             <Route path="/conversations"  element={<Conversations />} />
             <Route path="/business"       element={<BusinessConfig />} />
+            <Route path="/staff"          element={
+              <ProtectedRoute roles={['superadmin','tenant_admin']}>
+                <Staff />
+              </ProtectedRoute>
+            } />
+            <Route path="/telegram"       element={
+              <ProtectedRoute roles={['superadmin','tenant_admin']}>
+                <TelegramConfig />
+              </ProtectedRoute>
+            } />
             <Route path="/admin/tenants"  element={
               <ProtectedRoute roles={['superadmin']}>
                 <AdminTenants />
               </ProtectedRoute>
             } />
+            <Route path="/unauthorized"   element={<Unauthorized />} />
           </Routes>
         </main>
       </div>

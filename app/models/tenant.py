@@ -49,4 +49,7 @@ class Tenant(Base):
     appointments = relationship(
         "Appointment", back_populates="tenant", cascade="all, delete-orphan"
     )
+    telegram_config = relationship(
+        "TelegramConfig", back_populates="tenant", uselist=False, cascade="all, delete-orphan"
+    )
 

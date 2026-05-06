@@ -87,6 +87,27 @@ export const api = {
     const qs = tenant_id ? `?tenant_id=${tenant_id}` : ''
     return request(`/dashboard/tenant${qs}`)
   },
+  getStaffDashboard: () => request('/dashboard/staff'),
+
+  // Usuarios / Personal
+  getStaff:        ()       => request('/users/staff'),
+  createStaff:     (data)   => request('/users/', { method: 'POST', body: JSON.stringify(data) }),
+  updateStaff:     (id, d)  => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
+  activateStaff:   (id)     => request(`/users/${id}/activate`, { method: 'PATCH' }),
+  deactivateStaff: (id)     => request(`/users/${id}/deactivate`, { method: 'PATCH' }),
+
+  // Configuración de Telegram
+  getTelegramConfig:    (tenant_id) => {
+    const qs = tenant_id ? `?tenant_id=${tenant_id}` : ''
+    return request(`/telegram-config/${qs}`)
+  },
+  updateTelegramConfig: (data, tenant_id) => {
+    const qs = tenant_id ? `?tenant_id=${tenant_id}` : ''
+    return request(`/telegram-config/${qs}`, { method: 'PUT', body: JSON.stringify(data) })
+  },
+
+  // Negocios con admin integrado (superadmin)
+  createBusinessWithAdmin: (data) => request('/businesses/with-admin', { method: 'POST', body: JSON.stringify(data) }),
 }
 
 export default api

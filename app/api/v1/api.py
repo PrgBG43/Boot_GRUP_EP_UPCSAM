@@ -18,6 +18,7 @@ from app.api.v1.endpoints import (
     clients,
     appointments,
     availability,
+    telegram_config,
 )
 
 api_router = APIRouter()
@@ -32,7 +33,7 @@ api_router.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboar
 api_router.include_router(states.router, prefix="/states", tags=["States"])
 api_router.include_router(cities.router, prefix="/cities", tags=["Cities"])
 
-# Usuarios
+# Usuarios y roles
 api_router.include_router(persons.router, prefix="/persons", tags=["Persons"])
 api_router.include_router(users.router, prefix="/users", tags=["Users"])
 api_router.include_router(roles.router, prefix="/roles", tags=["Roles"])
@@ -44,6 +45,9 @@ api_router.include_router(plans.router, prefix="/plans", tags=["Plans"])
 # Negocio (Tenant)
 api_router.include_router(tenants.router, prefix="/businesses", tags=["Businesses"])
 api_router.include_router(channels.router, prefix="/channels", tags=["Channels"])
+
+# Configuración de Telegram por negocio
+api_router.include_router(telegram_config.router, prefix="/telegram-config", tags=["Telegram Config"])
 
 # Servicios del negocio
 api_router.include_router(services.router, prefix="/services", tags=["Services"])

@@ -66,7 +66,7 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────
 
 def _get_or_create_client(db, tg_user) -> Client:
-    """Registra o actualiza el cliente con datos de Telegram."""
+    """Registra o actualiza el cliente con datos de Telegram (sin aislamiento por tenant)."""
     client = db.query(Client).filter(Client.telegram_user_id == str(tg_user.id)).first()
     full_name = (tg_user.full_name or "").strip() or "Sin nombre"
     if not client:
@@ -81,6 +81,37 @@ def _get_or_create_client(db, tg_user) -> Client:
     else:
         client.full_name = full_name
         client.username = tg_user.username
+        db.commit()
+    return client
+
+
+def _get_or_create_client_for_tenant(db, tg_user, tenant_id: int) -> Client:
+    """
+    Registra o actualiza el cliente asociado a un tenant específico.
+    Si el usuario ya existe para otro tenant, crea un registro separado por tenant.
+    """
+    full_name = (tg_user.full_name or "").strip() or "Sin nombre"
+    client = (
+        db.query(Client)
+        .filter(
+            Client.telegram_user_id == str(tg_user.id),
+            Client.tenant_id == tenant_id,
+        )
+        .first()
+    )
+    if not client:
+        client = Client(
+            telegram_user_id=str(tg_user.id),
+            full_name=full_name,
+            username=tg_user.username,
+            tenant_id=tenant_id,
+        )
+        db.add(client)
+        db.commit()
+        db.refresh(client)
+    else:
+        client.full_name = full_name
+        client.username  = tg_user.username
         db.commit()
     return client
 
@@ -128,6 +159,27 @@ def _get_default_tenant(db) -> Optional[Tenant]:
     return db.query(Tenant).filter(Tenant.is_active == True).first()
 
 
+def _get_tenant_by_slug(db, slug: str) -> Optional[Tenant]:
+    """Busca un tenant activo por su slug único."""
+    return db.query(Tenant).filter(Tenant.slug == slug, Tenant.is_active == True).first()
+
+
+def _resolve_tenant(db, context) -> Optional[Tenant]:
+    """
+    Determina qué tenant corresponde a la sesión.
+    Prioridad:
+      1. Si el usuario inició con /start <slug>, usar ese slug.
+      2. Usar el slug guardado en user_data (sesión activa).
+      3. Si solo hay un tenant activo, usarlo por defecto.
+    """
+    slug = (context.user_data or {}).get("tenant_slug")
+    if slug:
+        tenant = _get_tenant_by_slug(db, slug)
+        if tenant:
+            return tenant
+    return _get_default_tenant(db)
+
+
 def _get_active_services(db, tenant_id: int):
     return db.query(Service).filter(
         Service.tenant_id == tenant_id, Service.is_active == True
@@ -142,7 +194,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     db = SessionLocal()
     try:
         tg_user = update.effective_user
-        tenant = _get_default_tenant(db)
+
+        # Identificar tenant por slug si se pasó como argumento: /start <slug>
+        if context.args:
+            slug = context.args[0].strip()
+            context.user_data["tenant_slug"] = slug
+
+        tenant = _resolve_tenant(db, context)
         if not tenant:
             await update.message.reply_text(
                 "⚠️ El sistema aún no tiene un negocio configurado. "
@@ -150,7 +208,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             )
             return ConversationHandler.END
 
-        client = _get_or_create_client(db, tg_user)
+        # Asegurar que el cliente está asociado al tenant correcto
+        client = _get_or_create_client_for_tenant(db, tg_user, tenant.id)
         conv = _get_or_create_conversation(db, client, update.effective_chat.id, tenant)
 
         _save_message(conv.id, "incoming", "/start")
