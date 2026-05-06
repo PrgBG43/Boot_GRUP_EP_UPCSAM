@@ -15,10 +15,10 @@ export default function AdminTenants() {
   const [tenants, setTenants]   = useState([])
   const [plans, setPlans]       = useState([])
   const [loading, setLoading]   = useState(true)
-  const [modal, setModal]       = useState(false)   // 'create' | 'edit' | null
+  const [modal, setModal]       = useState(false)
   const [tenantForm, setTenantForm] = useState(EMPTY_TENANT)
   const [adminForm, setAdminForm]   = useState(EMPTY_ADMIN)
-  const [editing, setEditing]   = useState(null)    // tenant id al editar
+  const [editing, setEditing]   = useState(null)
   const [saving, setSaving]     = useState(false)
   const [feedback, setFeedback] = useState(null)
 
@@ -68,17 +68,16 @@ export default function AdminTenants() {
     e.preventDefault()
     setFeedback(null)
 
-    // Validaciones frontend
     if (!adminForm.email || !adminForm.password) {
-      setFeedback('El correo y la contraseÃ±a del administrador son obligatorios.')
+      setFeedback('El correo y la contraseña del administrador son obligatorios.')
       return
     }
     if (adminForm.password !== adminForm.confirm_password) {
-      setFeedback('Las contraseÃ±as no coinciden.')
+      setFeedback('Las contraseñas no coinciden.')
       return
     }
     if (adminForm.password.length < 8) {
-      setFeedback('La contraseÃ±a debe tener al menos 8 caracteres.')
+      setFeedback('La contraseña debe tener al menos 8 caracteres.')
       return
     }
     if (!tenantForm.name.trim()) {
@@ -132,7 +131,7 @@ export default function AdminTenants() {
     } catch (err) { alert(err.message) }
   }
 
-  const planName   = (t) => t.plan?.display_name || 'â€”'
+  const planName   = (t) => t.plan?.display_name || '—'
   const statusBadge = (active) => (
     <span className={`badge badge-${active ? 'confirmed' : 'cancelled'}`}>
       {active ? 'Activo' : 'Inactivo'}
@@ -146,9 +145,9 @@ export default function AdminTenants() {
       <div className="page-header">
         <div>
           <h1>Negocios</h1>
-          <p>GestiÃ³n de tenants registrados en la plataforma</p>
+          <p>Gestión de negocios registrados en la plataforma</p>
         </div>
-        <button className="btn btn-primary" onClick={openCreate}>+ Nuevo negocio</button>
+        <button className="btn btn-primary" onClick={openCreate}>+ Crear negocio</button>
       </div>
 
       <div className="stats-row">
@@ -159,12 +158,12 @@ export default function AdminTenants() {
 
       {tenants.length === 0 ? (
         <div className="empty-state">
-          <div className="icon">ðŸ¢</div>
-          <p>No hay negocios registrados aÃºn.</p>
+          <div className="icon">\ud83c\udfe2</div>
+          <p>No hay negocios registrados aún.</p>
           <button className="btn btn-primary" onClick={openCreate}>Crear primer negocio</button>
         </div>
       ) : (
-        <div className="card">
+        <div className="card table-responsive">
           <table>
             <thead>
               <tr>
@@ -183,8 +182,8 @@ export default function AdminTenants() {
                     <strong>{t.name}</strong>
                     {t.description && <div className="table-sub">{t.description}</div>}
                   </td>
-                  <td><code className="slug-code">{t.slug || 'â€”'}</code></td>
-                  <td>{t.city || 'â€”'}</td>
+                  <td><code className="slug-code">{t.slug || '—'}</code></td>
+                  <td>{t.city || '—'}</td>
                   <td><span className="plan-pill">{planName(t)}</span></td>
                   <td>{statusBadge(t.is_active)}</td>
                   <td>
@@ -205,29 +204,25 @@ export default function AdminTenants() {
         </div>
       )}
 
-      {/* â”€â”€ Modal Crear negocio con admin â”€â”€ */}
       {modal === 'create' && (
         <div className="modal-overlay" onClick={() => setModal(null)}>
           <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Crear negocio con accesos</h3>
-              <button className="modal-close" onClick={() => setModal(null)}>âœ•</button>
+              <button className="modal-close" onClick={() => setModal(null)}>✕</button>
             </div>
 
             {feedback && <div className="alert alert-error" style={{ margin: '0 1.5rem 1rem' }}>{feedback}</div>}
 
             <form onSubmit={handleSubmitCreate} className="modal-form">
-              {/* â”€â”€ Datos del negocio â”€â”€ */}
-              <div style={{ padding: '0 0 .5rem', borderBottom: '1px solid var(--border)', marginBottom: '.75rem' }}>
-                <strong style={{ fontSize: '.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>
-                  ðŸ“‹ Datos del negocio
-                </strong>
+              <div className="modal-section-header">
+                \ud83d\udccb Datos del negocio
               </div>
 
               <div className="form-row">
                 <div className="form-group">
                   <label>Nombre comercial *</label>
-                  <input name="name" value={tenantForm.name} onChange={handleTenantChange} required placeholder="BarberÃ­a Ejemplo" />
+                  <input name="name" value={tenantForm.name} onChange={handleTenantChange} required placeholder="Barbería Ejemplo" />
                 </div>
                 <div className="form-group">
                   <label>Slug / URL *</label>
@@ -235,12 +230,12 @@ export default function AdminTenants() {
                 </div>
               </div>
               <div className="form-group">
-                <label>DescripciÃ³n</label>
+                <label>Descripción</label>
                 <input name="description" value={tenantForm.description} onChange={handleTenantChange} />
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>TelÃ©fono</label>
+                  <label>Teléfono</label>
                   <input name="phone" value={tenantForm.phone} onChange={handleTenantChange} placeholder="+57 300 000 0000" />
                 </div>
                 <div className="form-group">
@@ -249,7 +244,7 @@ export default function AdminTenants() {
                 </div>
               </div>
               <div className="form-group">
-                <label>DirecciÃ³n</label>
+                <label>Dirección</label>
                 <input name="address" value={tenantForm.address} onChange={handleTenantChange} />
               </div>
               <div className="form-row">
@@ -278,11 +273,8 @@ export default function AdminTenants() {
                 </div>
               </div>
 
-              {/* â”€â”€ Datos del administrador â”€â”€ */}
-              <div style={{ padding: '.75rem 0 .5rem', borderBottom: '1px solid var(--border)', marginBottom: '.75rem', marginTop: '.5rem' }}>
-                <strong style={{ fontSize: '.85rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '.05em' }}>
-                  ðŸ‘¤ Administrador del negocio
-                </strong>
+              <div className="modal-section-header" style={{ marginTop: '.5rem' }}>
+                \ud83d\udc64 Accesos del administrador
               </div>
 
               <div className="form-row">
@@ -297,34 +289,34 @@ export default function AdminTenants() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>Correo electrÃ³nico *</label>
+                  <label>Correo electrónico *</label>
                   <input type="email" name="email" value={adminForm.email} onChange={handleAdminChange} required placeholder="admin@negocio.com" />
                 </div>
                 <div className="form-group">
-                  <label>TelÃ©fono</label>
+                  <label>Teléfono</label>
                   <input name="phone" value={adminForm.phone} onChange={handleAdminChange} placeholder="+57 310 000 0000" />
                 </div>
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>ContraseÃ±a inicial *</label>
-                  <input type="password" name="password" value={adminForm.password} onChange={handleAdminChange} required minLength={8} placeholder="MÃ­nimo 8 caracteres" />
+                  <label>Contraseña inicial *</label>
+                  <input type="password" name="password" value={adminForm.password} onChange={handleAdminChange} required minLength={8} placeholder="Mínimo 8 caracteres" />
                 </div>
                 <div className="form-group">
-                  <label>Confirmar contraseÃ±a *</label>
-                  <input type="password" name="confirm_password" value={adminForm.confirm_password} onChange={handleAdminChange} required placeholder="Repetir contraseÃ±a" />
+                  <label>Confirmar contraseña *</label>
+                  <input type="password" name="confirm_password" value={adminForm.confirm_password} onChange={handleAdminChange} required placeholder="Repetir contraseña" />
                 </div>
               </div>
 
-              <div style={{ background: 'var(--bg-muted)', borderRadius: '6px', padding: '.6rem .9rem', fontSize: '.8rem', color: 'var(--text-muted)', marginTop: '.25rem' }}>
-                â„¹ï¸ El administrador del negocio podrÃ¡ iniciar sesiÃ³n con el correo y contraseÃ±a asignados.
-                El rol <strong>tenant_admin</strong> se asigna automÃ¡ticamente.
+              <div className="alert alert-info" style={{ marginTop: '.25rem', fontSize: '.82rem' }}>
+                ℹ️ El administrador podrá iniciar sesión con el correo y contraseña asignados.
+                El rol <strong>tenant_admin</strong> se asigna automáticamente.
               </div>
 
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>Cancelar</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Creandoâ€¦' : 'Crear negocio con accesos'}
+                  {saving ? 'Creando…' : 'Guardar negocio'}
                 </button>
               </div>
             </form>
@@ -332,13 +324,12 @@ export default function AdminTenants() {
         </div>
       )}
 
-      {/* â”€â”€ Modal Editar negocio â”€â”€ */}
       {modal === 'edit' && (
         <div className="modal-overlay" onClick={() => setModal(null)}>
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Editar negocio</h3>
-              <button className="modal-close" onClick={() => setModal(null)}>âœ•</button>
+              <button className="modal-close" onClick={() => setModal(null)}>✕</button>
             </div>
             {feedback && <div className="alert alert-error" style={{ margin: '0 1.5rem 1rem' }}>{feedback}</div>}
             <form onSubmit={handleSubmitEdit} className="modal-form">
@@ -353,12 +344,12 @@ export default function AdminTenants() {
                 </div>
               </div>
               <div className="form-group">
-                <label>DescripciÃ³n</label>
+                <label>Descripción</label>
                 <input name="description" value={tenantForm.description} onChange={handleTenantChange} />
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>TelÃ©fono</label>
+                  <label>Teléfono</label>
                   <input name="phone" value={tenantForm.phone} onChange={handleTenantChange} />
                 </div>
                 <div className="form-group">
@@ -367,7 +358,7 @@ export default function AdminTenants() {
                 </div>
               </div>
               <div className="form-group">
-                <label>DirecciÃ³n</label>
+                <label>Dirección</label>
                 <input name="address" value={tenantForm.address} onChange={handleTenantChange} />
               </div>
               <div className="form-row">
@@ -394,7 +385,7 @@ export default function AdminTenants() {
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>Cancelar</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Guardandoâ€¦' : 'Actualizar'}
+                  {saving ? 'Guardando…' : 'Actualizar'}
                 </button>
               </div>
             </form>
@@ -404,4 +395,3 @@ export default function AdminTenants() {
     </div>
   )
 }
-

@@ -103,7 +103,7 @@ export default function Clients() {
       {/* Filtros */}
       <div style={{ display: 'flex', gap: '.75rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <input
-          placeholder="Buscar por nombre, usuario o telÃ©fonoâ€¦"
+          placeholder="Buscar por nombre, usuario o teléfono…"
           value={search}
           onChange={e => setSearch(e.target.value)}
           style={{ maxWidth: '300px', padding: '.5rem .75rem', border: '1.5px solid var(--border)', borderRadius: '7px', fontSize: '.875rem' }}
@@ -128,7 +128,7 @@ export default function Clients() {
       <div className="card">
         {filtered.length === 0 ? (
           <div className="empty-state">
-            <div className="icon">ðŸ‘¥</div>
+            <div className="icon">👥</div>
             <p>No hay clientes{search || filterTenant ? ' con los filtros aplicados.' : ' registrados.'}</p>
           </div>
         ) : (
@@ -138,7 +138,7 @@ export default function Clients() {
                 {isSuperadmin && <th>Negocio</th>}
                 <th>Nombre</th>
                 <th>Usuario Telegram</th>
-                <th>TelÃ©fono</th>
+                <th>Teléfono</th>
                 <th>ID Telegram</th>
                 <th>Registrado</th>
                 <th>Acciones</th>
@@ -149,10 +149,10 @@ export default function Clients() {
                 <tr key={c.id}>
                   {isSuperadmin && <td className="table-sub">{businessName(c.tenant_id)}</td>}
                   <td><strong>{c.full_name}</strong></td>
-                  <td>{c.username ? `@${c.username}` : 'â€”'}</td>
-                  <td>{c.phone || 'â€”'}</td>
-                  <td>{c.telegram_user_id || 'â€”'}</td>
-                  <td>{c.created_at ? new Date(c.created_at).toLocaleDateString('es-CO') : 'â€”'}</td>
+                  <td>{c.username ? `@${c.username}` : '—'}</td>
+                  <td>{c.phone || '—'}</td>
+                  <td>{c.telegram_user_id || '—'}</td>
+                  <td>{c.created_at ? new Date(c.created_at).toLocaleDateString('es-CO') : '—'}</td>
                   <td>
                     <button className="btn-sm btn-outline" onClick={() => openEdit(c)}>Editar</button>
                   </td>
@@ -168,7 +168,7 @@ export default function Clients() {
           <div className="modal">
             <div className="modal-header">
               <h3>{editing ? 'Editar cliente' : 'Nuevo cliente'}</h3>
-              <button className="modal-close" onClick={() => setModal(false)}>Ã—</button>
+              <button className="modal-close" onClick={() => setModal(false)}>×</button>
             </div>
             {feedback && <div className={`alert alert-${feedback.type}`}>{feedback.msg}</div>}
             {isSuperadmin && !editing && !filterTenant && (
@@ -187,7 +187,7 @@ export default function Clients() {
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>TelÃ©fono</label>
+                  <label>Teléfono</label>
                   <input name="phone" value={form.phone} onChange={handleChange} />
                 </div>
                 <div className="form-group">
@@ -202,7 +202,7 @@ export default function Clients() {
                   className="btn btn-primary"
                   disabled={saving || (isSuperadmin && !editing && !filterTenant)}
                 >
-                  {saving ? 'Guardandoâ€¦' : 'Guardar'}
+                  {saving ? 'Guardando…' : 'Guardar'}
                 </button>
               </div>
             </form>

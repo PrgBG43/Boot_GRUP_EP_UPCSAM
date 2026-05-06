@@ -80,16 +80,16 @@ export default function BusinessConfig() {
               <input name="name" value={form.name} onChange={handleChange} required />
             </div>
             <div className="form-group">
-              <label>Descripcion</label>
+              <label>Descripción</label>
               <textarea name="description" value={form.description} onChange={handleChange} rows={3} />
             </div>
             <div className="form-row">
               <div className="form-group">
-                <label>Telefono</label>
+                <label>Teléfono</label>
                 <input name="phone" value={form.phone} onChange={handleChange} />
               </div>
               <div className="form-group">
-                <label>Direccion</label>
+                <label>Dirección</label>
                 <input name="address" value={form.address} onChange={handleChange} />
               </div>
             </div>

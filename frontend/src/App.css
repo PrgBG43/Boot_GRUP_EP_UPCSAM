@@ -10,6 +10,8 @@
   --bg: #f4f5f7;
   --card-bg: #ffffff;
   --radius: 10px;
+  --text-muted: #6b7280;
+  --bg-muted: #f9fafb;
 }
 
 /* ── Layout ──────────────────────────────────── */
@@ -488,6 +490,24 @@ tr:hover td { background: #fafafa; }
   .dashboard-grid { grid-template-columns: 1fr; }
   .card-wide { grid-column: span 1; }
 }
+/* ── Modal variants ─────────────────────────── */
+.modal-lg { max-width: 720px; }
+
+.modal-section-header {
+  padding: .4rem 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: .75rem;
+  font-size: .78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-weight: 700;
+}
+
+/* ── Responsive tables ───────────────────────── */
+.table-responsive { overflow-x: auto; }
+
+/* ── Responsive breakpoints ──────────────────── */
 @media (max-width: 768px) {
   .layout { flex-direction: column; }
   .sidebar { width: 100%; min-height: auto; position: relative; }
@@ -496,5 +516,6 @@ tr:hover td { background: #fafafa; }
   .main-content { padding: 1rem; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .form-row { grid-template-columns: 1fr; }
+  .modal-lg { max-width: 98vw; }
 }
 

@@ -80,8 +80,8 @@ export default function Services() {
       <div className="card">
         {services.length === 0 ? (
           <div className="empty-state">
-            <div className="icon">âœ‚ï¸</div>
-            <p>No hay servicios registrados aÃºn.</p>
+            <div className="icon">✂ï¸</div>
+            <p>No hay servicios registrados aún.</p>
             <button className="btn btn-primary" onClick={openCreate}>Crear primer servicio</button>
           </div>
         ) : (
@@ -90,7 +90,7 @@ export default function Services() {
               <tr>
                 {isSuperadmin && <th>Negocio</th>}
                 <th>Nombre</th>
-                <th>DuraciÃ³n</th>
+                <th>Duración</th>
                 <th>Precio</th>
                 <th>Estado</th>
                 <th>Acciones</th>
@@ -134,7 +134,7 @@ export default function Services() {
           <div className="modal">
             <div className="modal-header">
               <h3>{editing ? 'Editar servicio' : 'Nuevo servicio'}</h3>
-              <button className="modal-close" onClick={() => setModal(false)}>Ã—</button>
+              <button className="modal-close" onClick={() => setModal(false)}>×</button>
             </div>
             {feedback && <div className={`alert alert-${feedback.type}`} style={{margin:'0 1.5rem'}}>{feedback.msg}</div>}
             <form onSubmit={handleSubmit} className="modal-form">
@@ -152,12 +152,12 @@ export default function Services() {
                 <input name="name" value={form.name} onChange={handleChange} required placeholder="Ej: Corte de cabello" />
               </div>
               <div className="form-group">
-                <label>DescripciÃ³n</label>
-                <textarea name="description" value={form.description} onChange={handleChange} rows={2} placeholder="DescripciÃ³n breve del servicio" />
+                <label>Descripción</label>
+                <textarea name="description" value={form.description} onChange={handleChange} rows={2} placeholder="Descripción breve del servicio" />
               </div>
               <div className="form-row">
                 <div className="form-group">
-                  <label>DuraciÃ³n (min) *</label>
+                  <label>Duración (min) *</label>
                   <input type="number" name="duration_minutes" value={form.duration_minutes} onChange={handleChange} min={5} required />
                 </div>
                 <div className="form-group">
