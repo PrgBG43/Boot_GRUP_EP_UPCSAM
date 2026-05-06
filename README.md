@@ -1,247 +1,96 @@
-# Sistema de gestion de citas para negocios del sector de belleza
+# Sistema de gestión de citas para negocios del sector de belleza
 
-**Proyecto academico** — Electiva de profundizacion: Programacion en Python
-Universidad — 2026
+**Turnix** es un proyecto académico desarrollado para la asignatura **Electiva de profundización: Programación en Python**, de la **Universidad Piloto de Colombia**, orientado a la construcción de una herramienta digital para la gestión de citas en negocios del sector de belleza y cuidado personal.
 
----
+El proyecto fue desarrollado por:
 
-## Descripcion del proyecto
+- **Bryan Duván Gómez Bohórquez**
+- **Joab Jazed Munevar González**
+- **Juan Camilo Ibáñez Gaitán**
 
-Turnix es una aplicacion web para la gestion de citas en negocios del sector de
-belleza (barberias, peluquerias, salones). Permite registrar negocios, servicios,
-clientes y citas, consultar la disponibilidad de horarios y llevar un historial
-de conversaciones iniciadas a traves de un bot de Telegram.
-
-El sistema esta compuesto por un backend desarrollado con FastAPI, un panel
-administrativo web construido con React y Vite, y un bot de Telegram que permite
-a los clientes agendar citas de forma conversacional.
+**Universidad Piloto de Colombia**  
+**Facultad de Ingeniería**  
+**Electiva de profundización: Programación en Python**  
+**Año:** 2026
 
 ---
 
-## Objetivo
+## Descripción del proyecto
 
-Desarrollar un sistema funcional de gestion de citas que integre una API REST,
-un panel de administracion web y un bot de Telegram, aplicando conceptos de
-programacion orientada a objetos, diseno de APIs, manejo de bases de datos
-relacionales y arquitectura en capas.
+**Turnix** es una aplicación web diseñada para apoyar la gestión de citas en negocios del sector de belleza, como barberías, peluquerías, salones de belleza y establecimientos de cuidado personal.
 
----
+El sistema permite registrar negocios, servicios, clientes y citas, consultar disponibilidad de horarios y llevar un historial de conversaciones asociadas al proceso de atención. Además, integra un bot de Telegram que permite a los clientes interactuar con el sistema de forma conversacional para consultar servicios y realizar procesos de agendamiento.
 
-## Tecnologias utilizadas
-
-| Capa          | Tecnologia                                        |
-|---------------|---------------------------------------------------|
-| Backend       | Python 3.11+, FastAPI, SQLAlchemy, Pydantic       |
-| Base de datos | SQLite (por defecto) / PostgreSQL (opcional)      |
-| Bot           | python-telegram-bot v21                           |
-| Frontend      | React 18, Vite 5                                  |
-| Servidor      | Uvicorn                                           |
+La solución está compuesta por un backend desarrollado con **FastAPI**, un panel administrativo construido con **React y Vite**, una base de datos relacional gestionada mediante **SQLAlchemy** y un bot conectado a la **API de Telegram**.
 
 ---
 
-## Estructura del repositorio
+## Objetivo del proyecto
 
-```
+Desarrollar un sistema funcional de gestión de citas que integre una API REST, un panel administrativo web y un bot de Telegram, aplicando conceptos de programación en Python, arquitectura en capas, manejo de bases de datos relacionales, validación de datos, consumo de servicios y diseño de interfaces para la administración de información.
+
+---
+
+## Alcance del sistema
+
+El sistema está orientado a resolver una necesidad común en negocios del sector de belleza: la gestión informal de citas, servicios y conversaciones mediante agendas físicas, mensajes dispersos o registros manuales.
+
+Turnix busca centralizar esta información en una plataforma digital que permita:
+
+- Registrar y administrar negocios.
+- Gestionar servicios ofrecidos por cada negocio.
+- Registrar clientes.
+- Crear, consultar, actualizar y cancelar citas.
+- Validar disponibilidad de horarios.
+- Evitar cruces de citas.
+- Consultar conversaciones y mensajes asociados al proceso de atención.
+- Permitir agendamiento mediante un bot de Telegram.
+- Visualizar información desde un panel administrativo web.
+
+---
+
+## Tecnologías utilizadas
+
+| Capa | Tecnología |
+|---|---|
+| Backend | Python 3.11+, FastAPI, SQLAlchemy, Pydantic |
+| Base de datos | SQLite para desarrollo local y PostgreSQL como alternativa para producción |
+| Frontend | React 18, Vite 5 |
+| Bot conversacional | python-telegram-bot |
+| Servidor de desarrollo | Uvicorn |
+| Documentación de API | Swagger / OpenAPI |
+
+---
+
+## Arquitectura general
+
+El proyecto sigue una estructura organizada por capas, separando responsabilidades entre modelos, esquemas, repositorios, servicios, endpoints, configuración del sistema, frontend y bot de Telegram.
+
+```text
 Boot_GRUP_EP_UPCSAM/
 ├── app/
-│   ├── main.py                     # Punto de entrada FastAPI
+│   ├── main.py
 │   ├── core/
-│   │   ├── config.py               # Variables de entorno
-│   │   └── database.py             # Motor y sesion de base de datos
-│   ├── models/                     # Modelos ORM SQLAlchemy
-│   ├── schemas/                    # Esquemas Pydantic
-│   ├── repositories/               # Operaciones CRUD
+│   │   ├── config.py
+│   │   └── database.py
+│   ├── models/
+│   ├── schemas/
+│   ├── repositories/
 │   ├── services/
-│   │   └── availability_service.py # Logica de disponibilidad
-│   ├── api/v1/endpoints/           # Routers de la API REST
+│   │   └── availability_service.py
+│   ├── api/
+│   │   └── v1/
+│   │       └── endpoints/
 │   ├── database/
-│   │   └── seed.py                 # Datos de prueba
+│   │   └── seed.py
 │   └── bot/
-│       └── telegram_bot.py         # Bot de Telegram
-├── frontend/                       # Panel administrativo (React + Vite)
+│       └── telegram_bot.py
+├── frontend/
 │   ├── src/
-│   │   ├── api.js                  # Cliente HTTP hacia la API
-│   │   └── pages/                  # Vistas del panel
+│   │   ├── api.js
+│   │   └── pages/
 │   └── .env.example
-├── alembic/                        # Migraciones de base de datos
+├── alembic/
 ├── requirements.txt
 ├── .env.example
 └── README.md
-```
-
----
-
-## Funcionalidades principales
-
-- Registro y gestion de negocios, servicios y clientes.
-- Agendamiento de citas con validacion de disponibilidad y deteccion de cruces.
-- Bot de Telegram con flujo conversacional para agendar citas.
-- Historial de conversaciones y mensajes del bot.
-- Panel administrativo con vistas de dashboard, servicios, clientes, citas y conversaciones.
-- Documentacion automatica de la API con Swagger/OpenAPI.
-- Compatibilidad con SQLite (desarrollo) y PostgreSQL (produccion).
-
----
-
-## Instalacion del backend
-
-```bash
-# Desde la raiz del proyecto
-python -m venv venv
-
-# Windows
-venv\Scripts\activate
-
-# Linux / macOS
-source venv/bin/activate
-
-pip install -r requirements.txt
-```
-
-> El entorno virtual debe estar activo antes de ejecutar cualquier comando.
-
----
-
-## Instalacion del frontend
-
-```bash
-cd frontend
-npm install
-```
-
----
-
-## Configuracion de variables de entorno
-
-### Backend
-
-```bash
-# Windows
-copy .env.example .env
-
-# Linux / macOS
-cp .env.example .env
-```
-
-Variables requeridas para SQLite:
-
-```env
-DATABASE_URL=sqlite:///./turnix.db
-TELEGRAM_BOT_TOKEN=tu_token_aqui
-FRONTEND_URL=http://localhost:5173
-```
-
-Para PostgreSQL, completa las variables `POSTGRES_*` en el `.env`.
-
-### Frontend
-
-```bash
-cd frontend
-copy .env.example .env
-```
-
-```env
-VITE_API_URL=http://localhost:8000/api/v1
-```
-
----
-
-## Ejecucion local
-
-### Backend
-
-```bash
-uvicorn app.main:app --reload
-```
-
-El backend queda disponible en el puerto 8000.
-La documentacion interactiva de la API esta en la ruta `/docs` del servidor.
-
-### Frontend
-
-```bash
-cd frontend
-npm run dev
-```
-
-El panel administrativo se ejecuta en el puerto 5173.
-
----
-
-## Bot de Telegram
-
-1. Abre Telegram y busca **@BotFather**.
-2. Ejecuta `/newbot` y sigue las instrucciones para obtener el token.
-3. Copia el token en el archivo `.env`:
-
-```env
-TELEGRAM_BOT_TOKEN=tu_token_aqui
-```
-
-4. Inicia el bot:
-
-```bash
-python -m app.bot.telegram_bot
-```
-
-Flujo desde Telegram: `/start` -> seleccionar servicio -> elegir fecha -> elegir horario -> confirmar cita.
-
----
-
-## Datos de prueba
-
-```bash
-python -m app.database.seed
-```
-
-Crea un negocio de demostracion, cuatro servicios, un cliente y una cita de prueba.
-
----
-
-## Endpoints principales
-
-| Metodo   | Ruta                                                        | Descripcion                        |
-|----------|-------------------------------------------------------------|------------------------------------|
-| GET      | /health                                                     | Estado del backend                 |
-| GET/POST | /api/v1/businesses/                                         | Gestion de negocios                |
-| GET/POST | /api/v1/services/                                           | Gestion de servicios               |
-| GET      | /api/v1/services/?tenant_id=1                               | Servicios filtrados por negocio    |
-| GET/POST | /api/v1/clients/                                            | Gestion de clientes                |
-| GET/POST | /api/v1/appointments/                                       | Gestion de citas                   |
-| PATCH    | /api/v1/appointments/{id}/cancel                            | Cancelar una cita                  |
-| PATCH    | /api/v1/appointments/{id}/complete                          | Completar una cita                 |
-| GET      | /api/v1/availability/                                       | Horarios disponibles               |
-| GET      | /api/v1/conversations/                                      | Listado de conversaciones          |
-| GET      | /api/v1/conversations/{id}/messages                         | Mensajes de una conversacion       |
-
-La documentacion completa esta disponible en la ruta `/docs` del backend activo.
-
----
-
-## Despliegue
-
-| Componente  | Estado                  |
-|-------------|-------------------------|
-| Backend     | Pendiente de despliegue |
-| Frontend    | Pendiente de despliegue |
-| Bot         | Pendiente de despliegue |
-| API docs    | Pendiente de despliegue |
-
----
-
-## Estado del proyecto
-
-- [x] Backend funcional con SQLite y compatibilidad con PostgreSQL
-- [x] CRUD completo: negocios, servicios, clientes, citas
-- [x] Validacion de disponibilidad y deteccion de cruces de horario
-- [x] Script de datos de prueba (seed) ejecutado y verificado
-- [x] Documentacion de la API con Swagger/OpenAPI
-- [x] Frontend (React + Vite) — codigo correcto, compilacion pendiente de verificar en entorno con Node.js
-- [ ] Bot de Telegram — inicio verificado, flujo conversacional completo pendiente de prueba con token real
-- [ ] Despliegue en entorno de produccion
-
----
-
-## Autores
-
-Proyecto desarrollado como parte de la electiva de profundizacion en Programacion en Python — Universidad, 2026.
