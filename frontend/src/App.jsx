@@ -14,28 +14,33 @@ import Unauthorized from './pages/Unauthorized.jsx'
 import AdminTenants from './pages/admin/Tenants.jsx'
 import './App.css'
 
+// ── Navegación por rol ──────────────────────────────────────
 const SUPERADMIN_NAV = [
-  { to: '/',               label: 'Dashboard',     icon: '⬛', end: true },
-  { to: '/admin/tenants',  label: 'Negocios',       icon: '🏢' },
-  { to: '/appointments',   label: 'Citas',          icon: '📅' },
-  { to: '/clients',        label: 'Clientes',       icon: '👥' },
+  { to: '/',               label: 'Dashboard',         icon: '📊', end: true },
+  { to: '/admin/tenants',  label: 'Negocios',           icon: '🏢' },
+  { to: '/appointments',   label: 'Citas',              icon: '📅' },
+  { to: '/clients',        label: 'Clientes',           icon: '👥' },
+  { to: '/services',       label: 'Servicios',          icon: '✂️' },
+  { to: '/conversations',  label: 'Conversaciones',     icon: '💬' },
+  { to: '/staff',          label: 'Personal',           icon: '👤' },
+  { to: '/telegram',       label: 'Config. Telegram',   icon: '🤖' },
 ]
 
 const TENANT_ADMIN_NAV = [
-  { to: '/',               label: 'Dashboard',     icon: '⬛', end: true },
-  { to: '/services',       label: 'Servicios',      icon: '✂️' },
-  { to: '/appointments',   label: 'Citas',          icon: '📅' },
-  { to: '/clients',        label: 'Clientes',       icon: '👥' },
-  { to: '/staff',          label: 'Personal',       icon: '👤' },
-  { to: '/conversations',  label: 'Conversaciones', icon: '💬' },
-  { to: '/telegram',       label: 'Telegram',       icon: '🤖' },
-  { to: '/business',       label: 'Mi Negocio',     icon: '⚙️' },
+  { to: '/',               label: 'Dashboard',         icon: '📊', end: true },
+  { to: '/services',       label: 'Servicios',          icon: '✂️' },
+  { to: '/appointments',   label: 'Citas',              icon: '📅' },
+  { to: '/clients',        label: 'Clientes',           icon: '👥' },
+  { to: '/staff',          label: 'Personal',           icon: '👤' },
+  { to: '/conversations',  label: 'Conversaciones',     icon: '💬' },
+  { to: '/telegram',       label: 'Telegram',           icon: '🤖' },
+  { to: '/business',       label: 'Mi Negocio',         icon: '⚙️' },
 ]
 
 const STAFF_NAV = [
-  { to: '/',               label: 'Mi Agenda',     icon: '📅', end: true },
-  { to: '/appointments',   label: 'Citas',          icon: '📋' },
-  { to: '/clients',        label: 'Clientes',       icon: '👥' },
+  { to: '/',               label: 'Mi Agenda',         icon: '📅', end: true },
+  { to: '/appointments',   label: 'Citas',              icon: '📋' },
+  { to: '/clients',        label: 'Clientes',           icon: '👥' },
 ]
 
 function RoleBadge({ role }) {
@@ -72,6 +77,12 @@ function Layout({ navItems }) {
             <span className="tenant-name">{user.tenant_name}</span>
           </div>
         )}
+        {!user?.tenant_name && user?.role === 'superadmin' && (
+          <div className="sidebar-tenant">
+            <span className="tenant-label">Vista global</span>
+            <span className="tenant-name">Plataforma Turnix</span>
+          </div>
+        )}
 
         <nav className="sidebar-nav">
           {navItems.map(({ to, label, icon, end }) => (
@@ -105,6 +116,9 @@ function Layout({ navItems }) {
         <header className="topbar">
           <div className="topbar-left">
             {user?.tenant_name && <span className="topbar-tenant">{user.tenant_name}</span>}
+            {!user?.tenant_name && user?.role === 'superadmin' && (
+              <span className="topbar-tenant" style={{ color: 'var(--accent)' }}>Plataforma Turnix — Vista global</span>
+            )}
           </div>
           <div className="topbar-right">
             <RoleBadge role={user?.role} />
@@ -118,14 +132,18 @@ function Layout({ navItems }) {
             <Route path="/clients"        element={<Clients />} />
             <Route path="/appointments"   element={<Appointments />} />
             <Route path="/conversations"  element={<Conversations />} />
-            <Route path="/business"       element={<BusinessConfig />} />
+            <Route path="/business"       element={
+              <ProtectedRoute roles={['tenant_admin']}>
+                <BusinessConfig />
+              </ProtectedRoute>
+            } />
             <Route path="/staff"          element={
-              <ProtectedRoute roles={['superadmin','tenant_admin']}>
+              <ProtectedRoute roles={['superadmin', 'tenant_admin']}>
                 <Staff />
               </ProtectedRoute>
             } />
             <Route path="/telegram"       element={
-              <ProtectedRoute roles={['superadmin','tenant_admin']}>
+              <ProtectedRoute roles={['superadmin', 'tenant_admin']}>
                 <TelegramConfig />
               </ProtectedRoute>
             } />

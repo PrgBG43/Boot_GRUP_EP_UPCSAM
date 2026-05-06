@@ -285,6 +285,16 @@ python -m app.database.seed
 
 Este comando permite crear información base para probar el sistema, como un negocio de demostración, servicios, clientes y citas iniciales.
 
+### Credenciales de demo
+
+| Rol           | Email                  | Contraseña   |
+|---------------|------------------------|--------------|
+| Superadmin    | admin@turnix.demo      | Admin123*    |
+| Administrador | negocio@turnix.demo    | Negocio123*  |
+| Personal      | staff@turnix.demo      | Staff123*    |
+
+**Negocio demo:** Barbería Demo Turnix
+
 ---
 
 ## Endpoints principales

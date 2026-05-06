@@ -60,10 +60,10 @@ export const api = {
   deleteService: (id)     => request(`/services/${id}`, { method: 'DELETE' }),
 
   // Clientes
-  getClients:    ()       => request('/clients/'),
-  getClient:     (id)     => request(`/clients/${id}`),
-  createClient:  (data)   => request('/clients/', { method: 'POST', body: JSON.stringify(data) }),
-  updateClient:  (id, d)  => request(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
+  getClients:    (params)  => request(`/clients/?${new URLSearchParams(params || {})}`),
+  getClient:     (id)      => request(`/clients/${id}`),
+  createClient:  (data)    => request('/clients/', { method: 'POST', body: JSON.stringify(data) }),
+  updateClient:  (id, d)   => request(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
 
   // Citas
   getAppointments:    (params) => request(`/appointments/?${new URLSearchParams(params || {})}`),
@@ -90,7 +90,10 @@ export const api = {
   getStaffDashboard: () => request('/dashboard/staff'),
 
   // Usuarios / Personal
-  getStaff:        ()       => request('/users/staff'),
+  getStaff:        (tenant_id) => {
+    const qs = tenant_id ? `?tenant_id=${tenant_id}` : ''
+    return request(`/users/staff${qs}`)
+  },
   createStaff:     (data)   => request('/users/', { method: 'POST', body: JSON.stringify(data) }),
   updateStaff:     (id, d)  => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
   activateStaff:   (id)     => request(`/users/${id}/activate`, { method: 'PATCH' }),
@@ -104,6 +107,13 @@ export const api = {
   updateTelegramConfig: (data, tenant_id) => {
     const qs = tenant_id ? `?tenant_id=${tenant_id}` : ''
     return request(`/telegram-config/${qs}`, { method: 'PUT', body: JSON.stringify(data) })
+  },
+  validateTelegramToken: (bot_token, tenant_id) => {
+    const qs = tenant_id ? `?tenant_id=${tenant_id}` : ''
+    return request(`/telegram-config/validate${qs}`, {
+      method: 'POST',
+      body: JSON.stringify({ bot_token }),
+    })
   },
 
   // Negocios con admin integrado (superadmin)
