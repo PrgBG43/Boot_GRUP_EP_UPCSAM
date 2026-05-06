@@ -14,9 +14,12 @@ class Tenant(Base):
     description = Column(String, nullable=True)
     phone = Column(String, nullable=True)
     address = Column(String, nullable=True)
+    city = Column(String, nullable=True)
+    slug = Column(String, nullable=True, unique=True, index=True)
     opening_time = Column(String, nullable=True, default="08:00")
     closing_time = Column(String, nullable=True, default="20:00")
     booking_url = Column(String, nullable=True, index=True)
+    plan_id = Column(Integer, ForeignKey("plans.id", ondelete="SET NULL"), nullable=True)
     owner_user_id = Column(
         Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
@@ -28,12 +31,17 @@ class Tenant(Base):
         onupdate=datetime.now(timezone.utc),
     )
 
-    owner_user = relationship("User", back_populates="tenant_owned")
+    plan = relationship("Plan")
+    owner_user = relationship("User", foreign_keys=[owner_user_id], back_populates="tenant_owned")
+    users = relationship("User", foreign_keys="User.tenant_id", back_populates="tenant")
     channels = relationship(
         "Channel", back_populates="tenant", cascade="all, delete-orphan"
     )
     services = relationship(
         "Service", back_populates="tenant", cascade="all, delete-orphan"
+    )
+    clients = relationship(
+        "Client", back_populates="tenant", cascade="all, delete-orphan"
     )
     conversations = relationship(
         "Conversation", back_populates="tenant", cascade="all, delete-orphan"
