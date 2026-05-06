@@ -1,4 +1,5 @@
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+const HEALTH_URL = BASE_URL.replace('/api/v1', '')
 
 async function request(path, options = {}) {
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -16,7 +17,7 @@ async function request(path, options = {}) {
 // ── Negocios ──────────────────────────────────
 export const api = {
   // Health
-  health: () => fetch('http://localhost:8000/health').then(r => r.json()),
+  health: () => fetch(`${HEALTH_URL}/health`).then(r => r.json()),
 
   // Negocios (tenants)
   getBusinesses:   ()       => request('/businesses/'),
