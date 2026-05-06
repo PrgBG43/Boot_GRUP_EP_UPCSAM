@@ -23,14 +23,17 @@ export default function Appointments() {
     if (filterDate)   params.date   = filterDate
     if (filterStatus) params.status = filterStatus
     Promise.all([
-      api.getAppointments(params).catch(() => []),
-      api.getServices().catch(() => []),
-      api.getClients().catch(() => []),
-      api.getBusinesses().catch(() => []),
+      api.getAppointments(params),
+      api.getServices(),
+      api.getClients(),
+      api.getBusinesses(),
     ]).then(([a, s, c, b]) => {
       setAppointments(a || []); setServices(s || []); setClients(c || []); setBusinesses(b || [])
       setLoading(false)
-    }).catch(e => { setError(e.message); setLoading(false) })
+    }).catch(e => {
+      setError(e.message || 'No fue posible cargar citas, servicios o clientes.')
+      setLoading(false)
+    })
   }
 
   useEffect(load, [filterDate, filterStatus])

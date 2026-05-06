@@ -23,10 +23,10 @@ export default function Dashboard() {
     const today = new Date().toISOString().split('T')[0]
 
     Promise.all([
-      api.getServices().catch(() => []),
-      api.getClients().catch(() => []),
-      api.getAppointments().catch(() => []),
-      api.getAppointments({ date: today }).catch(() => []),
+      api.getServices(),
+      api.getClients(),
+      api.getAppointments(),
+      api.getAppointments({ date: today }),
     ]).then(([services, clients, appointments, todayAppts]) => {
       setStats({
         activeServices: (services || []).filter(s => s.is_active).length,
@@ -36,7 +36,10 @@ export default function Dashboard() {
         recentAppointments: (appointments || []).slice(0, 5),
       })
       setLoading(false)
-    }).catch(e => { setError(e.message); setLoading(false) })
+    }).catch(e => {
+      setError(e.message || 'No fue posible cargar el dashboard.')
+      setLoading(false)
+    })
   }, [])
 
   if (loading) return <div className="spinner" />

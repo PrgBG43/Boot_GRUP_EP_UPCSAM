@@ -21,7 +21,10 @@ export default function Conversations() {
     try {
       const msgs = await api.getMessages(conv.id)
       setMessages(msgs || [])
-    } catch(e) { setMessages([]) }
+    } catch(e) {
+      setMessages([])
+      setError(e.message || 'No fue posible cargar los mensajes de la conversación.')
+    }
     setLoadingMsgs(false)
   }
 
