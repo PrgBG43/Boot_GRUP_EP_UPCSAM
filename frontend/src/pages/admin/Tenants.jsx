@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import api from '../../api.js'
 
-// -- ValidaciÛn de telÈfono colombiano -----------------------
+// -- Validaci√≥n de tel√©fono colombiano -----------------------
 const COL_PHONE_RE = /^(\+?57[\s-]?)?[0-9]{3}[\s-]?[0-9]{3}[\s-]?[0-9]{4}$/
 
 function validatePhone(phone) {
-  if (!phone || !phone.trim()) return 'El telÈfono es obligatorio.'
+  if (!phone || !phone.trim()) return 'El tel√©fono es obligatorio.'
   if (!COL_PHONE_RE.test(phone.trim())) {
-    return 'El telÈfono debe tener un formato v·lido para Colombia (ej. 3001234567 o +57 300 123 4567).'
+    return 'El tel√©fono debe tener un formato v√°lido para Colombia (ej. 3001234567 o +57 300 123 4567).'
   }
   return null
 }
@@ -36,15 +36,15 @@ const PLAN_FILTERS = [
   { value: 'enterprise', label: 'Empresarial' },
 ]
 
-// -- FunciÛn de normalizaciÛn para PDF -----------------------
+// -- Funci√≥n de normalizaci√≥n para PDF -----------------------
 function pdfText(text) {
   if (!text) return '-'
   return String(text)
-    .replace(/·/g,'a').replace(/È/g,'e').replace(/Ì/g,'i')
-    .replace(/Û/g,'o').replace(/˙/g,'u').replace(/¸/g,'u')
-    .replace(/¡/g,'A').replace(/…/g,'E').replace(/Õ/g,'I')
-    .replace(/”/g,'O').replace(/⁄/g,'U').replace(/‹/g,'U')
-    .replace(/Ò/g,'n').replace(/—/g,'N')
+    .replace(/√°/g,'a').replace(/√©/g,'e').replace(/√≠/g,'i')
+    .replace(/√≥/g,'o').replace(/√∫/g,'u').replace(/√º/g,'u')
+    .replace(/√Å/g,'A').replace(/√â/g,'E').replace(/√ç/g,'I')
+    .replace(/√ì/g,'O').replace(/√ö/g,'U').replace(/√ú/g,'U')
+    .replace(/√±/g,'n').replace(/√ë/g,'N')
 }
 
 // ------------------------------------------------------------
@@ -154,14 +154,14 @@ export default function AdminTenants() {
     }
   }
 
-  // -- ValidaciÛn formulario Crear --------------------------
+  // -- Validaci√≥n formulario Crear --------------------------
   const validateCreate = () => {
     const errs = {}
 
     // Datos del negocio
     if (!tenantForm.name.trim())        errs.name        = 'El nombre del negocio es obligatorio.'
-    if (!tenantForm.description.trim()) errs.description = 'La descripciÛn es obligatoria.'
-    if (!tenantForm.address.trim())     errs.address     = 'La direcciÛn es obligatoria.'
+    if (!tenantForm.description.trim()) errs.description = 'La descripci√≥n es obligatoria.'
+    if (!tenantForm.address.trim())     errs.address     = 'La direcci√≥n es obligatoria.'
     if (!tenantForm.slug.trim())        errs.slug        = 'El slug es obligatorio.'
     if (!tenantForm.plan_id)            errs.plan_id     = 'Selecciona un plan.'
     if (!tenantForm.opening_time)       errs.opening_time = 'El horario de apertura es obligatorio.'
@@ -180,18 +180,18 @@ export default function AdminTenants() {
     // Datos del administrador
     if (!adminForm.first_name.trim()) errs.first_name = 'El nombre del administrador es obligatorio.'
     if (!adminForm.last_name.trim())  errs.last_name  = 'El apellido del administrador es obligatorio.'
-    if (!adminForm.email.trim())      errs.email      = 'El correo electrÛnico es obligatorio.'
+    if (!adminForm.email.trim())      errs.email      = 'El correo electr√≥nico es obligatorio.'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminForm.email))
-      errs.email = 'Ingresa un correo electrÛnico v·lido.'
+      errs.email = 'Ingresa un correo electr√≥nico v√°lido.'
 
-    if (!adminForm.password)           errs.password         = 'La contraseÒa es obligatoria.'
+    if (!adminForm.password)           errs.password         = 'La contrase√±a es obligatoria.'
     else if (adminForm.password.length < 8)
-      errs.password = 'La contraseÒa debe tener al menos 8 caracteres.'
+      errs.password = 'La contrase√±a debe tener al menos 8 caracteres.'
 
     if (!adminForm.confirm_password)
-      errs.confirm_password = 'Confirma la contraseÒa.'
+      errs.confirm_password = 'Confirma la contrase√±a.'
     else if (adminForm.password !== adminForm.confirm_password)
-      errs.confirm_password = 'Las contraseÒas no coinciden.'
+      errs.confirm_password = 'Las contrase√±as no coinciden.'
 
     return errs
   }
@@ -239,9 +239,9 @@ export default function AdminTenants() {
         setFieldErrors(prev => ({ ...prev, slug: 'Este slug ya existe. Elige otro identificador.' }))
         setFeedback('Corrige los errores del formulario antes de continuar.')
       } else if (msg.toLowerCase().includes('email')) {
-        setFieldErrors(prev => ({ ...prev, email: 'Este correo ya est· registrado.' }))
+        setFieldErrors(prev => ({ ...prev, email: 'Este correo ya est√° registrado.' }))
         setFeedback('Corrige los errores del formulario antes de continuar.')
-      } else if (msg.toLowerCase().includes('telÈfono') || msg.toLowerCase().includes('telefono') || msg.toLowerCase().includes('phone')) {
+      } else if (msg.toLowerCase().includes('tel√©fono') || msg.toLowerCase().includes('telefono') || msg.toLowerCase().includes('phone')) {
         setFieldErrors(prev => ({ ...prev, phone: msg }))
         setFeedback('Corrige los errores del formulario antes de continuar.')
       } else {
@@ -252,7 +252,7 @@ export default function AdminTenants() {
     }
   }
 
-  // -- ValidaciÛn formulario Editar -------------------------
+  // -- Validaci√≥n formulario Editar -------------------------
   const validateEdit = () => {
     const errs = {}
     if (!tenantForm.name.trim()) errs.name = 'El nombre del negocio es obligatorio.'
@@ -285,7 +285,7 @@ export default function AdminTenants() {
       load()
     } catch (err) {
       const msg = err.message || 'Error al actualizar el negocio.'
-      if (msg.toLowerCase().includes('telÈfono') || msg.toLowerCase().includes('phone')) {
+      if (msg.toLowerCase().includes('tel√©fono') || msg.toLowerCase().includes('phone')) {
         setFieldErrors(prev => ({ ...prev, phone: msg }))
       }
       setFeedback(msg)
@@ -362,11 +362,11 @@ export default function AdminTenants() {
   }
 
   // -- Helpers de UI ----------------------------------------
-  const planName    = (t) => t.plan?.display_name || 'ó'
+  const planName    = (t) => t.plan?.display_name || '‚Äî'
   const adminName   = (t) => t.owner_user
-    ? `${t.owner_user.first_name || ''} ${t.owner_user.last_name || ''}`.trim() || 'ó'
-    : 'ó'
-  const adminEmail  = (t) => t.owner_user?.email || 'ó'
+    ? `${t.owner_user.first_name || ''} ${t.owner_user.last_name || ''}`.trim() || '‚Äî'
+    : '‚Äî'
+  const adminEmail  = (t) => t.owner_user?.email || '‚Äî'
   const statusBadge = (active) => (
     <span className={`badge badge-${active ? 'confirmed' : 'cancelled'}`}>
       {active ? 'Activo' : 'Inactivo'}
@@ -382,12 +382,12 @@ export default function AdminTenants() {
       <div className="page-header">
         <div>
           <h1>Negocios</h1>
-          <p>GestiÛn de negocios registrados en la plataforma</p>
+          <p>Gesti√≥n de negocios registrados en la plataforma</p>
         </div>
         <button className="btn btn-primary" onClick={openCreate}>+ Crear negocio</button>
       </div>
 
-      {/* Mini-estadÌsticas */}
+      {/* Mini-estad√≠sticas */}
       <div className="stats-row">
         <div className="mini-stat"><strong>{tenants.length}</strong><span>Total</span></div>
         <div className="mini-stat"><strong>{tenants.filter(t => t.is_active).length}</strong><span>Activos</span></div>
@@ -408,7 +408,7 @@ export default function AdminTenants() {
           ))}
         </div>
         <button className="btn btn-outline" onClick={downloadPDF} title="Descargar PDF con el filtro actual">
-          ?? Descargar PDF
+          Descargar PDF
         </button>
       </div>
 
@@ -417,11 +417,11 @@ export default function AdminTenants() {
         <div className="alert alert-error" style={{ marginBottom: '1rem' }}>{feedback}</div>
       )}
 
-      {/* Tabla o estado vacÌo */}
+      {/* Tabla o estado vac√≠o */}
       {tenants.length === 0 ? (
         <div className="empty-state">
-          <div className="icon">??</div>
-          <p>{planFilter ? 'No hay negocios con el plan seleccionado.' : 'No hay negocios registrados a˙n.'}</p>
+          <div className="icon">üè¢</div>
+          <p>{planFilter ? 'No hay negocios con el plan seleccionado.' : 'No hay negocios registrados a√∫n.'}</p>
           {!planFilter && (
             <button className="btn btn-primary" onClick={openCreate}>Crear primer negocio</button>
           )}
@@ -433,7 +433,7 @@ export default function AdminTenants() {
               <tr>
                 <th>Negocio</th>
                 <th>Ciudad</th>
-                <th>TelÈfono</th>
+                <th>Tel√©fono</th>
                 <th>Administrador</th>
                 <th>Correo admin</th>
                 <th>Plan</th>
@@ -452,8 +452,8 @@ export default function AdminTenants() {
                       </div>
                     )}
                   </td>
-                  <td>{t.city || 'ó'}</td>
-                  <td>{t.phone || 'ó'}</td>
+                  <td>{t.city || '‚Äî'}</td>
+                  <td>{t.phone || '‚Äî'}</td>
                   <td>{adminName(t)}</td>
                   <td>
                     <span className="admin-email">{adminEmail(t)}</span>
@@ -486,7 +486,7 @@ export default function AdminTenants() {
           <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Crear negocio con accesos</h3>
-              <button className="modal-close" onClick={() => setModal(null)}>?</button>
+              <button className="modal-close" onClick={() => setModal(null)}>‚úï</button>
             </div>
 
             {feedback && (
@@ -497,8 +497,8 @@ export default function AdminTenants() {
 
             <form onSubmit={handleSubmitCreate} className="modal-form" noValidate>
 
-              {/* -- SecciÛn: Datos del negocio ----------- */}
-              <div className="modal-section-header">?? Datos del negocio</div>
+              {/* -- Secci√≥n: Datos del negocio ----------- */}
+              <div className="modal-section-header">Datos del negocio</div>
 
               <div className="form-row">
                 <div className="form-group">
@@ -507,13 +507,13 @@ export default function AdminTenants() {
                     name="name"
                     value={tenantForm.name}
                     onChange={handleTenantChange}
-                    placeholder="BarberÌa Ejemplo"
+                    placeholder="Barber√≠a Ejemplo"
                     className={fieldErrors.name ? 'input-error' : ''}
                   />
                   <FieldError msg={fieldErrors.name} />
                 </div>
                 <div className="form-group">
-                  <label>Slug / Identificador p˙blico *</label>
+                  <label>Slug / Identificador p√∫blico *</label>
                   <input
                     name="slug"
                     value={tenantForm.slug}
@@ -526,12 +526,12 @@ export default function AdminTenants() {
               </div>
 
               <div className="form-group">
-                <label>DescripciÛn *</label>
+                <label>Descripci√≥n *</label>
                 <input
                   name="description"
                   value={tenantForm.description}
                   onChange={handleTenantChange}
-                  placeholder="DescripciÛn del negocio"
+                  placeholder="Descripci√≥n del negocio"
                   className={fieldErrors.description ? 'input-error' : ''}
                 />
                 <FieldError msg={fieldErrors.description} />
@@ -539,7 +539,7 @@ export default function AdminTenants() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>TelÈfono *</label>
+                  <label>Tel√©fono *</label>
                   <input
                     name="phone"
                     value={tenantForm.phone}
@@ -550,7 +550,7 @@ export default function AdminTenants() {
                   <FieldError msg={fieldErrors.phone} />
                 </div>
                 <div className="form-group">
-                  <label>DirecciÛn *</label>
+                  <label>Direcci√≥n *</label>
                   <input
                     name="address"
                     value={tenantForm.address}
@@ -653,9 +653,9 @@ export default function AdminTenants() {
                 </div>
               </div>
 
-              {/* -- SecciÛn: Accesos del administrador ---- */}
+              {/* -- Secci√≥n: Accesos del administrador ---- */}
               <div className="modal-section-header" style={{ marginTop: '.25rem' }}>
-                ?? Accesos del administrador
+                Accesos del administrador
               </div>
 
               <div className="form-row">
@@ -685,7 +685,7 @@ export default function AdminTenants() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>Correo electrÛnico *</label>
+                  <label>Correo electr√≥nico *</label>
                   <input
                     type="email"
                     name="email"
@@ -697,7 +697,7 @@ export default function AdminTenants() {
                   <FieldError msg={fieldErrors.email} />
                 </div>
                 <div className="form-group">
-                  <label>TelÈfono del administrador</label>
+                  <label>Tel√©fono del administrador</label>
                   <input
                     name="phone"
                     value={adminForm.phone}
@@ -709,25 +709,25 @@ export default function AdminTenants() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>ContraseÒa inicial *</label>
+                  <label>Contrase√±a inicial *</label>
                   <input
                     type="password"
                     name="password"
                     value={adminForm.password}
                     onChange={handleAdminChange}
-                    placeholder="MÌnimo 8 caracteres"
+                    placeholder="M√≠nimo 8 caracteres"
                     className={fieldErrors.password ? 'input-error' : ''}
                   />
                   <FieldError msg={fieldErrors.password} />
                 </div>
                 <div className="form-group">
-                  <label>Confirmar contraseÒa *</label>
+                  <label>Confirmar contrase√±a *</label>
                   <input
                     type="password"
                     name="confirm_password"
                     value={adminForm.confirm_password}
                     onChange={handleAdminChange}
-                    placeholder="Repetir contraseÒa"
+                    placeholder="Repetir contrase√±a"
                     className={fieldErrors.confirm_password ? 'input-error' : ''}
                   />
                   <FieldError msg={fieldErrors.confirm_password} />
@@ -735,8 +735,8 @@ export default function AdminTenants() {
               </div>
 
               <div className="alert alert-info" style={{ fontSize: '.82rem', marginTop: '0' }}>
-                ?? El administrador podr· iniciar sesiÛn con el correo y contraseÒa asignados.
-                El rol <strong>tenant_admin</strong> se asigna autom·ticamente.
+                ‚ÑπÔ∏è El administrador podr√° iniciar sesi√≥n con el correo y contrase√±a asignados.
+                El rol <strong>tenant_admin</strong> se asigna autom√°ticamente.
               </div>
 
               <div className="modal-footer">
@@ -744,7 +744,7 @@ export default function AdminTenants() {
                   Cancelar
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'CreandoÖ' : 'Guardar negocio'}
+                  {saving ? 'Creando¬Ö' : 'Guardar negocio'}
                 </button>
               </div>
             </form>
@@ -758,7 +758,7 @@ export default function AdminTenants() {
           <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Editar negocio</h3>
-              <button className="modal-close" onClick={() => setModal(null)}>?</button>
+              <button className="modal-close" onClick={() => setModal(null)}>‚úï</button>
             </div>
 
             {feedback && (
@@ -793,13 +793,13 @@ export default function AdminTenants() {
               </div>
 
               <div className="form-group">
-                <label>DescripciÛn</label>
+                <label>Descripci√≥n</label>
                 <input name="description" value={tenantForm.description} onChange={handleTenantChange} />
               </div>
 
               <div className="form-row">
                 <div className="form-group">
-                  <label>TelÈfono *</label>
+                  <label>Tel√©fono *</label>
                   <input
                     name="phone"
                     value={tenantForm.phone}
@@ -811,12 +811,12 @@ export default function AdminTenants() {
                 </div>
                 <div className="form-group">
                   <label>Ciudad</label>
-                  <input name="city" value={tenantForm.city} onChange={handleTenantChange} placeholder="Bogot·" />
+                  <input name="city" value={tenantForm.city} onChange={handleTenantChange} placeholder="Bogot√°" />
                 </div>
               </div>
 
               <div className="form-group">
-                <label>DirecciÛn</label>
+                <label>Direcci√≥n</label>
                 <input name="address" value={tenantForm.address} onChange={handleTenantChange} />
               </div>
 
@@ -855,7 +855,7 @@ export default function AdminTenants() {
                   Cancelar
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'GuardandoÖ' : 'Actualizar'}
+                  {saving ? 'Guardando¬Ö' : 'Actualizar'}
                 </button>
               </div>
             </form>
