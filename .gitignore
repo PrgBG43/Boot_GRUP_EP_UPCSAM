@@ -50,3 +50,6 @@ Thumbs.db
 
 # Alembic
 alembic/versions/*.pyc
+
+# Scripts de corrección temporales
+fix_tenants_chars.py

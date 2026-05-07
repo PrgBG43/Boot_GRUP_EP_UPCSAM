@@ -810,9 +810,41 @@ export default function AdminTenants() {
                   <FieldError msg={fieldErrors.phone} />
                 </div>
                 <div className="form-group">
-                  <label>Ciudad</label>
-                  <input name="city" value={tenantForm.city} onChange={handleTenantChange} placeholder="Bogotá" />
+                  <label>Departamento</label>
+                  <select
+                    name="state_id"
+                    value={tenantForm.state_id}
+                    onChange={handleTenantChange}
+                  >
+                    <option value="">Selecciona un departamento</option>
+                    {states.map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
                 </div>
+              </div>
+
+              <div className="form-group">
+                <label>Ciudad</label>
+                {tenantForm.state_id ? (
+                  <select
+                    name="city"
+                    value={tenantForm.city}
+                    onChange={handleTenantChange}
+                  >
+                    <option value="">Selecciona una ciudad</option>
+                    {cities.map(c => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    name="city"
+                    value={tenantForm.city}
+                    onChange={handleTenantChange}
+                    placeholder={tenantForm.city || 'Escribe o selecciona un departamento'}
+                  />
+                )}
               </div>
 
               <div className="form-group">
