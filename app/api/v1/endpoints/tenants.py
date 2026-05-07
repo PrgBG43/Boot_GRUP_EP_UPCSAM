@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -100,10 +100,14 @@ def create_tenant_with_admin(
 def list_tenants(
     skip: int = 0,
     limit: int = 100,
+    plan: Optional[str] = Query(None, description="Filtrar por nombre de plan: free, premium, enterprise"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_superadmin),
 ):
-    return db.query(Tenant).offset(skip).limit(limit).all()
+    query = db.query(Tenant)
+    if plan:
+        query = query.join(Plan, Tenant.plan_id == Plan.id).filter(Plan.name == plan)
+    return query.offset(skip).limit(limit).all()
 
 
 @router.get("/me", response_model=TenantResponse)

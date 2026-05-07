@@ -40,7 +40,12 @@ export const api = {
   getMe: () => request('/auth/me'),
 
   // Negocios (tenants) – solo superadmin para lista
-  getBusinesses:    ()       => request('/businesses/'),
+  getBusinesses:    (params) => request(`/businesses/?${new URLSearchParams(params || {})}`),
+
+  // Ubicación (departamentos y ciudades)
+  getStates: () => request('/states/?limit=100'),
+  getCities: (stateId) => request(`/cities/?state_id=${stateId}&limit=500`),
+
   getMyBusiness:    ()       => request('/businesses/me'),
   getBusiness:      (id)     => request(`/businesses/${id}`),
   createBusiness:   (data)   => request('/businesses/', { method: 'POST', body: JSON.stringify(data) }),

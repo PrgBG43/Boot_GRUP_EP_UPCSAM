@@ -552,6 +552,80 @@ tr:hover td { background: #fafafa; }
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .form-row { grid-template-columns: 1fr; }
   .modal-lg { max-width: 98vw; }
+  .businesses-toolbar { flex-direction: column; align-items: flex-start; }
+  .plan-filters { flex-wrap: wrap; }
 }
 
+/* ── Errores de campo homogéneos ─────────────────────────── */
+.field-error {
+  display: block;
+  font-size: .78rem;
+  color: #991b1b;
+  margin-top: .2rem;
+}
 
+.input-error {
+  border-color: #f87171 !important;
+  background: #fff8f8;
+}
+
+.input-error:focus {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 2px rgba(239,68,68,.15);
+}
+
+/* ── Barra de herramientas negocios ──────────────────────── */
+.businesses-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+/* ── Filtros por plan ────────────────────────────────────── */
+.plan-filters {
+  display: flex;
+  gap: .5rem;
+  align-items: center;
+}
+
+.filter-btn {
+  padding: .4rem .9rem;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  color: var(--text-secondary);
+  font-size: .82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+  white-space: nowrap;
+}
+
+.filter-btn:hover {
+  background: var(--accent-light);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.filter-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+/* ── Correo admin en tabla (texto pequeño) ───────────────── */
+.admin-email {
+  font-size: .78rem;
+  color: var(--text-secondary);
+  word-break: break-all;
+}
+
+/* ── Select deshabilitado ────────────────────────────────── */
+.form-group select:disabled {
+  background: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}

@@ -1,9 +1,10 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.models.location import City
 from app.schemas.city import CityCreate, CityResponse, CityUpdate
 from app.repositories import city_repository
 
@@ -16,8 +17,16 @@ def create_city(city: CityCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/", response_model=List[CityResponse])
-def list_cities(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return city_repository.list_cities(db, skip=skip, limit=limit)
+def list_cities(
+    skip: int = 0,
+    limit: int = 500,
+    state_id: Optional[int] = Query(None, description="Filtrar ciudades por departamento"),
+    db: Session = Depends(get_db),
+):
+    query = db.query(City)
+    if state_id is not None:
+        query = query.filter(City.state_id == state_id)
+    return query.order_by(City.name).offset(skip).limit(limit).all()
 
 
 @router.get("/{city_id}", response_model=CityResponse)

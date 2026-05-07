@@ -90,11 +90,36 @@ def run_seed():
                 print(f"  ✅ Rol creado: {rname}")
         db.commit()
 
-        # ── Ubicación de referencia ────────────────────────
-        state, _ = _get_or_create(db, State, {"name": "Colombia"})
-        db.flush()
-        city, _ = _get_or_create(db, City, {"name": "Bogotá", "state_id": state.id})
+        # ── Departamentos y ciudades de Colombia ───────────
+        print("\n🗺️  Creando departamentos y ciudades…")
+        departamentos = {
+            "Bogotá D.C.":    ["Bogotá"],
+            "Cundinamarca":   ["Girardot", "Soacha", "Fusagasugá", "Facatativá",
+                               "Zipaquirá", "Chía", "Mosquera", "Madrid", "Funza"],
+            "Antioquia":      ["Medellín", "Bello", "Itagüí", "Envigado", "Rionegro", "Sabaneta"],
+            "Valle del Cauca":["Cali", "Buenaventura", "Palmira", "Tuluá", "Buga"],
+            "Atlántico":      ["Barranquilla", "Soledad", "Malambo", "Sabanalarga"],
+            "Santander":      ["Bucaramanga", "Floridablanca", "Girón", "Piedecuesta"],
+            "Bolívar":        ["Cartagena", "Magangué", "El Carmen de Bolívar"],
+            "Nariño":         ["Pasto", "Tumaco", "Ipiales"],
+            "Boyacá":         ["Tunja", "Duitama", "Sogamoso"],
+            "Córdoba":        ["Montería", "Cereté", "Sahagún"],
+            "Meta":           ["Villavicencio", "Acacías", "Granada"],
+            "Tolima":         ["Ibagué", "Espinal", "Honda"],
+        }
+        state_map_geo = {}
+        for dep_name, ciudades in departamentos.items():
+            dep, _ = _get_or_create(db, State, {"name": dep_name})
+            db.flush()
+            state_map_geo[dep_name] = dep
+            for ciudad_name in ciudades:
+                _get_or_create(db, City, {"name": ciudad_name, "state_id": dep.id})
+            db.flush()
         db.commit()
+        print(f"  ✅ {len(departamentos)} departamentos con ciudades creados (incluye Cundinamarca/Girardot)")
+
+        # Referencia de ciudad para usuarios demo
+        city = db.query(City).filter(City.name == "Bogotá").first()
 
         # ── Tenant demo ────────────────────────────────────
         print("\n🏢 Creando tenant de demostración…")
