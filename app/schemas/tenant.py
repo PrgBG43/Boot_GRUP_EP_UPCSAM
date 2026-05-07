@@ -48,6 +48,8 @@ class TenantBase(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None
+    state_id: Optional[int] = None
+    city_id: Optional[int] = None
     slug: Optional[str] = None
     opening_time: Optional[str] = "08:00"
     closing_time: Optional[str] = "20:00"
@@ -72,6 +74,8 @@ class TenantUpdate(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     city: Optional[str] = None
+    state_id: Optional[int] = None
+    city_id: Optional[int] = None
     slug: Optional[str] = None
     opening_time: Optional[str] = None
     closing_time: Optional[str] = None
@@ -86,8 +90,42 @@ class TenantUpdate(BaseModel):
         return _validate_col_phone(v)
 
 
+class TenantWithAdminCreate(BaseModel):
+    """Schema tipado para POST /businesses/with-admin."""
+    class BusinessData(BaseModel):
+        name: str
+        slug: str
+        description: Optional[str] = None
+        phone: str
+        address: str
+        state_id: int
+        city_id: int
+        opening_time: str = "08:00"
+        closing_time: str = "20:00"
+        plan_id: int
+        is_active: bool = True
+
+        @field_validator("phone", mode="before")
+        @classmethod
+        def validate_phone(cls, v):
+            return _validate_col_phone(v)
+
+    class AdminData(BaseModel):
+        first_name: str
+        last_name: str
+        email: str
+        password: str
+        confirm_password: str
+        phone: Optional[str] = None
+
+    business: BusinessData
+    admin: AdminData
+
+
 class TenantResponse(TenantBase):
     id: int
+    state_name: Optional[str] = None
+    city_name: Optional[str] = None
     plan: Optional[PlanInfo] = None
     owner_user: Optional[OwnerInfo] = None
     created_at: Optional[datetime] = None

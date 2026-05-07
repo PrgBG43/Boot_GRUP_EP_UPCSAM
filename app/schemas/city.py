@@ -4,7 +4,8 @@ from pydantic import BaseModel
 
 
 class CityBase(BaseModel):
-    name: str
+    description: str
+    code: Optional[str] = None
     state_id: int
 
 
@@ -13,7 +14,8 @@ class CityCreate(CityBase):
 
 
 class CityUpdate(BaseModel):
-    name: Optional[str] = None
+    description: Optional[str] = None
+    code: Optional[str] = None
     state_id: Optional[int] = None
 
 

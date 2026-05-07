@@ -5,7 +5,7 @@ from app.schemas.city import CityCreate, CityUpdate
 
 
 def list_cities(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(City).offset(skip).limit(limit).all()
+    return db.query(City).order_by(City.description).offset(skip).limit(limit).all()
 
 
 def create_city(db: Session, city_in: CityCreate):

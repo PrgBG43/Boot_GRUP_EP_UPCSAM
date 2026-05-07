@@ -11,7 +11,8 @@ from app.models.user import User, Role
 from app.models.person import Person
 from app.models.tenant import Tenant
 from app.models.plan import Plan
-from app.schemas.tenant import TenantCreate, TenantResponse, TenantUpdate
+from app.models.location import City
+from app.schemas.tenant import TenantCreate, TenantResponse, TenantUpdate, TenantWithAdminCreate
 from app.schemas.user import UserCreateFull
 
 router = APIRouter()
@@ -32,26 +33,41 @@ def create_tenant(
 
 @router.post("/with-admin", response_model=TenantResponse, status_code=status.HTTP_201_CREATED)
 def create_tenant_with_admin(
-    payload: dict,
+    payload: TenantWithAdminCreate,
     db: Session = Depends(get_db),
     _: User = Depends(require_superadmin),
 ):
-    """
-    Crea un negocio y su usuario administrador en una sola operación.
-    Payload esperado:
-    {
-      "tenant": { nombre, descripción, teléfono, dirección, ciudad, horarios, plan, slug, ... },
-      "admin": { first_name, last_name, email, password }
-    }
-    """
-    tenant_data = payload.get("tenant", {})
-    admin_data  = payload.get("admin", {})
+    """Crea un negocio y su usuario administrador en una sola operacion atomica."""
+    biz = payload.business
+    adm = payload.admin
 
-    if not admin_data.get("email") or not admin_data.get("password"):
-        raise HTTPException(status_code=400, detail="Se requiere email y contraseña para el administrador")
+    # Validar que las contraseñas coincidan
+    if adm.password != adm.confirm_password:
+        raise HTTPException(status_code=400, detail="Las contraseñas no coinciden")
+
+    # Validar que la ciudad pertenece al departamento
+    city_obj = db.query(City).filter(City.id == biz.city_id).first()
+    if not city_obj:
+        raise HTTPException(status_code=400, detail="Ciudad no encontrada")
+    if city_obj.state_id != biz.state_id:
+        raise HTTPException(status_code=400,
+            detail="La ciudad no pertenece al departamento seleccionado")
 
     # Crear tenant
-    new_tenant = Tenant(**{k: v for k, v in tenant_data.items() if hasattr(Tenant, k)})
+    new_tenant = Tenant(
+        name=biz.name,
+        slug=biz.slug,
+        description=biz.description,
+        phone=biz.phone,
+        address=biz.address,
+        city=city_obj.description,
+        state_id=biz.state_id,
+        city_id=biz.city_id,
+        opening_time=biz.opening_time,
+        closing_time=biz.closing_time,
+        plan_id=biz.plan_id,
+        is_active=biz.is_active,
+    )
     db.add(new_tenant)
     try:
         db.flush()
@@ -61,9 +77,9 @@ def create_tenant_with_admin(
 
     # Crear persona
     person = Person(
-        first_name=admin_data.get("first_name", "Admin"),
-        last_name=admin_data.get("last_name", ""),
-        phone=admin_data.get("phone"),
+        first_name=adm.first_name,
+        last_name=adm.last_name,
+        phone=adm.phone,
     )
     db.add(person)
     db.flush()
@@ -72,8 +88,8 @@ def create_tenant_with_admin(
     new_user = User(
         person_id=person.id,
         tenant_id=new_tenant.id,
-        email=admin_data["email"],
-        password_hash=hash_password(admin_data["password"]),
+        email=adm.email,
+        password_hash=hash_password(adm.password),
         is_active=True,
     )
     db.add(new_user)
@@ -81,7 +97,7 @@ def create_tenant_with_admin(
         db.flush()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Email del administrador ya existe")
+        raise HTTPException(status_code=400, detail="El email del administrador ya existe")
 
     # Asignar rol tenant_admin
     role = db.query(Role).filter(Role.name == "tenant_admin").first()

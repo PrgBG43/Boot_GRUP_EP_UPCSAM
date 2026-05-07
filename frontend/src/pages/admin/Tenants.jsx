@@ -20,7 +20,7 @@ function FieldError({ msg }) {
 
 // -- Estado inicial de formularios ----------------------------
 const EMPTY_TENANT = {
-  name: '', description: '', phone: '', address: '', city: '',
+  name: '', description: '', phone: '', address: '', city: '', city_id: '',
   state_id: '', slug: '', opening_time: '08:00', closing_time: '20:00',
   plan_id: '', is_active: true,
 }
@@ -113,8 +113,9 @@ export default function AdminTenants() {
       description: t.description || '',
       phone: t.phone || '',
       address: t.address || '',
-      city: t.city || '',
-      state_id: '',
+      city: t.city_name || t.city || '',
+      city_id: t.city_id || '',
+      state_id: t.state_id || '',
       slug: t.slug || '',
       opening_time: t.opening_time || '08:00',
       closing_time: t.closing_time || '20:00',
@@ -135,7 +136,7 @@ export default function AdminTenants() {
 
     if (name === 'state_id') {
       // Resetear ciudad al cambiar departamento
-      setTenantForm(f => ({ ...f, state_id: value, city: '' }))
+      setTenantForm(f => ({ ...f, state_id: value, city_id: '', city: '' }))
     } else {
       setTenantForm(f => ({ ...f, [name]: newVal }))
     }
@@ -167,7 +168,7 @@ export default function AdminTenants() {
     if (!tenantForm.opening_time)       errs.opening_time = 'El horario de apertura es obligatorio.'
     if (!tenantForm.closing_time)       errs.closing_time = 'El horario de cierre es obligatorio.'
     if (!tenantForm.state_id)           errs.state_id    = 'Selecciona un departamento.'
-    if (!tenantForm.city)               errs.city        = 'Selecciona una ciudad.'
+    if (!tenantForm.city_id)            errs.city        = 'Selecciona una ciudad.'
 
     if (tenantForm.opening_time && tenantForm.closing_time &&
         tenantForm.closing_time <= tenantForm.opening_time) {
@@ -211,24 +212,26 @@ export default function AdminTenants() {
     setSaving(true)
     try {
       await api.createBusinessWithAdmin({
-        tenant: {
+        business: {
           name:         tenantForm.name.trim(),
           description:  tenantForm.description.trim(),
           phone:        tenantForm.phone.trim(),
           address:      tenantForm.address.trim(),
-          city:         tenantForm.city,
+          state_id:     parseInt(tenantForm.state_id),
+          city_id:      parseInt(tenantForm.city_id),
           slug:         tenantForm.slug.trim(),
           opening_time: tenantForm.opening_time,
           closing_time: tenantForm.closing_time,
-          plan_id:      tenantForm.plan_id ? parseInt(tenantForm.plan_id) : null,
+          plan_id:      parseInt(tenantForm.plan_id),
           is_active:    tenantForm.is_active,
         },
         admin: {
-          first_name: adminForm.first_name.trim(),
-          last_name:  adminForm.last_name.trim(),
-          email:      adminForm.email.trim(),
-          password:   adminForm.password,
-          phone:      adminForm.phone.trim() || undefined,
+          first_name:       adminForm.first_name.trim(),
+          last_name:        adminForm.last_name.trim(),
+          email:            adminForm.email.trim(),
+          password:         adminForm.password,
+          confirm_password: adminForm.confirm_password,
+          phone:            adminForm.phone.trim() || undefined,
         },
       })
       setModal(null)
@@ -278,8 +281,19 @@ export default function AdminTenants() {
 
     setSaving(true)
     try {
-      const { state_id, ...rest } = tenantForm   // state_id no existe en el modelo
-      const payload = { ...rest, plan_id: rest.plan_id ? parseInt(rest.plan_id) : null }
+      const payload = {
+        name:         tenantForm.name.trim(),
+        description:  tenantForm.description || null,
+        phone:        tenantForm.phone || null,
+        address:      tenantForm.address || null,
+        slug:         tenantForm.slug.trim(),
+        opening_time: tenantForm.opening_time || null,
+        closing_time: tenantForm.closing_time || null,
+        plan_id:      tenantForm.plan_id ? parseInt(tenantForm.plan_id) : null,
+        is_active:    tenantForm.is_active,
+        state_id:     tenantForm.state_id ? parseInt(tenantForm.state_id) : null,
+        city_id:      tenantForm.city_id ? parseInt(tenantForm.city_id) : null,
+      }
       await api.updateBusiness(editing, payload)
       setModal(null)
       load()
@@ -327,16 +341,17 @@ export default function AdminTenants() {
 
     autoTable(doc, {
       startY: 46,
-      head: [['Negocio', 'Ciudad', 'Telefono', 'Administrador', 'Correo admin', 'Plan', 'Estado']],
+      head: [['Negocio', 'Departamento', 'Ciudad', 'Telefono', 'Administrador', 'Correo admin', 'Plan', 'Estado']],
       body: tenants.map(t => {
-        const adminName = t.owner_user
+        const adName = t.owner_user
           ? `${t.owner_user.first_name || ''} ${t.owner_user.last_name || ''}`.trim()
           : '-'
         return [
           pdfText(t.name),
-          pdfText(t.city),
+          pdfText(t.state_name),
+          pdfText(t.city_name || t.city),
           pdfText(t.phone),
-          pdfText(adminName),
+          pdfText(adName),
           pdfText(t.owner_user?.email),
           pdfText(t.plan?.display_name),
           t.is_active ? 'Activo' : 'Inactivo',
@@ -432,6 +447,7 @@ export default function AdminTenants() {
             <thead>
               <tr>
                 <th>Negocio</th>
+                <th>Departamento</th>
                 <th>Ciudad</th>
                 <th>Teléfono</th>
                 <th>Administrador</th>
@@ -452,7 +468,8 @@ export default function AdminTenants() {
                       </div>
                     )}
                   </td>
-                  <td>{t.city || '—'}</td>
+                  <td>{t.state_name || '—'}</td>
+                  <td>{t.city_name || t.city || '—'}</td>
                   <td>{t.phone || '—'}</td>
                   <td>{adminName(t)}</td>
                   <td>
@@ -573,7 +590,7 @@ export default function AdminTenants() {
                   >
                     <option value="">Selecciona un departamento</option>
                     {states.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
+                      <option key={s.id} value={s.id}>{s.description}</option>
                     ))}
                   </select>
                   <FieldError msg={fieldErrors.state_id} />
@@ -581,8 +598,8 @@ export default function AdminTenants() {
                 <div className="form-group">
                   <label>Ciudad *</label>
                   <select
-                    name="city"
-                    value={tenantForm.city}
+                    name="city_id"
+                    value={tenantForm.city_id}
                     onChange={handleTenantChange}
                     disabled={!tenantForm.state_id}
                     className={fieldErrors.city ? 'input-error' : ''}
@@ -591,7 +608,7 @@ export default function AdminTenants() {
                       {tenantForm.state_id ? 'Selecciona una ciudad' : 'Primero selecciona un departamento'}
                     </option>
                     {cities.map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
+                      <option key={c.id} value={c.id}>{c.description}</option>
                     ))}
                   </select>
                   <FieldError msg={fieldErrors.city} />
@@ -818,7 +835,7 @@ export default function AdminTenants() {
                   >
                     <option value="">Selecciona un departamento</option>
                     {states.map(s => (
-                      <option key={s.id} value={s.id}>{s.name}</option>
+                      <option key={s.id} value={s.id}>{s.description}</option>
                     ))}
                   </select>
                 </div>
@@ -826,25 +843,19 @@ export default function AdminTenants() {
 
               <div className="form-group">
                 <label>Ciudad</label>
-                {tenantForm.state_id ? (
-                  <select
-                    name="city"
-                    value={tenantForm.city}
-                    onChange={handleTenantChange}
-                  >
-                    <option value="">Selecciona una ciudad</option>
-                    {cities.map(c => (
-                      <option key={c.id} value={c.name}>{c.name}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    name="city"
-                    value={tenantForm.city}
-                    onChange={handleTenantChange}
-                    placeholder={tenantForm.city || 'Escribe o selecciona un departamento'}
-                  />
-                )}
+                <select
+                  name="city_id"
+                  value={tenantForm.city_id}
+                  onChange={handleTenantChange}
+                  disabled={!tenantForm.state_id}
+                >
+                  <option value="">
+                    {tenantForm.state_id ? 'Selecciona una ciudad' : 'Primero selecciona un departamento'}
+                  </option>
+                  {cities.map(c => (
+                    <option key={c.id} value={c.id}>{c.description}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="form-group">

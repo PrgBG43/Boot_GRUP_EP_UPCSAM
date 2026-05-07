@@ -26,7 +26,7 @@ def list_cities(
     query = db.query(City)
     if state_id is not None:
         query = query.filter(City.state_id == state_id)
-    return query.order_by(City.name).offset(skip).limit(limit).all()
+    return query.order_by(City.description).offset(skip).limit(limit).all()
 
 
 @router.get("/{city_id}", response_model=CityResponse)

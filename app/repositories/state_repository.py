@@ -5,7 +5,7 @@ from app.schemas.state import StateCreate, StateUpdate
 
 
 def list_states(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(State).offset(skip).limit(limit).all()
+    return db.query(State).order_by(State.description).offset(skip).limit(limit).all()
 
 
 def create_state(db: Session, state_in: StateCreate):

@@ -2,8 +2,13 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
 
+function FieldError({ msg }) {
+  if (!msg) return null
+  return <span className="field-error">{msg}</span>
+}
+
 const EMPTY_FORM = {
-  first_name: '', last_name: '', email: '', password: '', phone: '',
+  first_name: '', last_name: '', email: '', password: '', confirm_password: '', phone: '',
 }
 
 export default function Staff() {
@@ -15,6 +20,7 @@ export default function Staff() {
   const [form,     setForm]     = useState(EMPTY_FORM)
   const [saving,   setSaving]   = useState(false)
   const [feedback, setFeedback] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const load = () => {
     setLoading(true)
@@ -25,19 +31,48 @@ export default function Staff() {
 
   useEffect(load, [activeTenantId])
 
-  const openCreate = () => { setForm(EMPTY_FORM); setModal(true); setFeedback(null) }
+  const openCreate = () => { setForm(EMPTY_FORM); setModal(true); setFeedback(null); setFieldErrors({}) }
 
-  const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+  const handleChange = e => {
+    setForm(f => ({ ...f, [e.target.name]: e.target.value }))
+    if (fieldErrors[e.target.name]) {
+      setFieldErrors(prev => ({ ...prev, [e.target.name]: null }))
+    }
+  }
+
+  const validate = () => {
+    const errs = {}
+    if (!form.first_name.trim()) errs.first_name = 'El nombre es obligatorio.'
+    if (!form.last_name.trim())  errs.last_name  = 'El apellido es obligatorio.'
+    if (!form.email.trim())      errs.email      = 'El correo electrónico es obligatorio.'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+      errs.email = 'Ingresa un correo electrónico válido.'
+    if (!form.password)          errs.password   = 'La contraseña es obligatoria.'
+    else if (form.password.length < 8)
+      errs.password = 'La contraseña debe tener al menos 8 caracteres.'
+    if (!form.confirm_password)
+      errs.confirm_password = 'Confirma la contraseña.'
+    else if (form.password !== form.confirm_password)
+      errs.confirm_password = 'Las contraseñas no coinciden.'
+    return errs
+  }
 
   const handleSubmit = async e => {
-    e.preventDefault(); setSaving(true); setFeedback(null)
+    e.preventDefault(); setFeedback(null)
+    const errs = validate()
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs)
+      setFeedback({ type: 'error', msg: 'Corrige los errores del formulario antes de continuar.' })
+      return
+    }
+    setSaving(true)
     try {
       await api.createStaff({
-        first_name: form.first_name,
-        last_name:  form.last_name,
-        email:      form.email,
+        first_name: form.first_name.trim(),
+        last_name:  form.last_name.trim(),
+        email:      form.email.trim(),
         password:   form.password,
-        phone:      form.phone || undefined,
+        phone:      form.phone.trim() || undefined,
         role_name:  'staff',
         tenant_id:  activeTenantId || undefined,
       })
@@ -121,24 +156,55 @@ export default function Staff() {
               <button className="modal-close" onClick={() => setModal(false)}>×</button>
             </div>
             {feedback && <div className={`alert alert-${feedback.type}`} style={{margin:'0 1.5rem'}}>{feedback.msg}</div>}
-            <form onSubmit={handleSubmit} className="modal-form">
+            <form onSubmit={handleSubmit} className="modal-form" noValidate>
               <div className="form-row">
                 <div className="form-group">
                   <label>Nombre *</label>
-                  <input name="first_name" value={form.first_name} onChange={handleChange} required placeholder="Nombre" />
+                  <input
+                    name="first_name" value={form.first_name} onChange={handleChange}
+                    placeholder="Nombre"
+                    className={fieldErrors.first_name ? 'input-error' : ''}
+                  />
+                  <FieldError msg={fieldErrors.first_name} />
                 </div>
                 <div className="form-group">
                   <label>Apellido *</label>
-                  <input name="last_name" value={form.last_name} onChange={handleChange} required placeholder="Apellido" />
+                  <input
+                    name="last_name" value={form.last_name} onChange={handleChange}
+                    placeholder="Apellido"
+                    className={fieldErrors.last_name ? 'input-error' : ''}
+                  />
+                  <FieldError msg={fieldErrors.last_name} />
                 </div>
               </div>
               <div className="form-group">
                 <label>Correo electrónico *</label>
-                <input type="email" name="email" value={form.email} onChange={handleChange} required placeholder="correo@ejemplo.com" />
+                <input
+                  type="email" name="email" value={form.email} onChange={handleChange}
+                  placeholder="correo@ejemplo.com"
+                  className={fieldErrors.email ? 'input-error' : ''}
+                />
+                <FieldError msg={fieldErrors.email} />
               </div>
-              <div className="form-group">
-                <label>Contraseña *</label>
-                <input type="password" name="password" value={form.password} onChange={handleChange} required minLength={8} placeholder="Mínimo 8 caracteres" />
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Contraseña *</label>
+                  <input
+                    type="password" name="password" value={form.password} onChange={handleChange}
+                    placeholder="Mínimo 8 caracteres"
+                    className={fieldErrors.password ? 'input-error' : ''}
+                  />
+                  <FieldError msg={fieldErrors.password} />
+                </div>
+                <div className="form-group">
+                  <label>Confirmar contraseña *</label>
+                  <input
+                    type="password" name="confirm_password" value={form.confirm_password} onChange={handleChange}
+                    placeholder="Repetir contraseña"
+                    className={fieldErrors.confirm_password ? 'input-error' : ''}
+                  />
+                  <FieldError msg={fieldErrors.confirm_password} />
+                </div>
               </div>
               <div className="form-group">
                 <label>Teléfono</label>

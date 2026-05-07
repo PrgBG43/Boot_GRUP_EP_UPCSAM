@@ -1,10 +1,16 @@
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class StateBase(BaseModel):
-    name: str
+    description: str
+    code: Optional[str] = None
+
+    @field_validator('description', mode='before')
+    @classmethod
+    def _alias_name(cls, v):
+        return v
 
 
 class StateCreate(StateBase):
@@ -12,7 +18,8 @@ class StateCreate(StateBase):
 
 
 class StateUpdate(BaseModel):
-    name: Optional[str] = None
+    description: Optional[str] = None
+    code: Optional[str] = None
 
 
 class StateResponse(StateBase):
