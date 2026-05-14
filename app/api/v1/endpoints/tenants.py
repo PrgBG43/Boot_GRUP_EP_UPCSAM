@@ -1,3 +1,5 @@
+import re
+import unicodedata
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -16,6 +18,29 @@ from app.schemas.tenant import TenantCreate, TenantResponse, TenantUpdate, Tenan
 from app.schemas.user import UserCreateFull
 
 router = APIRouter()
+
+
+def _generate_slug(name: str) -> str:
+    """Genera un slug limpio a partir del nombre comercial."""
+    normalized = unicodedata.normalize('NFD', name)
+    ascii_str = normalized.encode('ascii', 'ignore').decode('ascii')
+    slug = ascii_str.lower()
+    slug = re.sub(r'[^a-z0-9\s]', '', slug)
+    slug = slug.strip()
+    slug = re.sub(r'\s+', '-', slug)
+    slug = re.sub(r'-+', '-', slug)
+    slug = slug.strip('-')
+    return slug or 'negocio'
+
+
+def _ensure_unique_slug(db: Session, base_slug: str) -> str:
+    """Garantiza unicidad del slug. Agrega sufijo numérico si ya existe."""
+    slug = base_slug
+    counter = 2
+    while db.query(Tenant).filter(Tenant.slug == slug).first():
+        slug = f"{base_slug}-{counter}"
+        counter += 1
+    return slug
 
 
 @router.post("/", response_model=TenantResponse, status_code=status.HTTP_201_CREATED)
@@ -53,10 +78,14 @@ def create_tenant_with_admin(
         raise HTTPException(status_code=400,
             detail="La ciudad no pertenece al departamento seleccionado")
 
+    # Generar slug automáticamente y garantizar unicidad
+    base_slug = _generate_slug(biz.slug if biz.slug else biz.name)
+    final_slug = _ensure_unique_slug(db, base_slug)
+
     # Crear tenant
     new_tenant = Tenant(
         name=biz.name,
-        slug=biz.slug,
+        slug=final_slug,
         description=biz.description,
         phone=biz.phone,
         address=biz.address,
@@ -73,7 +102,7 @@ def create_tenant_with_admin(
         db.flush()
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Slug ya existe. Elige otro identificador.")
+        raise HTTPException(status_code=400, detail="Error al crear el negocio. Verifica los datos.")
 
     # Crear persona
     person = Person(

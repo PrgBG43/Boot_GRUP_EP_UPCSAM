@@ -1,13 +1,25 @@
 import { useEffect, useState } from 'react'
 import api from '../../api.js'
 
-// -- Validación de teléfono colombiano -----------------------
-const COL_PHONE_RE = /^(\+?57[\s-]?)?[0-9]{3}[\s-]?[0-9]{3}[\s-]?[0-9]{4}$/
+// -- Generación automática de slug ---------------------------
+function generateSlug(name) {
+  return (name || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+}
 
+// -- Validación de teléfono -------------------------------------
+// 10 dígitos exactos, comienza por 3, sin espacios ni guiones
 function validatePhone(phone) {
   if (!phone || !phone.trim()) return 'El teléfono es obligatorio.'
-  if (!COL_PHONE_RE.test(phone.trim())) {
-    return 'El teléfono debe tener un formato válido para Colombia (ej. 3001234567 o +57 300 123 4567).'
+  if (!/^3[0-9]{9}$/.test(phone.trim())) {
+    return 'El teléfono debe tener 10 dígitos y comenzar por 3.'
   }
   return null
 }
@@ -137,6 +149,13 @@ export default function AdminTenants() {
     if (name === 'state_id') {
       // Resetear ciudad al cambiar departamento
       setTenantForm(f => ({ ...f, state_id: value, city_id: '', city: '' }))
+    } else if (name === 'name' && modal === 'create') {
+      // Auto-generar slug al escribir el nombre (solo en modo crear)
+      setTenantForm(f => ({ ...f, name: value, slug: generateSlug(value) }))
+    } else if (name === 'phone') {
+      // Solo permitir dígitos, máximo 10 caracteres
+      const digits = value.replace(/\D/g, '').slice(0, 10)
+      setTenantForm(f => ({ ...f, phone: digits }))
     } else {
       setTenantForm(f => ({ ...f, [name]: newVal }))
     }
@@ -160,10 +179,9 @@ export default function AdminTenants() {
     const errs = {}
 
     // Datos del negocio
-    if (!tenantForm.name.trim())        errs.name        = 'El nombre del negocio es obligatorio.'
+    if (!tenantForm.name.trim())        errs.name        = 'El nombre comercial es obligatorio.'
     if (!tenantForm.description.trim()) errs.description = 'La descripción es obligatoria.'
     if (!tenantForm.address.trim())     errs.address     = 'La dirección es obligatoria.'
-    if (!tenantForm.slug.trim())        errs.slug        = 'El slug es obligatorio.'
     if (!tenantForm.plan_id)            errs.plan_id     = 'Selecciona un plan.'
     if (!tenantForm.opening_time)       errs.opening_time = 'El horario de apertura es obligatorio.'
     if (!tenantForm.closing_time)       errs.closing_time = 'El horario de cierre es obligatorio.'
@@ -219,7 +237,7 @@ export default function AdminTenants() {
           address:      tenantForm.address.trim(),
           state_id:     parseInt(tenantForm.state_id),
           city_id:      parseInt(tenantForm.city_id),
-          slug:         tenantForm.slug.trim(),
+          slug:         tenantForm.slug || undefined,
           opening_time: tenantForm.opening_time,
           closing_time: tenantForm.closing_time,
           plan_id:      parseInt(tenantForm.plan_id),
@@ -238,14 +256,11 @@ export default function AdminTenants() {
       load()
     } catch (err) {
       const msg = err.message || 'Error al crear el negocio.'
-      if (msg.toLowerCase().includes('slug')) {
-        setFieldErrors(prev => ({ ...prev, slug: 'Este slug ya existe. Elige otro identificador.' }))
-        setFeedback('Corrige los errores del formulario antes de continuar.')
-      } else if (msg.toLowerCase().includes('email')) {
+      if (msg.toLowerCase().includes('email')) {
         setFieldErrors(prev => ({ ...prev, email: 'Este correo ya está registrado.' }))
         setFeedback('Corrige los errores del formulario antes de continuar.')
       } else if (msg.toLowerCase().includes('teléfono') || msg.toLowerCase().includes('telefono') || msg.toLowerCase().includes('phone')) {
-        setFieldErrors(prev => ({ ...prev, phone: msg }))
+        setFieldErrors(prev => ({ ...prev, phone: 'El teléfono debe tener 10 dígitos y comenzar por 3.' }))
         setFeedback('Corrige los errores del formulario antes de continuar.')
       } else {
         setFeedback(msg)
@@ -259,7 +274,6 @@ export default function AdminTenants() {
   const validateEdit = () => {
     const errs = {}
     if (!tenantForm.name.trim()) errs.name = 'El nombre del negocio es obligatorio.'
-    if (!tenantForm.slug.trim()) errs.slug = 'El slug es obligatorio.'
     if (tenantForm.phone) {
       const phoneErr = validatePhone(tenantForm.phone)
       if (phoneErr) errs.phone = phoneErr
@@ -530,15 +544,11 @@ export default function AdminTenants() {
                   <FieldError msg={fieldErrors.name} />
                 </div>
                 <div className="form-group">
-                  <label>Slug / Identificador público *</label>
-                  <input
-                    name="slug"
-                    value={tenantForm.slug}
-                    onChange={handleTenantChange}
-                    placeholder="barberia-ejemplo"
-                    className={fieldErrors.slug ? 'input-error' : ''}
-                  />
-                  <FieldError msg={fieldErrors.slug} />
+                  <label>Identificador público</label>
+                  <div className={`slug-preview${tenantForm.slug ? '' : ' slug-preview--empty'}`}>
+                    {tenantForm.slug || 'Se genera al escribir el nombre comercial'}
+                  </div>
+                  <small className="field-hint">Generado automáticamente a partir del nombre comercial.</small>
                 </div>
               </div>
 
@@ -561,7 +571,9 @@ export default function AdminTenants() {
                     name="phone"
                     value={tenantForm.phone}
                     onChange={handleTenantChange}
-                    placeholder="3001234567 o +57 300 123 4567"
+                    placeholder="3001234567"
+                    inputMode="numeric"
+                    maxLength={10}
                     className={fieldErrors.phone ? 'input-error' : ''}
                   />
                   <FieldError msg={fieldErrors.phone} />
@@ -719,7 +731,9 @@ export default function AdminTenants() {
                     name="phone"
                     value={adminForm.phone}
                     onChange={handleAdminChange}
-                    placeholder="+57 310 000 0000"
+                    placeholder="3101234567"
+                    inputMode="numeric"
+                    maxLength={10}
                   />
                 </div>
               </div>
@@ -752,7 +766,7 @@ export default function AdminTenants() {
               </div>
 
               <div className="alert alert-info" style={{ fontSize: '.82rem', marginTop: '0' }}>
-                ℹ️ El administrador podrá iniciar sesión con el correo y contraseña asignados.
+                El administrador podrá iniciar sesión con el correo y contraseña asignados.
                 El rol <strong>tenant_admin</strong> se asigna automáticamente.
               </div>
 
@@ -821,7 +835,9 @@ export default function AdminTenants() {
                     name="phone"
                     value={tenantForm.phone}
                     onChange={handleTenantChange}
-                    placeholder="3001234567 o +57 300 123 4567"
+                    placeholder="3001234567"
+                    inputMode="numeric"
+                    maxLength={10}
                     className={fieldErrors.phone ? 'input-error' : ''}
                   />
                   <FieldError msg={fieldErrors.phone} />

@@ -4,11 +4,8 @@ from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
-# Regex para teléfonos colombianos:
-# Acepta: 3001234567, +573001234567, +57 300 123 4567
-_COL_PHONE_RE = re.compile(
-    r"^(\+?57[\s\-]?)?[0-9]{3}[\s\-]?[0-9]{3}[\s\-]?[0-9]{4}$"
-)
+# Teléfono móvil colombiano: exactamente 10 dígitos, comienza por 3
+_COL_PHONE_RE = re.compile(r"^3[0-9]{9}$")
 
 
 def _validate_col_phone(v: Optional[str]) -> Optional[str]:
@@ -17,8 +14,7 @@ def _validate_col_phone(v: Optional[str]) -> Optional[str]:
     cleaned = v.strip()
     if cleaned and not _COL_PHONE_RE.match(cleaned):
         raise ValueError(
-            "El teléfono debe tener un formato válido para Colombia "
-            "(p.ej. 3001234567 o +57 300 123 4567)."
+            "El teléfono debe tener 10 dígitos y comenzar por 3."
         )
     return cleaned
 
@@ -94,7 +90,7 @@ class TenantWithAdminCreate(BaseModel):
     """Schema tipado para POST /businesses/with-admin."""
     class BusinessData(BaseModel):
         name: str
-        slug: str
+        slug: Optional[str] = None
         description: Optional[str] = None
         phone: str
         address: str
