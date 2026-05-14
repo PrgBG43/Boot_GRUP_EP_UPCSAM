@@ -138,7 +138,7 @@ def run_seed():
             demo_tenant = Tenant(
                 name="Barberia Demo Turnix",
                 description="Negocio de demostracion para la plataforma Turnix",
-                phone="+57 300 123 4567",
+                phone="3001234567",
                 address="Carrera 10 # 15-20, Girardot",
                 city=girardot.description,
                 state_id=cundinamarca.id,
@@ -181,9 +181,9 @@ def run_seed():
 
         superadmin = _create_user("admin@turnix.demo", "Admin123*", "Admin", "Turnix", "superadmin")
         negocio_admin = _create_user("negocio@turnix.demo", "Negocio123*", "Carlos", "Mendoza",
-                                     "tenant_admin", tenant_id=demo_tenant.id, phone="+57 310 987 6543")
+                                     "tenant_admin", tenant_id=demo_tenant.id, phone="3109876543")
         staff_user = _create_user("staff@turnix.demo", "Staff123*", "Laura", "Gomez",
-                                  "staff", tenant_id=demo_tenant.id, phone="+57 315 456 7890")
+                                  "staff", tenant_id=demo_tenant.id, phone="3154567890")
         db.commit()
         demo_tenant.owner_user_id = negocio_admin.id
         db.commit()

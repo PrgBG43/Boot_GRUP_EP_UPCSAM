@@ -89,7 +89,18 @@ export default function AdminTenants() {
       setPlans(p || [])
       setStates(s || [])
     } catch (err) {
-      setFeedback('Error al cargar los datos: ' + err.message)
+      const msg = err.message || ''
+      if (msg.includes('401') || msg.includes('sesión') || msg.includes('Unauthorized')) {
+        setFeedback('La sesión expiró. Inicia sesión nuevamente.')
+      } else if (msg.includes('403') || msg.includes('permiso') || msg.includes('Forbidden')) {
+        setFeedback('No tienes permiso para consultar los negocios.')
+      } else if (msg.includes('500') || msg.includes('Internal')) {
+        setFeedback('No fue posible cargar los negocios. Revisa el estado del servidor.')
+      } else if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('fetch')) {
+        setFeedback('No se pudo establecer conexión con el servidor.')
+      } else {
+        setFeedback('Error al cargar los datos: ' + msg)
+      }
     } finally {
       setLoading(false)
     }

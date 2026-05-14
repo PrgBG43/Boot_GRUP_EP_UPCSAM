@@ -54,14 +54,12 @@ class TenantBase(BaseModel):
     owner_user_id: Optional[int] = None
     is_active: bool = True
 
+
+class TenantCreate(TenantBase):
     @field_validator("phone", mode="before")
     @classmethod
     def validate_phone(cls, v):
         return _validate_col_phone(v)
-
-
-class TenantCreate(TenantBase):
-    pass
 
 
 class TenantUpdate(BaseModel):
