@@ -1,4 +1,4 @@
-"""Turnix – punto de entrada de la aplicacion FastAPI."""
+"""Turnix: punto de entrada de la aplicación FastAPI."""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.core.database import create_tables
 
 app = FastAPI(
-    title="Turnix - Sistema de Gestion de Citas para Negocios de Belleza",
+    title="Turnix - Sistema de Gestión de Citas para Negocios de Belleza",
     description=(
         "API REST para gestionar citas, servicios, clientes y conversaciones "
         "de negocios del sector de belleza mediante Telegram."
@@ -17,13 +17,14 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS: permite peticiones desde el frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         settings.FRONTEND_URL,
         "http://localhost:5173",
-        "http://localhost:3000",
+        "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -33,13 +34,13 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():
-    """Crea las tablas en la base de datos al iniciar la aplicacion."""
+    """Crea las tablas en la base de datos al iniciar la aplicación."""
     create_tables()
 
 
 @app.get("/health", tags=["Health"])
 def health_check():
-    """Verifica que el backend esta activo."""
+    """Verifica que el backend está activo."""
     return {"status": "ok", "message": "Turnix API funcionando correctamente"}
 
 

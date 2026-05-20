@@ -1,90 +1,87 @@
-import { Routes, Route, NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
-import { useAuth } from './context/AuthContext.jsx'
+import { NavLink, Route, Routes, useNavigate } from 'react-router-dom'
+import api from './api.js'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
-import Login from './pages/Login.jsx'
-import Dashboard from './pages/Dashboard.jsx'
-import Services from './pages/Services.jsx'
-import Clients from './pages/Clients.jsx'
+import { useAuth } from './context/AuthContext.jsx'
 import Appointments from './pages/Appointments.jsx'
-import Conversations from './pages/Conversations.jsx'
 import BusinessConfig from './pages/BusinessConfig.jsx'
+import Clients from './pages/Clients.jsx'
+import Conversations from './pages/Conversations.jsx'
+import Dashboard from './pages/Dashboard.jsx'
+import Login from './pages/Login.jsx'
+import Services from './pages/Services.jsx'
 import Staff from './pages/Staff.jsx'
 import TelegramConfig from './pages/TelegramConfig.jsx'
 import Unauthorized from './pages/Unauthorized.jsx'
 import AdminTenants from './pages/admin/Tenants.jsx'
 import AdminUsers from './pages/admin/Users.jsx'
-import api from './api.js'
 import './App.css'
 
-// ── Navegación por rol ──────────────────────────────────────
 const SUPERADMIN_NAV = [
-  { to: '/',               label: 'Dashboard',         icon: '📊', end: true },
-  { to: '/admin/tenants',  label: 'Negocios',           icon: '🏢' },
-  { to: '/admin/users',    label: 'Usuarios',           icon: '🔑' },
-  { to: '/appointments',   label: 'Citas',              icon: '📅' },
-  { to: '/clients',        label: 'Clientes',           icon: '👥' },
-  { to: '/services',       label: 'Servicios',          icon: '✂️' },
-  { to: '/conversations',  label: 'Conversaciones',     icon: '💬' },
-  { to: '/staff',          label: 'Personal',           icon: '👤' },
-  { to: '/telegram',       label: 'Config. Telegram',   icon: '🤖' },
+  { to: '/', label: 'Dashboard', end: true },
+  { to: '/admin/tenants', label: 'Negocios' },
+  { to: '/admin/users', label: 'Usuarios' },
+  { to: '/appointments', label: 'Citas' },
+  { to: '/clients', label: 'Clientes' },
+  { to: '/services', label: 'Servicios' },
+  { to: '/conversations', label: 'Conversaciones' },
+  { to: '/staff', label: 'Personal' },
+  { to: '/telegram', label: 'Telegram' },
 ]
 
 const TENANT_ADMIN_NAV = [
-  { to: '/',               label: 'Dashboard',         icon: '📊', end: true },
-  { to: '/services',       label: 'Servicios',          icon: '✂️' },
-  { to: '/appointments',   label: 'Citas',              icon: '📅' },
-  { to: '/clients',        label: 'Clientes',           icon: '👥' },
-  { to: '/staff',          label: 'Personal',           icon: '👤' },
-  { to: '/conversations',  label: 'Conversaciones',     icon: '💬' },
-  { to: '/telegram',       label: 'Telegram',           icon: '🤖' },
-  { to: '/business',       label: 'Mi Negocio',         icon: '⚙️' },
+  { to: '/', label: 'Dashboard', end: true },
+  { to: '/business', label: 'Mi negocio' },
+  { to: '/services', label: 'Servicios' },
+  { to: '/appointments', label: 'Citas' },
+  { to: '/clients', label: 'Clientes' },
+  { to: '/staff', label: 'Personal' },
+  { to: '/telegram', label: 'Telegram' },
+  { to: '/conversations', label: 'Conversaciones' },
 ]
 
 const STAFF_NAV = [
-  { to: '/',               label: 'Mi Agenda',         icon: '📅', end: true },
-  { to: '/appointments',   label: 'Citas',              icon: '📋' },
-  { to: '/clients',        label: 'Clientes',           icon: '👥' },
+  { to: '/', label: 'Mi agenda', end: true },
+  { to: '/appointments', label: 'Citas' },
+  { to: '/clients', label: 'Clientes' },
 ]
 
 function RoleBadge({ role }) {
   const labels = {
-    superadmin:   { label: 'Superadmin', cls: 'role-superadmin' },
+    superadmin: { label: 'Superadmin', cls: 'role-superadmin' },
     tenant_admin: { label: 'Administrador', cls: 'role-admin' },
-    staff:        { label: 'Personal', cls: 'role-staff' },
-    customer:     { label: 'Cliente', cls: 'role-customer' },
+    staff: { label: 'Personal', cls: 'role-staff' },
+    customer: { label: 'Cliente', cls: 'role-customer' },
   }
-  const r = labels[role] || { label: role, cls: '' }
-  return <span className={`role-pill ${r.cls}`}>{r.label}</span>
+  const value = labels[role] || { label: role, cls: '' }
+  return <span className={`role-pill ${value.cls}`}>{value.label}</span>
 }
 
-// ── Selector de negocio activo (solo superadmin) ────────────
 function TenantSelector() {
   const { activeTenant, setActiveTenant } = useAuth()
   const [tenants, setTenants] = useState([])
 
   useEffect(() => {
-    api.getBusinesses().then(t => setTenants(t || [])).catch(() => {})
+    api.getBusinesses().then(data => setTenants(data || [])).catch(() => {})
   }, [])
 
   const handleChange = (e) => {
     const id = parseInt(e.target.value)
-    if (!id) { setActiveTenant(null); return }
-    const t = tenants.find(t => t.id === id)
-    if (t) setActiveTenant({ id: t.id, name: t.name })
+    if (!id) {
+      setActiveTenant(null)
+      return
+    }
+    const tenant = tenants.find(item => item.id === id)
+    if (tenant) setActiveTenant({ id: tenant.id, name: tenant.name })
   }
 
   return (
     <div className="tenant-selector">
       <label className="tenant-selector-label">Negocio activo</label>
-      <select
-        className="tenant-selector-select"
-        value={activeTenant?.id || ''}
-        onChange={handleChange}
-      >
-        <option value="">— Vista global —</option>
-        {tenants.map(t => (
-          <option key={t.id} value={t.id}>{t.name}</option>
+      <select className="tenant-selector-select" value={activeTenant?.id || ''} onChange={handleChange}>
+        <option value="">Vista global</option>
+        {tenants.map(tenant => (
+          <option key={tenant.id} value={tenant.id}>{tenant.name}</option>
         ))}
       </select>
     </div>
@@ -116,7 +113,7 @@ function Layout({ navItems }) {
             <span className="tenant-name">{user.tenant_name}</span>
           </div>
         )}
-        {!user?.tenant_name && user?.role === 'superadmin' && (
+        {isSuperadmin && !activeTenantName && (
           <div className="sidebar-tenant">
             <span className="tenant-label">Vista global</span>
             <span className="tenant-name">Plataforma Turnix</span>
@@ -124,14 +121,13 @@ function Layout({ navItems }) {
         )}
 
         <nav className="sidebar-nav">
-          {navItems.map(({ to, end, icon, label }) => (
+          {navItems.map(({ to, end, label }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
               className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
             >
-              <span className="nav-icon">{icon}</span>
               <span>{label}</span>
             </NavLink>
           ))}
@@ -146,7 +142,7 @@ function Layout({ navItems }) {
             </div>
           </div>
           <button className="logout-btn" onClick={handleLogout} title="Cerrar sesión">
-            ⏻
+            Salir
           </button>
         </div>
       </aside>
@@ -156,7 +152,7 @@ function Layout({ navItems }) {
           <div className="topbar-left">
             {activeTenantName && <span className="topbar-tenant">{activeTenantName}</span>}
             {isSuperadmin && !activeTenantName && (
-              <span className="topbar-tenant" style={{ color: 'var(--accent)' }}>Vista global — Plataforma Turnix</span>
+              <span className="topbar-tenant" style={{ color: 'var(--accent)' }}>Vista global - Plataforma Turnix</span>
             )}
           </div>
           <div className="topbar-right">
@@ -166,37 +162,45 @@ function Layout({ navItems }) {
         </header>
         <main className="main-content">
           <Routes>
-            <Route path="/"               element={<Dashboard />} />
-            <Route path="/services"       element={<Services />} />
-            <Route path="/clients"        element={<Clients />} />
-            <Route path="/appointments"   element={<Appointments />} />
-            <Route path="/conversations"  element={<Conversations />} />
-            <Route path="/business"       element={
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/services" element={
+              <ProtectedRoute roles={['superadmin', 'tenant_admin']}>
+                <Services />
+              </ProtectedRoute>
+            } />
+            <Route path="/clients" element={<Clients />} />
+            <Route path="/appointments" element={<Appointments />} />
+            <Route path="/conversations" element={
+              <ProtectedRoute roles={['superadmin', 'tenant_admin']}>
+                <Conversations />
+              </ProtectedRoute>
+            } />
+            <Route path="/business" element={
               <ProtectedRoute roles={['tenant_admin']}>
                 <BusinessConfig />
               </ProtectedRoute>
             } />
-            <Route path="/staff"          element={
+            <Route path="/staff" element={
               <ProtectedRoute roles={['superadmin', 'tenant_admin']}>
                 <Staff />
               </ProtectedRoute>
             } />
-            <Route path="/telegram"       element={
+            <Route path="/telegram" element={
               <ProtectedRoute roles={['superadmin', 'tenant_admin']}>
                 <TelegramConfig />
               </ProtectedRoute>
             } />
-            <Route path="/admin/tenants"  element={
+            <Route path="/admin/tenants" element={
               <ProtectedRoute roles={['superadmin']}>
                 <AdminTenants />
               </ProtectedRoute>
             } />
-            <Route path="/admin/users"    element={
+            <Route path="/admin/users" element={
               <ProtectedRoute roles={['superadmin']}>
                 <AdminUsers />
               </ProtectedRoute>
             } />
-            <Route path="/unauthorized"   element={<Unauthorized />} />
+            <Route path="/unauthorized" element={<Unauthorized />} />
           </Routes>
         </main>
       </div>
@@ -206,10 +210,7 @@ function Layout({ navItems }) {
 
 export default function App() {
   const { isAuthenticated, isSuperadmin, isStaff } = useAuth()
-
-  const navItems = isSuperadmin ? SUPERADMIN_NAV
-                 : isStaff     ? STAFF_NAV
-                 :               TENANT_ADMIN_NAV
+  const navItems = isSuperadmin ? SUPERADMIN_NAV : isStaff ? STAFF_NAV : TENANT_ADMIN_NAV
 
   return (
     <Routes>

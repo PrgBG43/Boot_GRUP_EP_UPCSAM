@@ -33,6 +33,8 @@ def create_appointment(db: Session, appt_in: AppointmentCreate):
     service = db.query(Service).filter(Service.id == appt_in.service_id).first()
     if not service:
         return None, "Servicio no encontrado."
+    if service.tenant_id != appt_in.tenant_id:
+        return None, "El servicio no pertenece al negocio seleccionado."
     if not service.is_active:
         return None, "El servicio no está activo."
 

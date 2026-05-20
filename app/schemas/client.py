@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class ClientBase(BaseModel):
-    tenant_id: int
+    tenant_id: Optional[int] = None
     telegram_user_id: Optional[str] = None
     full_name: str
     username: Optional[str] = None

@@ -1,22 +1,10 @@
-import re
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
-# Teléfono móvil colombiano: exactamente 10 dígitos, comienza por 3
-_COL_PHONE_RE = re.compile(r"^3[0-9]{9}$")
-
-
-def _validate_col_phone(v: Optional[str]) -> Optional[str]:
-    if v is None:
-        return v
-    cleaned = v.strip()
-    if cleaned and not _COL_PHONE_RE.match(cleaned):
-        raise ValueError(
-            "El teléfono debe tener 10 dígitos y comenzar por 3."
-        )
-    return cleaned
+from app.core.slug import generate_slug
+from app.core.validation import validate_colombian_mobile
 
 
 class PlanInfo(BaseModel):
@@ -56,10 +44,22 @@ class TenantBase(BaseModel):
 
 
 class TenantCreate(TenantBase):
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        if not value or not value.strip():
+            raise ValueError("El nombre comercial es obligatorio.")
+        return value.strip()
+
     @field_validator("phone", mode="before")
     @classmethod
-    def validate_phone(cls, v):
-        return _validate_col_phone(v)
+    def validate_phone(cls, value):
+        return validate_colombian_mobile(value, required=True)
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def normalize_slug(cls, value):
+        return generate_slug(value) if value else None
 
 
 class TenantUpdate(BaseModel):
@@ -78,18 +78,31 @@ class TenantUpdate(BaseModel):
     owner_user_id: Optional[int] = None
     is_active: Optional[bool] = None
 
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and not value.strip():
+            raise ValueError("El nombre comercial es obligatorio.")
+        return value.strip() if value is not None else value
+
     @field_validator("phone", mode="before")
     @classmethod
-    def validate_phone(cls, v):
-        return _validate_col_phone(v)
+    def validate_phone(cls, value):
+        return validate_colombian_mobile(value, required=False)
+
+    @field_validator("slug", mode="before")
+    @classmethod
+    def normalize_slug(cls, value):
+        return generate_slug(value) if value else value
 
 
 class TenantWithAdminCreate(BaseModel):
     """Schema tipado para POST /businesses/with-admin."""
+
     class BusinessData(BaseModel):
         name: str
         slug: Optional[str] = None
-        description: Optional[str] = None
+        description: str
         phone: str
         address: str
         state_id: int
@@ -99,18 +112,81 @@ class TenantWithAdminCreate(BaseModel):
         plan_id: int
         is_active: bool = True
 
+        @field_validator("name")
+        @classmethod
+        def validate_name(cls, value: str) -> str:
+            if not value or not value.strip():
+                raise ValueError("El nombre comercial es obligatorio.")
+            return value.strip()
+
+        @field_validator("description")
+        @classmethod
+        def validate_description(cls, value: str) -> str:
+            if not value or not value.strip():
+                raise ValueError("La descripción es obligatoria.")
+            return value.strip()
+
+        @field_validator("address")
+        @classmethod
+        def validate_address(cls, value: str) -> str:
+            if not value or not value.strip():
+                raise ValueError("La dirección es obligatoria.")
+            return value.strip()
+
         @field_validator("phone", mode="before")
         @classmethod
-        def validate_phone(cls, v):
-            return _validate_col_phone(v)
+        def validate_phone(cls, value):
+            return validate_colombian_mobile(value, required=True)
+
+        @field_validator("slug", mode="before")
+        @classmethod
+        def normalize_slug(cls, value):
+            return generate_slug(value) if value else None
+
+        @model_validator(mode="after")
+        def validate_required_ids(self):
+            if not self.state_id:
+                raise ValueError("Selecciona un departamento.")
+            if not self.city_id:
+                raise ValueError("Selecciona una ciudad.")
+            if not self.plan_id:
+                raise ValueError("Selecciona un plan.")
+            if self.opening_time >= self.closing_time:
+                raise ValueError("El horario de cierre debe ser posterior al de apertura.")
+            return self
 
     class AdminData(BaseModel):
         first_name: str
         last_name: str
-        email: str
-        password: str
+        email: EmailStr
+        password: str = Field(min_length=8)
         confirm_password: str
         phone: Optional[str] = None
+
+        @field_validator("first_name")
+        @classmethod
+        def validate_first_name(cls, value: str) -> str:
+            if not value or not value.strip():
+                raise ValueError("El nombre del administrador es obligatorio.")
+            return value.strip()
+
+        @field_validator("last_name")
+        @classmethod
+        def validate_last_name(cls, value: str) -> str:
+            if not value or not value.strip():
+                raise ValueError("El apellido del administrador es obligatorio.")
+            return value.strip()
+
+        @field_validator("phone", mode="before")
+        @classmethod
+        def validate_phone(cls, value):
+            return validate_colombian_mobile(value, required=False)
+
+        @model_validator(mode="after")
+        def validate_passwords(self):
+            if self.password != self.confirm_password:
+                raise ValueError("Las contraseñas no coinciden.")
+            return self
 
     business: BusinessData
     admin: AdminData

@@ -4,7 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.auth import require_superadmin
 from app.models.location import City
+from app.models.user import User
 from app.schemas.city import CityCreate, CityResponse, CityUpdate
 from app.repositories import city_repository
 
@@ -12,7 +14,7 @@ router = APIRouter()
 
 
 @router.post("/", response_model=CityResponse, status_code=status.HTTP_201_CREATED)
-def create_city(city: CityCreate, db: Session = Depends(get_db)):
+def create_city(city: CityCreate, db: Session = Depends(get_db), _: User = Depends(require_superadmin)):
     return city_repository.create_city(db, city)
 
 
@@ -38,7 +40,7 @@ def get_city(city_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{city_id}", response_model=CityResponse)
-def update_city(city_id: int, city: CityUpdate, db: Session = Depends(get_db)):
+def update_city(city_id: int, city: CityUpdate, db: Session = Depends(get_db), _: User = Depends(require_superadmin)):
     updated = city_repository.update_city(db, city_id, city)
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="City not found")
@@ -46,7 +48,7 @@ def update_city(city_id: int, city: CityUpdate, db: Session = Depends(get_db)):
 
 
 @router.delete("/{city_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_city(city_id: int, db: Session = Depends(get_db)):
+def delete_city(city_id: int, db: Session = Depends(get_db), _: User = Depends(require_superadmin)):
     deleted = city_repository.delete_city(db, city_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="City not found")

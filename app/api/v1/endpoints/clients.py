@@ -16,11 +16,12 @@ router = APIRouter()
 def list_clients(
     skip: int = 0,
     limit: int = 100,
+    tenant_id: Optional[int] = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_staff_or_above),
 ):
-    tenant_id = None if current_user.primary_role == "superadmin" else current_user.tenant_id
-    return client_repository.list_clients(db, skip=skip, limit=limit, tenant_id=tenant_id)
+    effective_tenant = tenant_id if current_user.primary_role == "superadmin" else current_user.tenant_id
+    return client_repository.list_clients(db, skip=skip, limit=limit, tenant_id=effective_tenant)
 
 
 @router.post("/", response_model=ClientResponse, status_code=status.HTTP_201_CREATED)
@@ -29,6 +30,11 @@ def create_client(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_tenant_admin_or_above),
 ):
+    if current_user.primary_role == "superadmin":
+        if not client.tenant_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Selecciona un negocio.")
+    else:
+        client = client.model_copy(update={"tenant_id": current_user.tenant_id})
     if current_user.primary_role != "superadmin" and client.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
     return client_repository.create_client(db, client)

@@ -176,10 +176,10 @@ export default function Clients() {
                 Selecciona un negocio en el filtro antes de crear un cliente.
               </div>
             )}
-            <form onSubmit={handleSubmit} className="modal-form">
+            <form onSubmit={handleSubmit} className="modal-form" noValidate>
               <div className="form-group">
                 <label>Nombre completo *</label>
-                <input name="full_name" value={form.full_name} onChange={handleChange} required />
+                <input name="full_name" value={form.full_name} onChange={handleChange} />
               </div>
               <div className="form-group">
                 <label>Usuario de Telegram</label>

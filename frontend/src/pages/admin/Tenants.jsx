@@ -268,7 +268,7 @@ export default function AdminTenants() {
     } catch (err) {
       const msg = err.message || 'Error al crear el negocio.'
       if (msg.toLowerCase().includes('email')) {
-        setFieldErrors(prev => ({ ...prev, email: 'Este correo ya está registrado.' }))
+        setFieldErrors(prev => ({ ...prev, email: 'El correo ya está registrado.' }))
         setFeedback('Corrige los errores del formulario antes de continuar.')
       } else if (msg.toLowerCase().includes('teléfono') || msg.toLowerCase().includes('telefono') || msg.toLowerCase().includes('phone')) {
         setFieldErrors(prev => ({ ...prev, phone: 'El teléfono debe tener 10 dígitos y comenzar por 3.' }))
@@ -311,7 +311,6 @@ export default function AdminTenants() {
         description:  tenantForm.description || null,
         phone:        tenantForm.phone || null,
         address:      tenantForm.address || null,
-        slug:         tenantForm.slug.trim(),
         opening_time: tenantForm.opening_time || null,
         closing_time: tenantForm.closing_time || null,
         plan_id:      tenantForm.plan_id ? parseInt(tenantForm.plan_id) : null,
@@ -362,11 +361,11 @@ export default function AdminTenants() {
     doc.setFontSize(11)
     doc.setFont(undefined, 'normal')
     doc.text(`Filtro aplicado: ${pdfText(filterLabel)}`, 14, 30)
-    doc.text(`Fecha de generacion: ${pdfText(fecha)}`, 14, 38)
+    doc.text(`Fecha de generación: ${pdfText(fecha)}`, 14, 38)
 
     autoTable(doc, {
       startY: 46,
-      head: [['Negocio', 'Departamento', 'Ciudad', 'Telefono', 'Administrador', 'Correo admin', 'Plan', 'Estado']],
+      head: [['Negocio', 'Departamento', 'Ciudad', 'Teléfono', 'Administrador', 'Correo admin', 'Plan', 'Estado']],
       body: tenants.map(t => {
         const adName = t.owner_user
           ? `${t.owner_user.first_name || ''} ${t.owner_user.last_name || ''}`.trim()
@@ -786,7 +785,7 @@ export default function AdminTenants() {
                   Cancelar
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Creando' : 'Guardar negocio'}
+                  {saving ? 'Creando...' : 'Guardar negocio'}
                 </button>
               </div>
             </form>
@@ -822,14 +821,10 @@ export default function AdminTenants() {
                   <FieldError msg={fieldErrors.name} />
                 </div>
                 <div className="form-group">
-                  <label>Slug (URL)</label>
-                  <input
-                    name="slug"
-                    value={tenantForm.slug}
-                    onChange={handleTenantChange}
-                    placeholder="mi-barberia"
-                    className={fieldErrors.slug ? 'input-error' : ''}
-                  />
+                  <label>Identificador público</label>
+                  <div className={`slug-preview${tenantForm.slug ? '' : ' slug-preview--empty'}`}>
+                    {tenantForm.slug || 'Se genera automáticamente'}
+                  </div>
                   <FieldError msg={fieldErrors.slug} />
                 </div>
               </div>
@@ -925,7 +920,7 @@ export default function AdminTenants() {
                   Cancelar
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Guardando' : 'Actualizar'}
+                  {saving ? 'Guardando...' : 'Actualizar'}
                 </button>
               </div>
             </form>

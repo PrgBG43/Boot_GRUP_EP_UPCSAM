@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, field_validator
+
+from pydantic import BaseModel
 
 
 class TelegramConfigBase(BaseModel):
@@ -15,23 +16,25 @@ class TelegramConfigBase(BaseModel):
     show_prices: Optional[bool] = True
     show_duration: Optional[bool] = True
     use_global_bot: Optional[bool] = True
-    # Campos del bot propio
     bot_name: Optional[str] = None
     bot_description: Optional[str] = None
     bot_short_description: Optional[str] = None
 
 
 class TelegramConfigUpdate(TelegramConfigBase):
-    """Schema para actualizar configuración. El token se maneja por separado."""
-    bot_token: Optional[str] = None  # token en texto plano solo en escritura
+    """Schema para actualizar configuración. El token se conserva solo como futuro avanzado."""
+
+    bot_token: Optional[str] = None
 
 
 class TelegramConfigResponse(TelegramConfigBase):
     id: int
     tenant_id: int
-    # SEGURIDAD: nunca devolvemos bot_token completo
-    bot_token_masked: Optional[str] = None   # "123456:ABC****XYZ"
+    tenant_slug: Optional[str] = None
+    bot_token_masked: Optional[str] = None
     bot_username: Optional[str] = None
+    global_bot_username: Optional[str] = None
+    public_bot_link: Optional[str] = None
     bot_status: Optional[str] = "sin_configurar"
     is_active: Optional[bool] = False
     last_validated_at: Optional[datetime] = None

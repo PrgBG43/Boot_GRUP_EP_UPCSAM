@@ -36,6 +36,7 @@ export default function AdminUsers() {
   const [filterRole, setFilterRole] = useState('')
   const [filterTenant, setFilterTenant] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
   const load = async () => {
     setLoading(true)
@@ -87,6 +88,7 @@ export default function AdminUsers() {
   const openReset = (u) => {
     setSelected(u)
     setNewPassword('')
+    setConfirmPassword('')
     setFeedback(null)
     setModal('reset')
   }
@@ -126,15 +128,19 @@ export default function AdminUsers() {
 
   const handleResetPassword = async e => {
     e.preventDefault()
-    if (!newPassword || newPassword.length < 6) {
-      setFeedback({ type: 'error', msg: 'La contraseña debe tener al menos 6 caracteres' })
+    if (!newPassword || newPassword.length < 8) {
+      setFeedback({ type: 'error', msg: 'La contraseña debe tener mínimo 8 caracteres.' })
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setFeedback({ type: 'error', msg: 'Las contraseñas no coinciden.' })
       return
     }
     setSaving(true); setFeedback(null)
     try {
-      await api.updateUser(selected.id, { password: newPassword })
+      await api.resetPassword(selected.id, { new_password: newPassword, confirm_password: confirmPassword })
       setModal(null)
-      setFeedback({ type: 'success', msg: 'Contraseña actualizada' })
+      setFeedback({ type: 'success', msg: 'Contraseña actualizada.' })
     } catch (e) {
       setFeedback({ type: 'error', msg: e.message })
     }
@@ -146,7 +152,7 @@ export default function AdminUsers() {
       if (u.is_active) await api.deactivateUser(u.id)
       else             await api.activateUser(u.id)
       load()
-    } catch (e) { alert(e.message) }
+    } catch (e) { setFeedback({ type: 'error', msg: e.message }) }
   }
 
   if (loading) return <div className="spinner" />
@@ -249,13 +255,13 @@ export default function AdminUsers() {
               <h3>Nuevo usuario</h3>
               <button className="modal-close" onClick={() => setModal(null)}>✕</button>
             </div>
-            <form onSubmit={handleCreate}>
+            <form onSubmit={handleCreate} noValidate>
               <div className="modal-body">
                 <div className="modal-section-header">Datos personales</div>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Nombre *</label>
-                    <input className="form-control" name="first_name" required value={form.first_name} onChange={handleChange} />
+                    <input className="form-control" name="first_name" value={form.first_name} onChange={handleChange} />
                   </div>
                   <div className="form-group">
                     <label>Apellido</label>
@@ -273,11 +279,11 @@ export default function AdminUsers() {
                 <div className="form-row">
                   <div className="form-group">
                     <label>Correo electrónico *</label>
-                    <input className="form-control" type="email" name="email" required value={form.email} onChange={handleChange} />
+                    <input className="form-control" type="email" name="email" value={form.email} onChange={handleChange} />
                   </div>
                   <div className="form-group">
                     <label>Contraseña *</label>
-                    <input className="form-control" type="password" name="password" required value={form.password} onChange={handleChange} placeholder="Mínimo 6 caracteres" />
+                    <input className="form-control" type="password" name="password" value={form.password} onChange={handleChange} placeholder="Mínimo 8 caracteres" />
                   </div>
                 </div>
                 <div className="form-row">
@@ -318,11 +324,11 @@ export default function AdminUsers() {
               <h3>Editar usuario</h3>
               <button className="modal-close" onClick={() => setModal(null)}>✕</button>
             </div>
-            <form onSubmit={handleEdit}>
+            <form onSubmit={handleEdit} noValidate>
               <div className="modal-body">
                 <div className="form-group">
                   <label>Correo electrónico</label>
-                  <input className="form-control" type="email" name="email" required value={form.email} onChange={handleChange} />
+                  <input className="form-control" type="email" name="email" value={form.email} onChange={handleChange} />
                 </div>
                 <div className="form-group">
                   <label>Rol</label>
@@ -358,7 +364,7 @@ export default function AdminUsers() {
               <h3>Restablecer contraseña</h3>
               <button className="modal-close" onClick={() => setModal(null)}>✕</button>
             </div>
-            <form onSubmit={handleResetPassword}>
+            <form onSubmit={handleResetPassword} noValidate>
               <div className="modal-body">
                 <p style={{ marginBottom: '.75rem', color: 'var(--text-secondary)' }}>
                   Cambiando contraseña de <strong>{selected.email}</strong>
@@ -370,8 +376,17 @@ export default function AdminUsers() {
                     type="password"
                     value={newPassword}
                     onChange={e => setNewPassword(e.target.value)}
-                    placeholder="Mínimo 6 caracteres"
-                    required
+                    placeholder="Mínimo 8 caracteres"
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Confirmar nueva contraseña *</label>
+                  <input
+                    className="form-control"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={e => setConfirmPassword(e.target.value)}
+                    placeholder="Repetir contraseña"
                   />
                 </div>
                 {feedback && (

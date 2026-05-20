@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.auth import require_superadmin
+from app.models.user import User
 from app.schemas.state import StateCreate, StateResponse, StateUpdate
 from app.repositories import state_repository
 
@@ -11,7 +13,7 @@ router = APIRouter()
 
 
 @router.post("/", response_model=StateResponse, status_code=status.HTTP_201_CREATED)
-def create_state(state: StateCreate, db: Session = Depends(get_db)):
+def create_state(state: StateCreate, db: Session = Depends(get_db), _: User = Depends(require_superadmin)):
     return state_repository.create_state(db, state)
 
 
@@ -29,7 +31,7 @@ def get_state(state_id: int, db: Session = Depends(get_db)):
 
 
 @router.put("/{state_id}", response_model=StateResponse)
-def update_state(state_id: int, state: StateUpdate, db: Session = Depends(get_db)):
+def update_state(state_id: int, state: StateUpdate, db: Session = Depends(get_db), _: User = Depends(require_superadmin)):
     updated = state_repository.update_state(db, state_id, state)
     if not updated:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="State not found")
@@ -37,7 +39,7 @@ def update_state(state_id: int, state: StateUpdate, db: Session = Depends(get_db
 
 
 @router.delete("/{state_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_state(state_id: int, db: Session = Depends(get_db)):
+def delete_state(state_id: int, db: Session = Depends(get_db), _: User = Depends(require_superadmin)):
     deleted = state_repository.delete_state(db, state_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="State not found")

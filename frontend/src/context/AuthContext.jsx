@@ -16,6 +16,19 @@ export function AuthProvider({ children }) {
   })
   const [loading, setLoading] = useState(false)
 
+  useEffect(() => {
+    const handler = () => {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(USER_KEY)
+      localStorage.removeItem(ACTIVE_TENANT_KEY)
+      setToken(null)
+      setUser(null)
+      setActiveTenantState(null)
+    }
+    window.addEventListener('turnix:unauthorized', handler)
+    return () => window.removeEventListener('turnix:unauthorized', handler)
+  }, [])
+
   const setActiveTenant = useCallback((tenant) => {
     if (tenant) {
       localStorage.setItem(ACTIVE_TENANT_KEY, JSON.stringify(tenant))
@@ -26,14 +39,21 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = useCallback(async (email, password) => {
-    const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    })
+    let res
+    try {
+      res = await fetch(`${import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+    } catch {
+      throw new Error('No se pudo establecer conexión con el servidor.')
+    }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
-      throw new Error(err.detail || 'Credenciales incorrectas')
+      if (res.status === 401) throw new Error('Correo electrónico o contraseña incorrectos.')
+      if (res.status === 403) throw new Error(err.detail || 'Permiso insuficiente.')
+      throw new Error(err.detail || 'No fue posible iniciar sesión.')
     }
     const data = await res.json()
     localStorage.setItem(TOKEN_KEY, data.access_token)
@@ -88,4 +108,3 @@ export function useAuth() {
   if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider')
   return ctx
 }
-

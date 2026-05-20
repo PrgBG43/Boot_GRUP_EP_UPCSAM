@@ -59,7 +59,7 @@ export default function Services() {
 
   const handleToggle = async (s) => {
     try { await api.updateService(s.id, { is_active: !s.is_active }); load() }
-    catch(e) { alert(e.message) }
+    catch(e) { setFeedback({ type: 'error', msg: e.message }) }
   }
 
   const businessName = (id) => businesses.find(b => b.id === id)?.name || `Negocio #${id}`
@@ -80,7 +80,7 @@ export default function Services() {
       <div className="card">
         {services.length === 0 ? (
           <div className="empty-state">
-            <div className="icon">✂ï¸</div>
+            <div className="icon">Servicios</div>
             <p>No hay servicios registrados aún.</p>
             <button className="btn btn-primary" onClick={openCreate}>Crear primer servicio</button>
           </div>
@@ -137,11 +137,11 @@ export default function Services() {
               <button className="modal-close" onClick={() => setModal(false)}>×</button>
             </div>
             {feedback && <div className={`alert alert-${feedback.type}`} style={{margin:'0 1.5rem'}}>{feedback.msg}</div>}
-            <form onSubmit={handleSubmit} className="modal-form">
+            <form onSubmit={handleSubmit} className="modal-form" noValidate>
               {isSuperadmin && (
                 <div className="form-group">
                   <label>Negocio *</label>
-                  <select name="tenant_id" value={form.tenant_id} onChange={handleChange} required>
+                  <select name="tenant_id" value={form.tenant_id} onChange={handleChange}>
                     <option value="">Selecciona un negocio</option>
                     {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
@@ -149,7 +149,7 @@ export default function Services() {
               )}
               <div className="form-group">
                 <label>Nombre *</label>
-                <input name="name" value={form.name} onChange={handleChange} required placeholder="Ej: Corte de cabello" />
+                <input name="name" value={form.name} onChange={handleChange} placeholder="Ej: Corte de cabello" />
               </div>
               <div className="form-group">
                 <label>Descripción</label>
@@ -158,11 +158,11 @@ export default function Services() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Duración (min) *</label>
-                  <input type="number" name="duration_minutes" value={form.duration_minutes} onChange={handleChange} min={5} required />
+                  <input type="number" name="duration_minutes" value={form.duration_minutes} onChange={handleChange} min={5} />
                 </div>
                 <div className="form-group">
                   <label>Precio (COP) *</label>
-                  <input type="number" name="price" value={form.price} onChange={handleChange} step="0.01" min={0} required />
+                  <input type="number" name="price" value={form.price} onChange={handleChange} step="0.01" min={0} />
                 </div>
               </div>
               <div className="form-group form-check">

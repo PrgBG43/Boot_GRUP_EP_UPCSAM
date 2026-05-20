@@ -45,8 +45,9 @@ def create_appointment(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.primary_role not in ("superadmin", "tenant_admin") and \
-       current_user.tenant_id != appointment.tenant_id:
+    if current_user.primary_role not in ("superadmin", "tenant_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    if current_user.primary_role != "superadmin" and current_user.tenant_id != appointment.tenant_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
     result, error = appointment_repository.create_appointment(db, appointment)
     if error:

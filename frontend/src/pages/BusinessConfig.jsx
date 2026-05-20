@@ -74,10 +74,10 @@ export default function BusinessConfig() {
           <div style={{marginBottom:'1.5rem',fontSize:'.85rem',color:'var(--text-muted)'}}>
             Slug: <code>{business.slug}</code>
           </div>
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
             <div className="form-group">
               <label>Nombre del negocio *</label>
-              <input name="name" value={form.name} onChange={handleChange} required />
+              <input name="name" value={form.name} onChange={handleChange} />
             </div>
             <div className="form-group">
               <label>Descripción</label>

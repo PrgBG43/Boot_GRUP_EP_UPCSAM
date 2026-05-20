@@ -84,12 +84,10 @@ export default function Appointments() {
   }
 
   const handleCancel = async id => {
-    if (!confirm('¿Cancelar esta cita?')) return
-    try { await api.cancelAppointment(id);   load() } catch (e) { alert(e.message) }
+    try { await api.cancelAppointment(id); load() } catch (e) { setFeedback({ type: 'error', msg: e.message }) }
   }
   const handleComplete = async id => {
-    if (!confirm('¿Marcar como completada?')) return
-    try { await api.completeAppointment(id); load() } catch (e) { alert(e.message) }
+    try { await api.completeAppointment(id); load() } catch (e) { setFeedback({ type: 'error', msg: e.message }) }
   }
 
   if (loading) return <div className="spinner" />
@@ -225,11 +223,11 @@ export default function Appointments() {
                 {feedback.msg}
               </div>
             )}
-            <form onSubmit={handleSubmit} className="modal-form">
+            <form onSubmit={handleSubmit} className="modal-form" noValidate>
               {isSuperadmin && (
                 <div className="form-group">
                   <label>Negocio *</label>
-                  <select name="tenant_id" value={form.tenant_id} onChange={handleChange} required>
+                  <select name="tenant_id" value={form.tenant_id} onChange={handleChange}>
                     <option value="">Selecciona un negocio</option>
                     {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
@@ -237,7 +235,7 @@ export default function Appointments() {
               )}
               <div className="form-group">
                 <label>Servicio *</label>
-                <select name="service_id" value={form.service_id} onChange={handleChange} required>
+                <select name="service_id" value={form.service_id} onChange={handleChange}>
                   <option value="">Selecciona un servicio</option>
                   {availableServices.map(s => (
                     <option key={s.id} value={s.id}>
@@ -248,7 +246,7 @@ export default function Appointments() {
               </div>
               <div className="form-group">
                 <label>Cliente *</label>
-                <select name="client_id" value={form.client_id} onChange={handleChange} required>
+                <select name="client_id" value={form.client_id} onChange={handleChange}>
                   <option value="">Selecciona un cliente</option>
                   {availableClients.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
                 </select>
@@ -256,11 +254,11 @@ export default function Appointments() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Fecha *</label>
-                  <input type="date" name="appointment_date" value={form.appointment_date} onChange={handleChange} required />
+                  <input type="date" name="appointment_date" value={form.appointment_date} onChange={handleChange} />
                 </div>
                 <div className="form-group">
                   <label>Hora inicio *</label>
-                  <input type="time" name="start_time" value={form.start_time} onChange={handleChange} required />
+                  <input type="time" name="start_time" value={form.start_time} onChange={handleChange} />
                 </div>
               </div>
               <div className="form-group">

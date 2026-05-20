@@ -188,12 +188,39 @@ Variables principales para desarrollo local:
 ```env
 DATABASE_URL=sqlite:///./turnix.db
 TELEGRAM_BOT_TOKEN=tu_token_de_telegram
-FRONTEND_URL=frontend_en_desarrollo_local
+TELEGRAM_BOT_USERNAME=usuario_publico_del_bot_sin_arroba
+FRONTEND_URL=http://localhost:5173
+SECRET_KEY=valor-seguro-para-jwt
+TURNIX_SUPERADMIN_EMAIL=admin@turnix.local
+TURNIX_SUPERADMIN_PASSWORD=Admin123*
+TURNIX_SUPERADMIN_FIRST_NAME=Administrador
+TURNIX_SUPERADMIN_LAST_NAME=Turnix
+TURNIX_DEMO_SEED=false
 ```
 
 Para un entorno con PostgreSQL, se debe configurar la variable `DATABASE_URL` con la cadena de conexión correspondiente.
 
 No se deben incluir tokens reales, contraseñas ni credenciales sensibles dentro del repositorio.
+La `SECRET_KEY` incluida en `.env.example` es solo para desarrollo local.
+
+### Superadmin inicial
+
+El superadmin inicial se configura en el archivo `.env` del backend mediante:
+
+```env
+TURNIX_SUPERADMIN_EMAIL=admin@turnix.local
+TURNIX_SUPERADMIN_PASSWORD=Admin123*
+TURNIX_SUPERADMIN_FIRST_NAME=Administrador
+TURNIX_SUPERADMIN_LAST_NAME=Turnix
+```
+
+Se crea o actualiza al ejecutar:
+
+```bash
+python -m app.database.seed
+```
+
+Con `TURNIX_DEMO_SEED=false`, el seed no crea negocio demo ni usuarios demo. Con `TURNIX_DEMO_SEED=true`, crea datos de desarrollo adicionales.
 
 ### Frontend
 
@@ -206,7 +233,7 @@ copy .env.example .env
 Variable principal:
 
 ```env
-VITE_API_URL=api_backend_en_desarrollo_local
+VITE_API_URL=http://127.0.0.1:8000/api/v1
 ```
 
 Esta variable permite que el frontend consuma los endpoints del backend.
@@ -253,6 +280,7 @@ Para configurarlo:
 
 ```env
 TELEGRAM_BOT_TOKEN=tu_token_de_telegram
+TELEGRAM_BOT_USERNAME=usuario_publico_del_bot_sin_arroba
 ```
 
 Para iniciar el bot:
@@ -261,10 +289,11 @@ Para iniciar el bot:
 python -m app.bot.telegram_bot
 ```
 
-Flujo general del bot:
+Turnix usa un bot global y enlaces por negocio:
 
 ```text
-/start
+https://t.me/usuario_publico_del_bot?start=slug-del-negocio
+/start slug-del-negocio
 Seleccionar servicio
 Elegir fecha
 Elegir horario disponible
@@ -273,9 +302,9 @@ Confirmar cita
 
 ---
 
-## Datos de prueba
+## Datos iniciales
 
-El proyecto incluye un script para cargar datos iniciales de demostración.
+El proyecto incluye un script para cargar planes, roles, departamentos, ciudades y el superadmin inicial.
 
 Desde la raíz del proyecto, ejecuta:
 
@@ -283,17 +312,8 @@ Desde la raíz del proyecto, ejecuta:
 python -m app.database.seed
 ```
 
-Este comando permite crear información base para probar el sistema, como un negocio de demostración, servicios, clientes y citas iniciales.
-
-### Credenciales de demo
-
-| Rol           | Email                  | Contraseña   |
-|---------------|------------------------|--------------|
-| Superadmin    | admin@turnix.demo      | Admin123*    |
-| Administrador | negocio@turnix.demo    | Negocio123*  |
-| Personal      | staff@turnix.demo      | Staff123*    |
-
-**Negocio demo:** Barbería Demo Turnix
+Este comando no crea negocio demo ni usuarios demo cuando `TURNIX_DEMO_SEED=false`.
+Para desarrollo local se pueden crear datos demo activando `TURNIX_DEMO_SEED=true` en `.env`.
 
 ---
 

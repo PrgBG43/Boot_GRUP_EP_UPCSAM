@@ -7,6 +7,12 @@ function FieldError({ msg }) {
   return <span className="field-error">{msg}</span>
 }
 
+function validatePhone(phone) {
+  if (!phone || !phone.trim()) return 'El teléfono debe tener 10 dígitos y comenzar por 3.'
+  if (!/^3[0-9]{9}$/.test(phone.trim())) return 'El teléfono debe tener 10 dígitos y comenzar por 3.'
+  return null
+}
+
 const EMPTY_FORM = {
   first_name: '', last_name: '', email: '', password: '', confirm_password: '', phone: '',
 }
@@ -34,9 +40,11 @@ export default function Staff() {
   const openCreate = () => { setForm(EMPTY_FORM); setModal(true); setFeedback(null); setFieldErrors({}) }
 
   const handleChange = e => {
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }))
-    if (fieldErrors[e.target.name]) {
-      setFieldErrors(prev => ({ ...prev, [e.target.name]: null }))
+    const { name, value } = e.target
+    const nextValue = name === 'phone' ? value.replace(/\D/g, '').slice(0, 10) : value
+    setForm(f => ({ ...f, [name]: nextValue }))
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => ({ ...prev, [name]: null }))
     }
   }
 
@@ -54,6 +62,8 @@ export default function Staff() {
       errs.confirm_password = 'Confirma la contraseña.'
     else if (form.password !== form.confirm_password)
       errs.confirm_password = 'Las contraseñas no coinciden.'
+    const phoneError = validatePhone(form.phone)
+    if (phoneError) errs.phone = phoneError
     return errs
   }
 
@@ -78,6 +88,9 @@ export default function Staff() {
       })
       setModal(false); load()
     } catch(e) {
+      if ((e.message || '').toLowerCase().includes('correo')) {
+        setFieldErrors(prev => ({ ...prev, email: 'El correo ya está registrado.' }))
+      }
       setFeedback({ type: 'error', msg: e.message })
     }
     setSaving(false)
@@ -85,7 +98,7 @@ export default function Staff() {
 
   const toggleActive = async (s) => {
     const action = s.is_active ? api.deactivateUser : api.activateUser
-    try { await action(s.id); load() } catch(e) { alert(e.message) }
+    try { await action(s.id); load() } catch(e) { setFeedback({ type: 'error', msg: e.message }) }
   }
 
   if (loading) return <div className="spinner" />
@@ -207,8 +220,17 @@ export default function Staff() {
                 </div>
               </div>
               <div className="form-group">
-                <label>Teléfono</label>
-                <input name="phone" value={form.phone} onChange={handleChange} placeholder="+57 300 000 0000" />
+                <label>Teléfono *</label>
+                <input
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  placeholder="3001234567"
+                  inputMode="numeric"
+                  maxLength={10}
+                  className={fieldErrors.phone ? 'input-error' : ''}
+                />
+                <FieldError msg={fieldErrors.phone} />
               </div>
             </form>
             <div className="modal-footer">

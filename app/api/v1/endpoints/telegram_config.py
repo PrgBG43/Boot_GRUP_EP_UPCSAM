@@ -3,13 +3,15 @@ import re
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.auth import require_tenant_admin_or_above
+from app.core.config import settings
 from app.core.database import get_db
-from app.core.auth import get_current_user, require_tenant_admin_or_above
-from app.models.user import User
 from app.models.telegram_config import TelegramConfig
+from app.models.tenant import Tenant
+from app.models.user import User
 from app.schemas.telegram_config import (
     TelegramConfigResponse,
     TelegramConfigUpdate,
@@ -23,7 +25,6 @@ TELEGRAM_API = "https://api.telegram.org/bot{token}/{method}"
 
 
 def _mask_token(token: str) -> str:
-    """Devuelve versión enmascarada: '123456:ABC****XYZ'."""
     if not token or ":" not in token:
         return "***:***"
     prefix, secret = token.split(":", 1)
@@ -35,19 +36,84 @@ def _mask_token(token: str) -> str:
 def _get_tenant_id(current_user: User, tenant_id_param: int = None) -> int:
     if current_user.primary_role == "superadmin":
         if not tenant_id_param:
-            raise HTTPException(status_code=400, detail="Superadmin debe especificar tenant_id")
+            raise HTTPException(status_code=400, detail="Superadmin debe especificar tenant_id.")
         return tenant_id_param
     return current_user.tenant_id
 
 
-def _get_or_create_config(db: Session, tid: int) -> TelegramConfig:
-    config = db.query(TelegramConfig).filter(TelegramConfig.tenant_id == tid).first()
+def _get_or_create_config(db: Session, tenant_id: int) -> TelegramConfig:
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Negocio no encontrado.")
+
+    config = db.query(TelegramConfig).filter(TelegramConfig.tenant_id == tenant_id).first()
     if not config:
-        config = TelegramConfig(tenant_id=tid)
+        config = TelegramConfig(tenant_id=tenant_id, use_global_bot=True)
         db.add(config)
         db.commit()
         db.refresh(config)
     return config
+
+
+def _global_bot_username() -> str | None:
+    username = settings.TELEGRAM_BOT_USERNAME
+    if username:
+        return username.lstrip("@")
+    if settings.TELEGRAM_BOT_TOKEN:
+        try:
+            url = TELEGRAM_API.format(token=settings.TELEGRAM_BOT_TOKEN, method="getMe")
+            with httpx.Client(timeout=5.0) as client:
+                response = client.get(url)
+            result = response.json()
+            if result.get("ok"):
+                return result.get("result", {}).get("username")
+        except Exception:
+            return None
+    return None
+
+
+def _serialize_config(db: Session, config: TelegramConfig) -> TelegramConfigResponse:
+    tenant = db.query(Tenant).filter(Tenant.id == config.tenant_id).first()
+    global_username = _global_bot_username()
+    bot_username = global_username if config.use_global_bot else config.bot_username
+    public_link = None
+    if bot_username and tenant and tenant.slug:
+        public_link = f"https://t.me/{bot_username}?start={tenant.slug}"
+
+    status = config.bot_status
+    is_active = config.is_active
+    if config.use_global_bot:
+        status = "conectado" if global_username and settings.TELEGRAM_BOT_TOKEN else "sin_configurar"
+        is_active = bool(global_username and settings.TELEGRAM_BOT_TOKEN)
+
+    return TelegramConfigResponse(
+        id=config.id,
+        tenant_id=config.tenant_id,
+        tenant_slug=tenant.slug if tenant else None,
+        welcome_message=config.welcome_message,
+        services_message=config.services_message,
+        ask_date_message=config.ask_date_message,
+        ask_time_message=config.ask_time_message,
+        confirm_message=config.confirm_message,
+        cancel_message=config.cancel_message,
+        unavailable_message=config.unavailable_message,
+        allow_cancellation=config.allow_cancellation,
+        show_prices=config.show_prices,
+        show_duration=config.show_duration,
+        use_global_bot=config.use_global_bot,
+        bot_name=config.bot_name,
+        bot_description=config.bot_description,
+        bot_short_description=config.bot_short_description,
+        bot_token_masked=config.bot_token_masked,
+        bot_username=bot_username,
+        global_bot_username=global_username,
+        public_bot_link=public_link,
+        bot_status=status,
+        is_active=is_active,
+        last_validated_at=config.last_validated_at,
+        created_at=config.created_at,
+        updated_at=config.updated_at,
+    )
 
 
 @router.get("/", response_model=TelegramConfigResponse)
@@ -56,9 +122,9 @@ def get_telegram_config(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_tenant_admin_or_above),
 ):
-    """Obtiene la configuración de Telegram del negocio."""
     tid = _get_tenant_id(current_user, tenant_id)
-    return _get_or_create_config(db, tid)
+    config = _get_or_create_config(db, tid)
+    return _serialize_config(db, config)
 
 
 @router.put("/", response_model=TelegramConfigResponse)
@@ -68,30 +134,26 @@ def update_telegram_config(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_tenant_admin_or_above),
 ):
-    """Actualiza la configuración de Telegram del negocio.
-    Si se incluye bot_token, se guarda internamente y se calcula la versión enmascarada.
-    El bot_token NUNCA se devuelve en la respuesta.
-    """
     tid = _get_tenant_id(current_user, tenant_id)
     config = _get_or_create_config(db, tid)
 
     data = config_in.model_dump(exclude_unset=True)
-
-    # Tratar bot_token por separado – guardar pero no devolver
     raw_token = data.pop("bot_token", None)
     if raw_token is not None:
-        if raw_token.strip() == "":
-            # Limpiar token
+        token = raw_token.strip()
+        if token:
+            config.bot_token = token
+            config.bot_token_masked = _mask_token(token)
+            config.bot_token_hint = token[-6:] if len(token) > 6 else token
+        else:
             config.bot_token = None
             config.bot_token_masked = None
             config.bot_token_hint = None
             config.bot_status = "sin_configurar"
             config.is_active = False
-        else:
-            config.bot_token = raw_token.strip()
-            config.bot_token_masked = _mask_token(raw_token.strip())
-            # Mantener bot_token_hint por retrocompatibilidad (últimos 6 chars)
-            config.bot_token_hint = raw_token.strip()[-6:] if len(raw_token.strip()) > 6 else raw_token.strip()
+
+    # El flujo entregado usa bot global + slug. Mantener True evita prometer multi-bot.
+    data["use_global_bot"] = True
 
     for key, value in data.items():
         if hasattr(config, key):
@@ -99,7 +161,7 @@ def update_telegram_config(
 
     db.commit()
     db.refresh(config)
-    return config
+    return _serialize_config(db, config)
 
 
 @router.post("/validate", response_model=TelegramValidateResponse)
@@ -111,18 +173,18 @@ def validate_telegram_token(
 ):
     """
     Valida un token de Telegram llamando a getMe.
-    Si es válido, actualiza bot_username, bot_name y estado de la configuración.
-    SEGURIDAD: el token no se registra en logs ni se devuelve.
+
+    Este endpoint se conserva como modo avanzado/futuro. El runtime productivo
+    incluido usa TELEGRAM_BOT_TOKEN global y resuelve negocios por slug.
     """
     tid = _get_tenant_id(current_user, tenant_id)
     token = payload.bot_token.strip()
 
-    # Validar formato básico del token (no ejecutar si no parece token válido)
     if not re.match(r"^\d+:[A-Za-z0-9_-]{35,}$", token):
         return TelegramValidateResponse(
             ok=False,
             status="token_invalido",
-            message="Formato de token incorrecto. Debe ser: NÚMERO:CARACTERES_ALFANUMÉRICOS",
+            message="Formato de token incorrecto.",
         )
 
     try:
@@ -130,18 +192,18 @@ def validate_telegram_token(
         with httpx.Client(timeout=10.0) as client:
             resp = client.get(url)
         result = resp.json()
-    except Exception as e:
+    except Exception as exc:
         return TelegramValidateResponse(
             ok=False,
             status="error",
-            message=f"No se pudo conectar con Telegram: {type(e).__name__}",
+            message=f"No se pudo conectar con Telegram: {type(exc).__name__}",
         )
 
+    config = _get_or_create_config(db, tid)
+    config.last_validated_at = datetime.now(timezone.utc)
+
     if not result.get("ok"):
-        # Guardar estado de error en config
-        config = _get_or_create_config(db, tid)
         config.bot_status = "token_invalido"
-        config.last_validated_at = datetime.now(timezone.utc)
         db.commit()
         return TelegramValidateResponse(
             ok=False,
@@ -153,8 +215,6 @@ def validate_telegram_token(
     bot_username = bot_info.get("username")
     bot_name = bot_info.get("first_name")
 
-    # Actualizar configuración con datos del bot
-    config = _get_or_create_config(db, tid)
     config.bot_token = token
     config.bot_token_masked = _mask_token(token)
     config.bot_token_hint = token[-6:] if len(token) > 6 else token
@@ -162,8 +222,7 @@ def validate_telegram_token(
     config.bot_name = bot_name or config.bot_name
     config.bot_status = "conectado"
     config.is_active = True
-    config.use_global_bot = False
-    config.last_validated_at = datetime.now(timezone.utc)
+    config.use_global_bot = True
     db.commit()
 
     return TelegramValidateResponse(
@@ -171,5 +230,5 @@ def validate_telegram_token(
         bot_username=bot_username,
         bot_name=bot_name,
         status="conectado",
-        message=f"✅ Bot conectado correctamente: @{bot_username}",
+        message=f"Bot validado correctamente: @{bot_username}. El runtime incluido usa el bot global de Turnix.",
     )

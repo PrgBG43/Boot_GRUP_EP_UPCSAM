@@ -1,43 +1,40 @@
 """
-Bot de Telegram para Turnix – Sistema de Gestión de Citas de Belleza.
-
-Flujo conversacional:
-  /start → registro de cliente → menú principal
-  1. Ver servicios
-  2. Agendar cita
-  3. Mis citas
-  4. Cancelar cita
+Bot global de Telegram para Turnix.
 
 Uso:
   python -m app.bot.telegram_bot
+
+Flujo:
+  /start <slug-negocio> -> menú -> servicios / agendar / mis citas / cancelar
 """
 import logging
 import os
 import sys
-from datetime import datetime, date, time, timedelta
+from datetime import date, datetime, timedelta
 from typing import Optional
 
-# Ajustar path para poder importar la app
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
-from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove, KeyboardButton
+from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram.error import InvalidToken
 from telegram.ext import (
     Application,
     CommandHandler,
-    MessageHandler,
     ContextTypes,
     ConversationHandler,
+    MessageHandler,
     filters,
 )
 
 from app.core.config import settings
 from app.core.database import SessionLocal, create_tables
+from app.models.appointment import Appointment
 from app.models.client import Client
-from app.models.tenant import Tenant
-from app.models.service import Service
 from app.models.conversation import Conversation
 from app.models.message import Message
-from app.models.appointment import Appointment
+from app.models.service import Service
+from app.models.telegram_config import TelegramConfig
+from app.models.tenant import Tenant
 from app.repositories import appointment_repository
 from app.schemas.appointment import AppointmentCreate
 from app.services.availability_service import get_available_slots
@@ -48,608 +45,476 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ──────────────────────────────────────────────
-# Estados del ConversationHandler
-# ──────────────────────────────────────────────
-(
-    MENU,
-    SELECTING_SERVICE,
-    ENTERING_DATE,
-    SELECTING_SLOT,
-    CONFIRMING_APPOINTMENT,
-    VIEWING_APPOINTMENTS,
-    CANCELLING_APPOINTMENT,
-) = range(7)
+MENU, SELECTING_SERVICE, ENTERING_DATE, SELECTING_SLOT, CONFIRMING_APPOINTMENT, CANCELLING_APPOINTMENT = range(6)
 
-# ──────────────────────────────────────────────
-# Helpers de base de datos
-# ──────────────────────────────────────────────
 
-def _get_or_create_client(db, tg_user) -> Client:
-    """Registra o actualiza el cliente con datos de Telegram (sin aislamiento por tenant)."""
-    client = db.query(Client).filter(Client.telegram_user_id == str(tg_user.id)).first()
-    full_name = (tg_user.full_name or "").strip() or "Sin nombre"
+def _get_tenant_by_slug(db, slug: str) -> Optional[Tenant]:
+    return db.query(Tenant).filter(Tenant.slug == slug, Tenant.is_active == True).first()
+
+
+def _get_config(db, tenant_id: int) -> TelegramConfig:
+    config = db.query(TelegramConfig).filter(TelegramConfig.tenant_id == tenant_id).first()
+    if config:
+        return config
+    config = TelegramConfig(tenant_id=tenant_id, use_global_bot=True)
+    db.add(config)
+    db.commit()
+    db.refresh(config)
+    return config
+
+
+def _get_active_services(db, tenant_id: int):
+    return (
+        db.query(Service)
+        .filter(Service.tenant_id == tenant_id, Service.is_active == True)
+        .order_by(Service.name)
+        .all()
+    )
+
+
+def _get_or_create_client(db, tg_user, tenant_id: int) -> Client:
+    full_name = (tg_user.full_name or "").strip() or "Cliente Telegram"
+    client = (
+        db.query(Client)
+        .filter(Client.telegram_user_id == str(tg_user.id), Client.tenant_id == tenant_id)
+        .first()
+    )
     if not client:
         client = Client(
+            tenant_id=tenant_id,
             telegram_user_id=str(tg_user.id),
             full_name=full_name,
             username=tg_user.username,
         )
         db.add(client)
-        db.commit()
-        db.refresh(client)
     else:
         client.full_name = full_name
         client.username = tg_user.username
-        db.commit()
+    db.commit()
+    db.refresh(client)
     return client
 
 
-def _get_or_create_client_for_tenant(db, tg_user, tenant_id: int) -> Client:
-    """
-    Registra o actualiza el cliente asociado a un tenant específico.
-    Si el usuario ya existe para otro tenant, crea un registro separado por tenant.
-    """
-    full_name = (tg_user.full_name or "").strip() or "Sin nombre"
-    client = (
-        db.query(Client)
-        .filter(
-            Client.telegram_user_id == str(tg_user.id),
-            Client.tenant_id == tenant_id,
-        )
-        .first()
-    )
-    if not client:
-        client = Client(
-            telegram_user_id=str(tg_user.id),
-            full_name=full_name,
-            username=tg_user.username,
-            tenant_id=tenant_id,
-        )
-        db.add(client)
-        db.commit()
-        db.refresh(client)
-    else:
-        client.full_name = full_name
-        client.username  = tg_user.username
-        db.commit()
-    return client
-
-
-def _get_or_create_conversation(db, client: Client, chat_id: int, tenant: Tenant) -> Conversation:
-    """Crea o actualiza la conversación del cliente."""
-    conv = (
+def _get_or_create_conversation(db, client: Client, chat_id: int, tenant_id: int) -> Conversation:
+    conversation = (
         db.query(Conversation)
-        .filter(Conversation.client_id == client.id, Conversation.chat_id == str(chat_id))
+        .filter(
+            Conversation.tenant_id == tenant_id,
+            Conversation.client_id == client.id,
+            Conversation.chat_id == str(chat_id),
+        )
         .first()
     )
-    if not conv:
-        conv = Conversation(
-            tenant_id=tenant.id,
+    if not conversation:
+        conversation = Conversation(
+            tenant_id=tenant_id,
             client_id=client.id,
             chat_id=str(chat_id),
             channel="telegram",
             status="active",
             visit_count=1,
         )
-        db.add(conv)
-        db.commit()
-        db.refresh(conv)
+        db.add(conversation)
     else:
-        conv.visit_count = (conv.visit_count or 0) + 1
-        conv.last_interaction_at = datetime.utcnow()
-        db.commit()
-    return conv
+        conversation.visit_count = (conversation.visit_count or 0) + 1
+        conversation.last_interaction_at = datetime.utcnow()
+    db.commit()
+    db.refresh(conversation)
+    return conversation
 
 
-def _save_message(conversation_id: int, direction: str, content: str):
-    """Guarda un mensaje de conversación gestionando su propia sesión de base de datos."""
+def _save_message(conversation_id: Optional[int], direction: str, content: str) -> None:
+    if not conversation_id or not content:
+        return
     db = SessionLocal()
     try:
-        msg = Message(conversation_id=conversation_id, direction=direction, content=content)
-        db.add(msg)
+        db.add(Message(conversation_id=conversation_id, direction=direction, content=content))
         db.commit()
     except Exception:
         db.rollback()
+        logger.exception("No se pudo guardar mensaje de Telegram")
     finally:
         db.close()
 
 
-def _get_default_tenant(db) -> Optional[Tenant]:
-    return db.query(Tenant).filter(Tenant.is_active == True).first()
+def _menu_keyboard(config: TelegramConfig) -> ReplyKeyboardMarkup:
+    rows = [["Ver servicios", "Agendar cita"], ["Mis citas"]]
+    if config.allow_cancellation:
+        rows[-1].append("Cancelar cita")
+    return ReplyKeyboardMarkup(rows, resize_keyboard=True, one_time_keyboard=False)
 
 
-def _get_tenant_by_slug(db, slug: str) -> Optional[Tenant]:
-    """Busca un tenant activo por su slug único."""
-    return db.query(Tenant).filter(Tenant.slug == slug, Tenant.is_active == True).first()
+def _service_line(service: Service, config: TelegramConfig, index: Optional[int] = None) -> str:
+    prefix = f"{index}. " if index is not None else "- "
+    parts = [f"{prefix}{service.name}"]
+    if config.show_duration:
+        parts.append(f"{service.duration_minutes} min")
+    if config.show_prices:
+        parts.append(f"${int(service.price):,}")
+    line = " - ".join(parts)
+    if service.description:
+        line += f"\n  {service.description}"
+    return line
 
 
-def _resolve_tenant(db, context) -> Optional[Tenant]:
-    """
-    Determina qué tenant corresponde a la sesión.
-    Prioridad:
-      1. Si el usuario inició con /start <slug>, usar ese slug.
-      2. Usar el slug guardado en user_data (sesión activa).
-      3. Si solo hay un tenant activo, usarlo por defecto.
-    """
-    slug = (context.user_data or {}).get("tenant_slug")
-    if slug:
-        tenant = _get_tenant_by_slug(db, slug)
-        if tenant:
-            return tenant
-    return _get_default_tenant(db)
+async def _reply(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, **kwargs) -> None:
+    await update.message.reply_text(text, **kwargs)
+    _save_message(context.user_data.get("conversation_id"), "outgoing", text)
 
-
-def _get_active_services(db, tenant_id: int):
-    return db.query(Service).filter(
-        Service.tenant_id == tenant_id, Service.is_active == True
-    ).all()
-
-
-# ──────────────────────────────────────────────
-# Handlers
-# ──────────────────────────────────────────────
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    slug = context.args[0].strip().lower() if context.args else None
     db = SessionLocal()
     try:
-        tg_user = update.effective_user
-
-        # Identificar tenant por slug si se pasó como argumento: /start <slug>
-        if context.args:
-            slug = context.args[0].strip()
-            context.user_data["tenant_slug"] = slug
-
-        tenant = _resolve_tenant(db, context)
-        if not tenant:
+        if not slug:
             await update.message.reply_text(
-                "⚠️ El sistema aún no tiene un negocio configurado. "
-                "Contacta al administrador."
+                "Abre el enlace público del negocio para iniciar la agenda de Turnix."
             )
             return ConversationHandler.END
 
-        # Asegurar que el cliente está asociado al tenant correcto
-        client = _get_or_create_client_for_tenant(db, tg_user, tenant.id)
-        conv = _get_or_create_conversation(db, client, update.effective_chat.id, tenant)
+        tenant = _get_tenant_by_slug(db, slug)
+        if not tenant:
+            await update.message.reply_text(
+                "No encontré un negocio activo con ese identificador. Verifica el enlace."
+            )
+            return ConversationHandler.END
 
-        _save_message(conv.id, "incoming", "/start")
+        config = _get_config(db, tenant.id)
+        client = _get_or_create_client(db, update.effective_user, tenant.id)
+        conversation = _get_or_create_conversation(db, client, update.effective_chat.id, tenant.id)
 
-        greeting = (
-            f"👋 ¡Hola, {client.full_name}! Bienvenido/a a *{tenant.name}*.\n\n"
-            "¿En qué puedo ayudarte hoy?"
+        context.user_data.clear()
+        context.user_data.update(
+            {
+                "tenant_id": tenant.id,
+                "tenant_slug": tenant.slug,
+                "client_id": client.id,
+                "conversation_id": conversation.id,
+            }
         )
 
-        keyboard = [
-            ["1️⃣ Ver servicios", "2️⃣ Agendar cita"],
-            ["3️⃣ Mis citas", "4️⃣ Cancelar cita"],
-        ]
-        reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
+        incoming = f"/start {slug}"
+        _save_message(conversation.id, "incoming", incoming)
 
-        await update.message.reply_text(greeting, parse_mode="Markdown", reply_markup=reply_markup)
-        _save_message(conv.id, "outgoing", greeting)
-
-        context.user_data["tenant_id"] = tenant.id
-        context.user_data["client_id"] = client.id
-        context.user_data["conversation_id"] = conv.id
-
+        welcome = config.welcome_message or f"Bienvenido a {tenant.name}. ¿En qué puedo ayudarte?"
+        if "{business}" in welcome:
+            welcome = welcome.replace("{business}", tenant.name)
+        await _reply(update, context, welcome, reply_markup=_menu_keyboard(config))
+        return MENU
     finally:
         db.close()
-
-    return MENU
 
 
 async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text.strip()
+    _save_message(context.user_data.get("conversation_id"), "incoming", text)
+    normalized = text.lower()
 
-    if "1" in text or "servicios" in text.lower():
+    if "servicio" in normalized:
         return await show_services(update, context)
-    elif "2" in text or "agendar" in text.lower():
+    if "agendar" in normalized or "cita" == normalized:
         return await start_booking(update, context)
-    elif "3" in text or "mis citas" in text.lower():
+    if "mis citas" in normalized:
         return await show_my_appointments(update, context)
-    elif "4" in text or "cancelar" in text.lower():
+    if "cancelar" in normalized:
         return await start_cancellation(update, context)
-    else:
-        await update.message.reply_text(
-            "Por favor elige una opción del menú. 👆"
-        )
-        return MENU
 
+    db = SessionLocal()
+    try:
+        config = _get_config(db, context.user_data["tenant_id"])
+        await _reply(update, context, "Elige una opción del menú.", reply_markup=_menu_keyboard(config))
+    finally:
+        db.close()
+    return MENU
 
-# ── Ver servicios ──────────────────────────────
 
 async def show_services(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     db = SessionLocal()
     try:
-        tenant_id = context.user_data.get("tenant_id")
-        services = _get_active_services(db, tenant_id)
+        config = _get_config(db, context.user_data["tenant_id"])
+        services = _get_active_services(db, context.user_data["tenant_id"])
         if not services:
-            await update.message.reply_text("No hay servicios disponibles en este momento.")
+            await _reply(update, context, "No hay servicios disponibles en este momento.")
             return MENU
 
-        lines = ["*📋 Servicios disponibles:*\n"]
-        for s in services:
-            lines.append(
-                f"• *{s.name}* – {s.duration_minutes} min – ${int(s.price):,}"
-                + (f"\n  _{s.description}_" if s.description else "")
-            )
-        msg = "\n".join(lines)
-        await update.message.reply_text(msg, parse_mode="Markdown")
-
-        conv_id = context.user_data.get("conversation_id")
-        if conv_id:
-            _save_message(conv_id, "outgoing", msg)
+        lines = [config.services_message or "Estos son nuestros servicios disponibles:"]
+        lines.extend(_service_line(service, config) for service in services)
+        await _reply(update, context, "\n".join(lines))
     finally:
         db.close()
-
     return MENU
 
-
-# ── Agendar cita ──────────────────────────────
 
 async def start_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     db = SessionLocal()
     try:
-        tenant_id = context.user_data.get("tenant_id")
-        services = _get_active_services(db, tenant_id)
+        config = _get_config(db, context.user_data["tenant_id"])
+        services = _get_active_services(db, context.user_data["tenant_id"])
         if not services:
-            await update.message.reply_text("No hay servicios disponibles para agendar.")
+            await _reply(update, context, "No hay servicios disponibles para agendar.")
             return MENU
 
-        context.user_data["services_list"] = {str(i + 1): s.id for i, s in enumerate(services)}
-
-        lines = ["*¿Qué servicio deseas agendar?*\n"]
-        for i, s in enumerate(services):
-            lines.append(f"{i + 1}. {s.name} – {s.duration_minutes} min – ${int(s.price):,}")
-        lines.append("\nEscribe el *número* del servicio.")
-        msg = "\n".join(lines)
-
-        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
-
-        conv_id = context.user_data.get("conversation_id")
-        if conv_id:
-            _save_message(conv_id, "outgoing", msg)
+        context.user_data["services_list"] = {str(i + 1): service.id for i, service in enumerate(services)}
+        lines = ["¿Qué servicio deseas agendar?"]
+        lines.extend(_service_line(service, config, i + 1) for i, service in enumerate(services))
+        lines.append("Escribe el número del servicio.")
+        await _reply(update, context, "\n".join(lines), reply_markup=ReplyKeyboardRemove())
     finally:
         db.close()
-
     return SELECTING_SERVICE
 
 
 async def service_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text.strip()
-    services_map = context.user_data.get("services_list", {})
-
-    if text not in services_map:
-        await update.message.reply_text("Por favor escribe el número del servicio de la lista.")
+    _save_message(context.user_data.get("conversation_id"), "incoming", text)
+    service_id = context.user_data.get("services_list", {}).get(text)
+    if not service_id:
+        await _reply(update, context, "Escribe el número del servicio de la lista.")
         return SELECTING_SERVICE
-
-    service_id = services_map[text]
-    context.user_data["selected_service_id"] = service_id
 
     db = SessionLocal()
     try:
         service = db.query(Service).filter(Service.id == service_id).first()
-        context.user_data["selected_service_name"] = service.name
-        context.user_data["selected_service_duration"] = service.duration_minutes
-        context.user_data["selected_service_price"] = int(service.price)
+        config = _get_config(db, context.user_data["tenant_id"])
+        context.user_data.update(
+            {
+                "selected_service_id": service.id,
+                "selected_service_name": service.name,
+                "selected_service_duration": service.duration_minutes,
+                "selected_service_price": int(service.price),
+            }
+        )
+        msg = (
+            f"Seleccionaste: {service.name}\n\n"
+            f"{config.ask_date_message or '¿Para qué fecha quieres la cita? (YYYY-MM-DD)'}"
+        )
+        await _reply(update, context, msg)
     finally:
         db.close()
-
-    msg = (
-        f"Seleccionaste: *{context.user_data['selected_service_name']}*\n\n"
-        "📅 ¿Para qué fecha quieres la cita?\n"
-        "Escribe la fecha en formato *AAAA-MM-DD*\n"
-        "_(ejemplo: 2026-05-10)_"
-    )
-    await update.message.reply_text(msg, parse_mode="Markdown")
-
-    conv_id = context.user_data.get("conversation_id")
-    if conv_id:
-        _save_message(conv_id, "outgoing", msg)
-
     return ENTERING_DATE
 
 
 async def date_entered(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text.strip()
+    _save_message(context.user_data.get("conversation_id"), "incoming", text)
     try:
         target_date = datetime.strptime(text, "%Y-%m-%d").date()
     except ValueError:
-        await update.message.reply_text(
-            "Formato de fecha inválido. Escribe la fecha como *AAAA-MM-DD*\n_(ejemplo: 2026-05-10)_",
-            parse_mode="Markdown",
-        )
+        await _reply(update, context, "Formato de fecha inválido. Usa YYYY-MM-DD.")
         return ENTERING_DATE
 
     if target_date < date.today():
-        await update.message.reply_text("La fecha no puede ser en el pasado. Elige otra fecha.")
+        await _reply(update, context, "La fecha no puede ser en el pasado. Elige otra fecha.")
         return ENTERING_DATE
-
-    context.user_data["selected_date"] = target_date
 
     db = SessionLocal()
     try:
+        config = _get_config(db, context.user_data["tenant_id"])
         slots = get_available_slots(
             db,
             context.user_data["tenant_id"],
             context.user_data["selected_service_id"],
             target_date,
         )
+        if not slots:
+            await _reply(update, context, config.unavailable_message or "No hay horarios disponibles para esa fecha.")
+            return ENTERING_DATE
+
+        context.user_data["selected_date"] = target_date
+        context.user_data["slots_map"] = {str(i + 1): slot for i, slot in enumerate(slots)}
+        lines = [config.ask_time_message or "Selecciona el horario disponible:"]
+        lines.extend(f"{i + 1}. {slot}" for i, slot in enumerate(slots))
+        lines.append("Escribe el número del horario.")
+        await _reply(update, context, "\n".join(lines))
     finally:
         db.close()
-
-    if not slots:
-        await update.message.reply_text(
-            f"No hay horarios disponibles para el {text}. Prueba con otra fecha."
-        )
-        return ENTERING_DATE
-
-    context.user_data["available_slots"] = slots
-    context.user_data["slots_map"] = {str(i + 1): s for i, s in enumerate(slots)}
-
-    lines = [f"*🕐 Horarios disponibles para el {text}:*\n"]
-    for i, slot in enumerate(slots):
-        lines.append(f"{i + 1}. {slot}")
-    lines.append("\nEscribe el *número* del horario.")
-    msg = "\n".join(lines)
-
-    await update.message.reply_text(msg, parse_mode="Markdown")
-
-    conv_id = context.user_data.get("conversation_id")
-    if conv_id:
-        _save_message(conv_id, "outgoing", msg)
-
     return SELECTING_SLOT
 
 
 async def slot_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text.strip()
-    slots_map = context.user_data.get("slots_map", {})
-
-    if text not in slots_map:
-        await update.message.reply_text("Por favor escribe el número del horario de la lista.")
+    _save_message(context.user_data.get("conversation_id"), "incoming", text)
+    selected_time = context.user_data.get("slots_map", {}).get(text)
+    if not selected_time:
+        await _reply(update, context, "Escribe el número del horario de la lista.")
         return SELECTING_SLOT
 
-    selected_time_str = slots_map[text]
-    context.user_data["selected_time"] = selected_time_str
-
-    target_date = context.user_data["selected_date"]
-    service_name = context.user_data["selected_service_name"]
+    context.user_data["selected_time"] = selected_time
     duration = context.user_data["selected_service_duration"]
-    price = context.user_data["selected_service_price"]
-
-    start_dt = datetime.strptime(selected_time_str, "%H:%M")
-    end_dt = start_dt + timedelta(minutes=duration)
-
+    end_time = (datetime.strptime(selected_time, "%H:%M") + timedelta(minutes=duration)).strftime("%H:%M")
     summary = (
-        "*✅ Resumen de tu cita:*\n\n"
-        f"📌 Servicio: {service_name}\n"
-        f"📅 Fecha: {target_date}\n"
-        f"🕐 Hora: {selected_time_str} – {end_dt.strftime('%H:%M')}\n"
-        f"💰 Precio: ${price:,}\n\n"
-        "¿Confirmas la cita? Escribe *SI* para confirmar o *NO* para cancelar."
+        "Resumen de tu cita:\n"
+        f"Servicio: {context.user_data['selected_service_name']}\n"
+        f"Fecha: {context.user_data['selected_date']}\n"
+        f"Hora: {selected_time} - {end_time}\n"
+        "Responde SI para confirmar o NO para cancelar."
     )
-
-    keyboard = [["SI", "NO"]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
-
-    await update.message.reply_text(summary, parse_mode="Markdown", reply_markup=reply_markup)
-
-    conv_id = context.user_data.get("conversation_id")
-    if conv_id:
-        _save_message(conv_id, "outgoing", summary)
-
+    await _reply(update, context, summary, reply_markup=ReplyKeyboardMarkup([["SI", "NO"]], resize_keyboard=True))
     return CONFIRMING_APPOINTMENT
 
 
 async def confirm_appointment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text.strip().upper()
-
-    keyboard = [
-        ["1️⃣ Ver servicios", "2️⃣ Agendar cita"],
-        ["3️⃣ Mis citas", "4️⃣ Cancelar cita"],
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
-
-    if text != "SI":
-        await update.message.reply_text(
-            "Cita cancelada. ¿En qué más puedo ayudarte?",
-            reply_markup=reply_markup,
-        )
-        return MENU
-
+    _save_message(context.user_data.get("conversation_id"), "incoming", text)
     db = SessionLocal()
     try:
-        time_obj = datetime.strptime(context.user_data["selected_time"], "%H:%M").time()
-        appt_create = AppointmentCreate(
-            tenant_id=context.user_data["tenant_id"],
-            service_id=context.user_data["selected_service_id"],
-            client_id=context.user_data["client_id"],
-            appointment_date=context.user_data["selected_date"],
-            start_time=time_obj,
-        )
-        appt, error = appointment_repository.create_appointment(db, appt_create)
-
-        if error:
-            msg = f"⚠️ {error}\n¿En qué más puedo ayudarte?"
-            await update.message.reply_text(msg, reply_markup=reply_markup)
+        config = _get_config(db, context.user_data["tenant_id"])
+        keyboard = _menu_keyboard(config)
+        if text != "SI":
+            await _reply(update, context, "Cita cancelada. ¿En qué más puedo ayudarte?", reply_markup=keyboard)
             return MENU
 
-        msg = (
-            f"🎉 ¡Cita confirmada!\n\n"
-            f"Tu cita para *{context.user_data['selected_service_name']}* "
-            f"el *{context.user_data['selected_date']}* a las *{context.user_data['selected_time']}* "
-            f"ha sido registrada con éxito.\n\n"
-            f"ID de cita: #{appt.id}\n\n"
-            "¿Algo más en lo que pueda ayudarte?"
+        appointment, error = appointment_repository.create_appointment(
+            db,
+            AppointmentCreate(
+                tenant_id=context.user_data["tenant_id"],
+                service_id=context.user_data["selected_service_id"],
+                client_id=context.user_data["client_id"],
+                appointment_date=context.user_data["selected_date"],
+                start_time=datetime.strptime(context.user_data["selected_time"], "%H:%M").time(),
+            ),
         )
+        if error:
+            await _reply(update, context, f"{error}\n¿En qué más puedo ayudarte?", reply_markup=keyboard)
+            return MENU
 
-        conv_id = context.user_data.get("conversation_id")
-        if conv_id:
-            _save_message(conv_id, "outgoing", msg)
-
+        msg = config.confirm_message or "Tu cita ha sido confirmada. Te esperamos."
+        msg = (
+            f"{msg}\n\n"
+            f"Servicio: {context.user_data['selected_service_name']}\n"
+            f"Fecha: {context.user_data['selected_date']}\n"
+            f"Hora: {context.user_data['selected_time']}\n"
+            f"Cita #{appointment.id}"
+        )
+        await _reply(update, context, msg, reply_markup=keyboard)
     finally:
         db.close()
-
-    await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
     return MENU
 
-
-# ── Ver mis citas ──────────────────────────────
 
 async def show_my_appointments(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     db = SessionLocal()
     try:
-        client_id = context.user_data.get("client_id")
         appointments = (
             db.query(Appointment)
             .filter(
-                Appointment.client_id == client_id,
+                Appointment.tenant_id == context.user_data["tenant_id"],
+                Appointment.client_id == context.user_data["client_id"],
                 Appointment.status.notin_(["cancelled", "completed"]),
             )
             .order_by(Appointment.appointment_date, Appointment.start_time)
             .limit(10)
             .all()
         )
-
         if not appointments:
-            msg = "No tienes citas activas en este momento."
-        else:
-            lines = ["*📅 Tus citas próximas:*\n"]
-            for a in appointments:
-                service = db.query(Service).filter(Service.id == a.service_id).first()
-                lines.append(
-                    f"• #{a.id} – {service.name if service else 'Servicio'} – "
-                    f"{a.appointment_date} {a.start_time.strftime('%H:%M')} – "
-                    f"Estado: {a.status}"
-                )
-            msg = "\n".join(lines)
+            await _reply(update, context, "No tienes citas activas en este momento.")
+            return MENU
 
-        await update.message.reply_text(msg, parse_mode="Markdown")
-
-        conv_id = context.user_data.get("conversation_id")
-        if conv_id:
-            _save_message(conv_id, "outgoing", msg)
+        lines = ["Tus próximas citas:"]
+        for appointment in appointments:
+            service = db.query(Service).filter(Service.id == appointment.service_id).first()
+            lines.append(
+                f"#{appointment.id} - {service.name if service else 'Servicio'} - "
+                f"{appointment.appointment_date} {appointment.start_time.strftime('%H:%M')} - {appointment.status}"
+            )
+        await _reply(update, context, "\n".join(lines))
     finally:
         db.close()
-
     return MENU
 
-
-# ── Cancelar cita ──────────────────────────────
 
 async def start_cancellation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     db = SessionLocal()
     try:
-        client_id = context.user_data.get("client_id")
+        config = _get_config(db, context.user_data["tenant_id"])
+        if not config.allow_cancellation:
+            await _reply(update, context, "La cancelación por Telegram no está habilitada para este negocio.")
+            return MENU
+
         appointments = (
             db.query(Appointment)
             .filter(
-                Appointment.client_id == client_id,
+                Appointment.tenant_id == context.user_data["tenant_id"],
+                Appointment.client_id == context.user_data["client_id"],
                 Appointment.status.notin_(["cancelled", "completed"]),
             )
             .order_by(Appointment.appointment_date, Appointment.start_time)
             .limit(10)
             .all()
         )
-
         if not appointments:
-            await update.message.reply_text("No tienes citas activas para cancelar.")
+            await _reply(update, context, "No tienes citas activas para cancelar.")
             return MENU
 
-        lines = ["*¿Cuál cita deseas cancelar?*\n", "Escribe el ID de la cita:\n"]
-        for a in appointments:
-            service = db.query(Service).filter(Service.id == a.service_id).first()
+        lines = ["Escribe el ID de la cita que deseas cancelar:"]
+        for appointment in appointments:
+            service = db.query(Service).filter(Service.id == appointment.service_id).first()
             lines.append(
-                f"• ID #{a.id} – {service.name if service else 'Servicio'} – "
-                f"{a.appointment_date} {a.start_time.strftime('%H:%M')}"
+                f"#{appointment.id} - {service.name if service else 'Servicio'} - "
+                f"{appointment.appointment_date} {appointment.start_time.strftime('%H:%M')}"
             )
-        msg = "\n".join(lines)
-        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
-
-        conv_id = context.user_data.get("conversation_id")
-        if conv_id:
-            _save_message(conv_id, "outgoing", msg)
+        await _reply(update, context, "\n".join(lines), reply_markup=ReplyKeyboardRemove())
     finally:
         db.close()
-
     return CANCELLING_APPOINTMENT
 
 
 async def cancel_by_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text.strip()
-    keyboard = [
-        ["1️⃣ Ver servicios", "2️⃣ Agendar cita"],
-        ["3️⃣ Mis citas", "4️⃣ Cancelar cita"],
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
-
+    _save_message(context.user_data.get("conversation_id"), "incoming", text)
     try:
-        appt_id = int(text.replace("#", "").strip())
+        appointment_id = int(text.replace("#", "").strip())
     except ValueError:
-        await update.message.reply_text("Por favor escribe un ID numérico válido.", reply_markup=reply_markup)
-        return MENU
+        await _reply(update, context, "Escribe un ID numérico válido.")
+        return CANCELLING_APPOINTMENT
 
     db = SessionLocal()
     try:
-        client_id = context.user_data.get("client_id")
-        appt = db.query(Appointment).filter(
-            Appointment.id == appt_id,
-            Appointment.client_id == client_id,
-        ).first()
-
-        if not appt:
-            msg = f"No encontré la cita #{appt_id} o no te pertenece."
-        elif appt.status in ("cancelled", "completed"):
-            msg = f"La cita #{appt_id} ya está {appt.status}."
+        config = _get_config(db, context.user_data["tenant_id"])
+        appointment = (
+            db.query(Appointment)
+            .filter(
+                Appointment.id == appointment_id,
+                Appointment.tenant_id == context.user_data["tenant_id"],
+                Appointment.client_id == context.user_data["client_id"],
+            )
+            .first()
+        )
+        if not appointment:
+            msg = f"No encontré la cita #{appointment_id} o no pertenece a tu conversación."
+        elif appointment.status in ("cancelled", "completed"):
+            msg = f"La cita #{appointment_id} ya está {appointment.status}."
         else:
-            appt.status = "cancelled"
+            appointment.status = "cancelled"
             db.commit()
-            msg = f"✅ La cita #{appt_id} ha sido cancelada."
-
-        await update.message.reply_text(msg, reply_markup=reply_markup)
-
-        conv_id = context.user_data.get("conversation_id")
-        if conv_id:
-            _save_message(conv_id, "outgoing", msg)
+            msg = config.cancel_message or f"La cita #{appointment_id} ha sido cancelada."
+        await _reply(update, context, msg, reply_markup=_menu_keyboard(config))
     finally:
         db.close()
-
     return MENU
 
-
-# ── Fallback ──────────────────────────────
 
 async def unknown_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    keyboard = [
-        ["1️⃣ Ver servicios", "2️⃣ Agendar cita"],
-        ["3️⃣ Mis citas", "4️⃣ Cancelar cita"],
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-    await update.message.reply_text(
-        "No entendí eso. Por favor usa el menú:", reply_markup=reply_markup
-    )
+    _save_message(context.user_data.get("conversation_id"), "incoming", update.message.text or "")
+    db = SessionLocal()
+    try:
+        config = _get_config(db, context.user_data["tenant_id"])
+        await _reply(update, context, "No entendí eso. Usa una opción del menú.", reply_markup=_menu_keyboard(config))
+    finally:
+        db.close()
     return MENU
 
-
-# ──────────────────────────────────────────────
-# Punto de entrada
-# ──────────────────────────────────────────────
 
 def main():
     token = settings.TELEGRAM_BOT_TOKEN
-    if not token:
+    if not token or token.strip().lower() in {"your_telegram_bot_token_here", "tu_token_de_telegram"}:
         logger.error(
-            "TELEGRAM_BOT_TOKEN no está definido en el archivo .env. "
-            "Agrega TELEGRAM_BOT_TOKEN=<tu_token> al archivo .env y vuelve a ejecutar."
+            "TELEGRAM_BOT_TOKEN no está definido. Configúralo en .env y ejecuta nuevamente."
         )
         sys.exit(1)
 
-    # Asegurar tablas creadas
     create_tables()
-
     application = Application.builder().token(token).build()
-
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
@@ -665,11 +530,13 @@ def main():
             MessageHandler(filters.TEXT & ~filters.COMMAND, unknown_message),
         ],
     )
-
     application.add_handler(conv_handler)
-
-    logger.info("Bot de Turnix iniciado. Esperando mensajes...")
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    logger.info("Bot global de Turnix iniciado. Esperando mensajes.")
+    try:
+        application.run_polling(allowed_updates=Update.ALL_TYPES)
+    except InvalidToken:
+        logger.error("Telegram rechazó el token configurado. Verifica TELEGRAM_BOT_TOKEN en .env.")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,54 @@
-const BASE_URL   = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1'
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
 const HEALTH_URL = BASE_URL.replace('/api/v1', '')
+
+export class ApiError extends Error {
+  constructor(message, { status, details } = {}) {
+    super(message)
+    this.name = 'ApiError'
+    this.status = status
+    this.details = details
+  }
+}
 
 function getToken() {
   return localStorage.getItem('turnix_token')
+}
+
+function clearSession() {
+  localStorage.removeItem('turnix_token')
+  localStorage.removeItem('turnix_user')
+  localStorage.removeItem('turnix_active_tenant')
+}
+
+function validationMessage(item) {
+  if (!item) return null
+  if (typeof item === 'string') return item
+  if (item.msg) return item.msg
+  if (item.detail) return item.detail
+  return null
+}
+
+function normalizeDetail(detail, status) {
+  if (status === 401) return 'La sesión expiró. Inicia sesión nuevamente.'
+  if (status === 403) return 'Permiso insuficiente.'
+  if (status >= 500) return 'Ocurrió un error en el servidor. Intenta nuevamente.'
+
+  if (Array.isArray(detail)) {
+    const first = detail.map(validationMessage).find(Boolean)
+    return first || 'Revisa los campos del formulario.'
+  }
+
+  if (typeof detail === 'string') return detail
+  if (detail?.message) return detail.message
+  if (detail?.detail) return normalizeDetail(detail.detail, status)
+
+  return 'No fue posible completar la solicitud.'
+}
+
+async function parseErrorResponse(res) {
+  const payload = await res.json().catch(() => null)
+  const message = normalizeDetail(payload?.detail ?? payload, res.status)
+  return new ApiError(message, { status: res.status, details: payload?.detail ?? payload })
 }
 
 async function request(path, options = {}) {
@@ -12,126 +58,115 @@ async function request(path, options = {}) {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...options.headers,
   }
-  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers })
+
+  let res
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { ...options, headers })
+  } catch {
+    throw new ApiError('No se pudo establecer conexión con el servidor.', { status: 0 })
+  }
 
   if (res.status === 401) {
-    localStorage.removeItem('turnix_token')
-    localStorage.removeItem('turnix_user')
-    window.location.href = '/login'
-    return
+    clearSession()
+    window.dispatchEvent(new Event('turnix:unauthorized'))
+    throw new ApiError('La sesión expiró. Inicia sesión nuevamente.', { status: 401 })
   }
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }))
-    throw new Error(err.detail || 'Error en la petición')
+    throw await parseErrorResponse(res)
   }
+
   if (res.status === 204) return null
   return res.json()
 }
 
 export const api = {
-  // Health
   health: () => fetch(`${HEALTH_URL}/health`).then(r => r.json()),
 
-  // Auth
   login: (email, password) => request('/auth/login', {
-    method: 'POST', body: JSON.stringify({ email, password })
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
   }),
   getMe: () => request('/auth/me'),
 
-  // Negocios (tenants) – solo superadmin para lista
-  getBusinesses:    (params) => request(`/businesses/?${new URLSearchParams(params || {})}`),
+  getBusinesses: (params) => request(`/businesses/?${new URLSearchParams(params || {})}`),
+  getMyBusiness: () => request('/businesses/me'),
+  getBusiness: (id) => request(`/businesses/${id}`),
+  createBusiness: (data) => request('/businesses/', { method: 'POST', body: JSON.stringify(data) }),
+  createBusinessWithAdmin: (data) => request('/businesses/with-admin', { method: 'POST', body: JSON.stringify(data) }),
+  updateBusiness: (id, data) => request(`/businesses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  activateTenant: (id) => request(`/businesses/${id}/activate`, { method: 'PATCH' }),
+  deactivateTenant: (id) => request(`/businesses/${id}/deactivate`, { method: 'PATCH' }),
+  assignPlan: (id, plan) => request(`/businesses/${id}/plan?plan_name=${encodeURIComponent(plan)}`, { method: 'PATCH' }),
 
-  // Ubicación (departamentos y ciudades)
   getStates: () => request('/states/?limit=100'),
-  getCities: (stateId) => request(`/cities/?state_id=${stateId}&limit=500`),
-
-  getMyBusiness:    ()       => request('/businesses/me'),
-  getBusiness:      (id)     => request(`/businesses/${id}`),
-  createBusiness:   (data)   => request('/businesses/', { method: 'POST', body: JSON.stringify(data) }),
-  updateBusiness:   (id, d)  => request(`/businesses/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
-  activateTenant:   (id)     => request(`/businesses/${id}/activate`, { method: 'PATCH' }),
-  deactivateTenant: (id)     => request(`/businesses/${id}/deactivate`, { method: 'PATCH' }),
-  assignPlan:       (id, plan) => request(`/businesses/${id}/plan?plan_name=${plan}`, { method: 'PATCH' }),
-
-  // Planes
+  getCities: (stateId) => request(`/cities/?state_id=${encodeURIComponent(stateId)}&limit=500`),
   getPlans: () => request('/plans/'),
 
-  // Servicios
-  getServices:   (params) => request(`/services/?${new URLSearchParams(params || {})}`),
-  getService:    (id)     => request(`/services/${id}`),
-  createService: (data)   => request('/services/', { method: 'POST', body: JSON.stringify(data) }),
-  updateService: (id, d)  => request(`/services/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
-  deleteService: (id)     => request(`/services/${id}`, { method: 'DELETE' }),
+  getServices: (params) => request(`/services/?${new URLSearchParams(params || {})}`),
+  getService: (id) => request(`/services/${id}`),
+  createService: (data) => request('/services/', { method: 'POST', body: JSON.stringify(data) }),
+  updateService: (id, data) => request(`/services/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteService: (id) => request(`/services/${id}`, { method: 'DELETE' }),
 
-  // Clientes
-  getClients:    (params)  => request(`/clients/?${new URLSearchParams(params || {})}`),
-  getClient:     (id)      => request(`/clients/${id}`),
-  createClient:  (data)    => request('/clients/', { method: 'POST', body: JSON.stringify(data) }),
-  updateClient:  (id, d)   => request(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
+  getClients: (params) => request(`/clients/?${new URLSearchParams(params || {})}`),
+  getClient: (id) => request(`/clients/${id}`),
+  createClient: (data) => request('/clients/', { method: 'POST', body: JSON.stringify(data) }),
+  updateClient: (id, data) => request(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
-  // Citas
-  getAppointments:    (params) => request(`/appointments/?${new URLSearchParams(params || {})}`),
-  getAppointment:     (id)     => request(`/appointments/${id}`),
-  createAppointment:  (data)   => request('/appointments/', { method: 'POST', body: JSON.stringify(data) }),
-  updateAppointment:  (id, d)  => request(`/appointments/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
-  cancelAppointment:  (id)     => request(`/appointments/${id}/cancel`, { method: 'PATCH' }),
-  completeAppointment:(id)     => request(`/appointments/${id}/complete`, { method: 'PATCH' }),
+  getAppointments: (params) => request(`/appointments/?${new URLSearchParams(params || {})}`),
+  getAppointment: (id) => request(`/appointments/${id}`),
+  createAppointment: (data) => request('/appointments/', { method: 'POST', body: JSON.stringify(data) }),
+  updateAppointment: (id, data) => request(`/appointments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  cancelAppointment: (id) => request(`/appointments/${id}/cancel`, { method: 'PATCH' }),
+  completeAppointment: (id) => request(`/appointments/${id}/complete`, { method: 'PATCH' }),
 
-  // Disponibilidad (público para bot)
   getAvailability: (params) => request(`/availability/?${new URLSearchParams(params)}`),
 
-  // Conversaciones
-  getConversations: () => request('/conversations/'),
-  getConversation:  (id) => request(`/conversations/${id}`),
-  getMessages:      (id) => request(`/conversations/${id}/messages`),
+  getConversations: (params) => request(`/conversations/?${new URLSearchParams(params || {})}`),
+  getConversation: (id) => request(`/conversations/${id}`),
+  getMessages: (id) => request(`/conversations/${id}/messages`),
 
-  // Dashboard
   getSuperadminDashboard: () => request('/dashboard/superadmin'),
-  getTenantDashboard: (tenant_id) => {
-    const qs = tenant_id ? `?tenant_id=${tenant_id}` : ''
+  getTenantDashboard: (tenantId) => {
+    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
     return request(`/dashboard/tenant${qs}`)
   },
   getStaffDashboard: () => request('/dashboard/staff'),
 
-  // Usuarios / Personal
-  getStaff:        (tenant_id) => {
-    const qs = tenant_id ? `?tenant_id=${tenant_id}` : ''
+  getStaff: (tenantId) => {
+    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
     return request(`/users/staff${qs}`)
   },
-  createStaff:     (data)   => request('/users/', { method: 'POST', body: JSON.stringify(data) }),
-  updateStaff:     (id, d)  => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
-  activateStaff:   (id)     => request(`/users/${id}/activate`, { method: 'PATCH' }),
-  deactivateStaff: (id)     => request(`/users/${id}/deactivate`, { method: 'PATCH' }),
+  createStaff: (data) => request('/users/staff', { method: 'POST', body: JSON.stringify(data) }),
+  updateStaff: (id, data) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  activateStaff: (id) => request(`/users/${id}/activate`, { method: 'PATCH' }),
+  deactivateStaff: (id) => request(`/users/${id}/deactivate`, { method: 'PATCH' }),
 
-  // Usuarios completos (superadmin / tenant_admin)
-  getUsers:          (params)  => request(`/users/?${new URLSearchParams(params || {})}`),
-  getUser:           (id)      => request(`/users/${id}`),
-  createUser:        (data)    => request('/users/', { method: 'POST', body: JSON.stringify(data) }),
-  updateUser:        (id, d)   => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
-  activateUser:      (id)      => request(`/users/${id}/activate`, { method: 'PATCH' }),
-  deactivateUser:    (id)      => request(`/users/${id}/deactivate`, { method: 'PATCH' }),
-  deleteUser:        (id)      => request(`/users/${id}`, { method: 'DELETE' }),
+  getUsers: (params) => request(`/users/?${new URLSearchParams(params || {})}`),
+  getUser: (id) => request(`/users/${id}`),
+  createUser: (data) => request('/users/', { method: 'POST', body: JSON.stringify(data) }),
+  updateUser: (id, data) => request(`/users/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  resetPassword: (id, data) => request(`/users/${id}/reset-password`, { method: 'PATCH', body: JSON.stringify(data) }),
+  activateUser: (id) => request(`/users/${id}/activate`, { method: 'PATCH' }),
+  deactivateUser: (id) => request(`/users/${id}/deactivate`, { method: 'PATCH' }),
+  deleteUser: (id) => request(`/users/${id}`, { method: 'DELETE' }),
 
-  // Configuración de Telegram
-  getTelegramConfig:    (tenant_id) => {
-    const qs = tenant_id ? `?tenant_id=${tenant_id}` : ''
+  getTelegramConfig: (tenantId) => {
+    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
     return request(`/telegram-config/${qs}`)
   },
-  updateTelegramConfig: (data, tenant_id) => {
-    const qs = tenant_id ? `?tenant_id=${tenant_id}` : ''
+  updateTelegramConfig: (data, tenantId) => {
+    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
     return request(`/telegram-config/${qs}`, { method: 'PUT', body: JSON.stringify(data) })
   },
-  validateTelegramToken: (bot_token, tenant_id) => {
-    const qs = tenant_id ? `?tenant_id=${tenant_id}` : ''
+  validateTelegramToken: (botToken, tenantId) => {
+    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
     return request(`/telegram-config/validate${qs}`, {
       method: 'POST',
-      body: JSON.stringify({ bot_token }),
+      body: JSON.stringify({ bot_token: botToken }),
     })
   },
-
-  // Negocios con admin integrado (superadmin)
-  createBusinessWithAdmin: (data) => request('/businesses/with-admin', { method: 'POST', body: JSON.stringify(data) }),
 }
 
 export default api
