@@ -101,39 +101,44 @@ export default function Clients() {
       </div>
 
       {/* Filtros */}
-      <div style={{ display: 'flex', gap: '.75rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        <input
-          placeholder="Buscar por nombre, usuario o teléfono…"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ maxWidth: '300px', padding: '.5rem .75rem', border: '1.5px solid var(--border)', borderRadius: '7px', fontSize: '.875rem' }}
-        />
-        {isSuperadmin && (
-          <select
-            value={filterTenant}
-            onChange={e => setFilterTenant(e.target.value)}
-            style={{ maxWidth: '250px', padding: '.5rem .75rem', border: '1.5px solid var(--border)', borderRadius: '7px', fontSize: '.875rem' }}
-          >
-            <option value="">Todos los negocios</option>
-            {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
-        )}
+      <div className="page-toolbar">
+        <div className="filter-group">
+          <input
+            placeholder="Buscar por nombre, usuario o teléfono…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="search-input"
+          />
+          {isSuperadmin && (
+            <select
+              value={filterTenant}
+              onChange={e => setFilterTenant(e.target.value)}
+              className="filter-select"
+            >
+              <option value="">Todos los negocios</option>
+              {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          )}
+        </div>
         {(search || filterTenant) && (
-          <button className="btn btn-outline" onClick={() => { setSearch(''); setFilterTenant('') }}>
-            Limpiar filtros
-          </button>
+          <div className="action-group">
+            <button type="button" className="btn btn-outline" onClick={() => { setSearch(''); setFilterTenant('') }}>
+              Limpiar filtros
+            </button>
+          </div>
         )}
       </div>
 
-      <div className="card">
+      <div className="table-card">
         {filtered.length === 0 ? (
           <div className="empty-state">
-            <div className="icon">👥</div>
-            <p>No hay clientes{search || filterTenant ? ' con los filtros aplicados.' : ' registrados.'}</p>
+            <h2 className="empty-state-title">Sin clientes para mostrar</h2>
+            <p className="empty-state-text">No hay clientes{search || filterTenant ? ' con los filtros aplicados.' : ' registrados.'}</p>
           </div>
         ) : (
-          <table>
-            <thead>
+          <div className="table-responsive">
+            <table className="data-table clients-table">
+              <thead>
               <tr>
                 {isSuperadmin && <th>Negocio</th>}
                 <th>Nombre</th>
@@ -147,19 +152,22 @@ export default function Clients() {
             <tbody>
               {filtered.map(c => (
                 <tr key={c.id}>
-                  {isSuperadmin && <td className="table-sub">{businessName(c.tenant_id)}</td>}
-                  <td><strong>{c.full_name}</strong></td>
-                  <td>{c.username ? `@${c.username}` : '—'}</td>
-                  <td>{c.phone || '—'}</td>
-                  <td>{c.telegram_user_id || '—'}</td>
-                  <td>{c.created_at ? new Date(c.created_at).toLocaleDateString('es-CO') : '—'}</td>
-                  <td>
-                    <button className="btn-sm btn-outline" onClick={() => openEdit(c)}>Editar</button>
+                  {isSuperadmin && <td><span className="cell-main">{businessName(c.tenant_id)}</span></td>}
+                  <td><span className="cell-main">{c.full_name}</span></td>
+                  <td className="cell-nowrap">{c.username ? `@${c.username}` : '—'}</td>
+                  <td className="cell-nowrap">{c.phone || '—'}</td>
+                  <td className="cell-nowrap">{c.telegram_user_id || '—'}</td>
+                  <td className="cell-nowrap">{c.created_at ? new Date(c.created_at).toLocaleDateString('es-CO') : '—'}</td>
+                  <td className="cell-actions">
+                    <div className="table-actions">
+                      <button className="btn btn-outline btn-sm" onClick={() => openEdit(c)}>Editar</button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -172,27 +180,27 @@ export default function Clients() {
             </div>
             {feedback && <div className={`alert alert-${feedback.type}`}>{feedback.msg}</div>}
             {isSuperadmin && !editing && !filterTenant && (
-              <div className="alert alert-error" style={{ margin: '0 1.5rem' }}>
+              <div className="alert alert-error modal-alert">
                 Selecciona un negocio en el filtro antes de crear un cliente.
               </div>
             )}
             <form onSubmit={handleSubmit} className="modal-form" noValidate>
               <div className="form-group">
                 <label>Nombre completo *</label>
-                <input name="full_name" value={form.full_name} onChange={handleChange} />
+                <input className="form-input" name="full_name" value={form.full_name} onChange={handleChange} />
               </div>
               <div className="form-group">
                 <label>Usuario de Telegram</label>
-                <input name="username" value={form.username} onChange={handleChange} placeholder="sin @" />
+                <input className="form-input" name="username" value={form.username} onChange={handleChange} placeholder="sin @" />
               </div>
               <div className="form-row">
                 <div className="form-group">
                   <label>Teléfono</label>
-                  <input name="phone" value={form.phone} onChange={handleChange} />
+                  <input className="form-input" name="phone" value={form.phone} onChange={handleChange} />
                 </div>
                 <div className="form-group">
                   <label>ID de Telegram</label>
-                  <input name="telegram_user_id" value={form.telegram_user_id} onChange={handleChange} />
+                  <input className="form-input" name="telegram_user_id" value={form.telegram_user_id} onChange={handleChange} />
                 </div>
               </div>
               <div className="modal-footer">

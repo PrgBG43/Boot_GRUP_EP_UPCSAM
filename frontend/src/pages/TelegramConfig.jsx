@@ -1,13 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertMessage } from '../components/FormMessages.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
 
 const STATUS_MAP = {
-  sin_configurar: { label: 'Sin configurar', cls: 'badge-pending' },
-  conectado: { label: 'Conectado', cls: 'badge-confirmed' },
-  token_invalido: { label: 'Token inválido', cls: 'badge-cancelled' },
-  error: { label: 'Error', cls: 'badge-cancelled' },
+  sin_configurar: { label: 'Sin configurar', cls: 'badge-warning' },
+  conectado: { label: 'Conectado', cls: 'badge-success' },
+  token_invalido: { label: 'Token inválido', cls: 'badge-danger' },
+  error: { label: 'Error', cls: 'badge-danger' },
 }
 
 const MESSAGE_FIELDS = [
@@ -135,10 +134,10 @@ export default function TelegramConfig() {
       </div>
 
       {isSuperadmin && (
-        <div className="card" style={{ marginBottom: '1.5rem' }}>
-          <div className="form-group" style={{ margin: 0 }}>
+        <div className="card section-spacing">
+          <div className="form-group form-group-compact">
             <label><strong>Seleccionar negocio</strong></label>
-            <select value={selectedTenant} onChange={handleTenantChange} style={{ maxWidth: '420px' }}>
+            <select className="filter-select tenant-config-select" value={selectedTenant} onChange={handleTenantChange}>
               <option value="">Elige un negocio</option>
               {businesses.map(business => (
                 <option key={business.id} value={business.id}>{business.name}</option>
@@ -148,36 +147,41 @@ export default function TelegramConfig() {
         </div>
       )}
 
-      {feedback && <AlertMessage type={feedback.type}>{feedback.msg}</AlertMessage>}
+      {feedback && (
+        <div className={`alert alert-${feedback.type}`}>
+          {feedback.msg}
+        </div>
+      )}
 
       {isSuperadmin && !selectedTenant && (
         <div className="empty-state">
-          <p>Selecciona un negocio para configurar Telegram.</p>
+          <h2 className="empty-state-title">Selecciona un negocio</h2>
+          <p className="empty-state-text">Elige un negocio para configurar Telegram.</p>
         </div>
       )}
 
       {config && (
         <>
-          <div className="card" style={{ marginBottom: '1.5rem' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1rem' }}>Enlace público del bot</h3>
+          <div className="card section-spacing">
+            <h3 className="panel-heading">Enlace público del bot</h3>
             {config.public_bot_link ? (
               <div className="telegram-link-row">
                 <code>{config.public_bot_link}</code>
                 <button type="button" className="btn btn-outline" onClick={handleCopy}>Copiar enlace</button>
               </div>
             ) : (
-              <div className="alert alert-info" style={{ marginBottom: 0 }}>
+              <div className="alert alert-info alert-compact">
                 Configura TELEGRAM_BOT_TOKEN en el archivo .env y ejecuta el bot para habilitar el enlace público. Si el username no se detecta, define TELEGRAM_BOT_USERNAME.
               </div>
             )}
-            <div style={{ marginTop: '.75rem', color: 'var(--text-muted)', fontSize: '.85rem' }}>
+            <div className="panel-meta">
               Identificador del negocio: <code>{config.tenant_slug || selectedBusiness?.slug || 'sin-slug'}</code>
             </div>
           </div>
 
-          <div className="card" style={{ marginBottom: '1.5rem' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '1rem', fontSize: '1rem' }}>Estado de conexión</h3>
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div className="card section-spacing">
+            <h3 className="panel-heading">Estado de conexión</h3>
+            <div className="inline-meta">
               <span className={`badge ${statusInfo.cls}`}>{statusInfo.label}</span>
               {config.bot_username && <span>Bot: <strong>@{config.bot_username}</strong></span>}
               {config.last_validated_at && (
@@ -187,19 +191,19 @@ export default function TelegramConfig() {
           </div>
 
           <form onSubmit={handleSubmit} noValidate>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(280px, .7fr)', gap: '1.5rem' }}>
+            <div className="section-spacing surface-grid surface-grid--split">
               <div className="card">
-                <h3 style={{ marginTop: 0, marginBottom: '1.25rem', fontSize: '1rem' }}>Mensajes del bot</h3>
+                <h3 className="panel-heading">Mensajes del bot</h3>
                 {MESSAGE_FIELDS.map(({ key, label }) => (
-                  <div className="form-group" key={key}>
+                  <div className="form-group form-group-spaced" key={key}>
                     <label>{label}</label>
-                    <textarea name={key} value={form[key] || ''} onChange={handleChange} rows={2} />
+                    <textarea className="form-textarea" name={key} value={form[key] || ''} onChange={handleChange} rows={2} />
                   </div>
                 ))}
               </div>
 
               <div className="card">
-                <h3 style={{ marginTop: 0, marginBottom: '1.25rem', fontSize: '1rem' }}>Opciones de comportamiento</h3>
+                <h3 className="panel-heading">Opciones de comportamiento</h3>
                 {OPTION_FIELDS.map(({ key, label, desc }) => (
                   <label className="toggle-row" key={key} htmlFor={key}>
                     <input id={key} type="checkbox" name={key} checked={!!form[key]} onChange={handleChange} />
@@ -212,7 +216,7 @@ export default function TelegramConfig() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+            <div className="form-actions">
               <button type="submit" className="btn btn-primary" disabled={saving}>
                 {saving ? 'Guardando...' : 'Guardar configuración'}
               </button>

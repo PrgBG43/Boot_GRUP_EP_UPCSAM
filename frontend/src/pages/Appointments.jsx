@@ -117,49 +117,54 @@ export default function Appointments() {
       </div>
 
       {/* Filtros */}
-      <div style={{ display: 'flex', gap: '.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        <input
-          type="date"
-          value={filterDate}
-          onChange={e => setFilterDate(e.target.value)}
-          style={{ maxWidth: '160px', padding: '.5rem .75rem', border: '1.5px solid var(--border)', borderRadius: '7px', fontSize: '.875rem' }}
-        />
-        <select
-          value={filterStatus}
-          onChange={e => setFilterStatus(e.target.value)}
-          style={{ maxWidth: '180px', padding: '.5rem .75rem', border: '1.5px solid var(--border)', borderRadius: '7px', fontSize: '.875rem' }}
-        >
-          <option value="">Todos los estados</option>
-          <option value="pending">Pendiente</option>
-          <option value="confirmed">Confirmada</option>
-          <option value="cancelled">Cancelada</option>
-          <option value="completed">Completada</option>
-        </select>
-        {isSuperadmin && (
+      <div className="page-toolbar">
+        <div className="filter-group">
+          <input
+            type="date"
+            value={filterDate}
+            onChange={e => setFilterDate(e.target.value)}
+            className="filter-select"
+          />
           <select
-            value={filterTenant}
-            onChange={e => setFilterTenant(e.target.value)}
-            style={{ maxWidth: '220px', padding: '.5rem .75rem', border: '1.5px solid var(--border)', borderRadius: '7px', fontSize: '.875rem' }}
+            value={filterStatus}
+            onChange={e => setFilterStatus(e.target.value)}
+            className="filter-select"
           >
-            <option value="">Todos los negocios</option>
-            {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            <option value="">Todos los estados</option>
+            <option value="pending">Pendiente</option>
+            <option value="confirmed">Confirmada</option>
+            <option value="cancelled">Cancelada</option>
+            <option value="completed">Completada</option>
           </select>
-        )}
+          {isSuperadmin && (
+            <select
+              value={filterTenant}
+              onChange={e => setFilterTenant(e.target.value)}
+              className="filter-select"
+            >
+              <option value="">Todos los negocios</option>
+              {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          )}
+        </div>
         {(filterDate || filterStatus || filterTenant) && (
-          <button className="btn btn-outline" onClick={() => { setFilterDate(''); setFilterStatus(''); setFilterTenant('') }}>
-            Limpiar filtros
-          </button>
+          <div className="action-group">
+            <button type="button" className="btn btn-outline" onClick={() => { setFilterDate(''); setFilterStatus(''); setFilterTenant('') }}>
+              Limpiar filtros
+            </button>
+          </div>
         )}
       </div>
 
-      <div className="card">
+      <div className="table-card">
         {appointments.length === 0 ? (
           <div className="empty-state">
-            <div className="icon">📅</div>
-            <p>No hay citas{filterDate || filterStatus || filterTenant ? ' con los filtros aplicados.' : ' registradas.'}</p>
+            <h2 className="empty-state-title">Sin citas para mostrar</h2>
+            <p className="empty-state-text">No hay citas{filterDate || filterStatus || filterTenant ? ' con los filtros aplicados.' : ' registradas.'}</p>
           </div>
         ) : (
-          <table>
+          <div className="table-responsive">
+            <table className="data-table appointments-table">
             <thead>
               <tr>
                 {isSuperadmin && <th>Negocio</th>}
@@ -174,30 +179,30 @@ export default function Appointments() {
             <tbody>
               {appointments.map(a => (
                 <tr key={a.id}>
-                  {isSuperadmin && <td className="table-sub">{businessName(a.tenant_id)}</td>}
-                  <td>{a.appointment_date}</td>
-                  <td>{a.start_time?.slice(0, 5)}</td>
-                  <td>{clientName(a.client_id)}</td>
-                  <td>{serviceName(a.service_id)}</td>
+                  {isSuperadmin && <td><span className="cell-main">{businessName(a.tenant_id)}</span></td>}
+                  <td className="cell-nowrap">{a.appointment_date}</td>
+                  <td className="cell-nowrap">{a.start_time?.slice(0, 5)}</td>
+                  <td><span className="cell-main">{clientName(a.client_id)}</span></td>
+                  <td className="cell-nowrap">{serviceName(a.service_id)}</td>
                   <td>
                     <span className={`badge badge-${a.status}`}>
                       {STATUS_LABELS[a.status] || a.status}
                     </span>
                   </td>
-                  <td>
+                  <td className="cell-actions">
                     <div className="table-actions">
                       {!isStaff && ['pending', 'confirmed'].includes(a.status) && (
-                        <button className="btn-sm btn-success-sm" onClick={() => handleComplete(a.id)}>
+                        <button className="btn btn-success btn-sm" onClick={() => handleComplete(a.id)}>
                           Completar
                         </button>
                       )}
                       {!isStaff && !['cancelled', 'completed'].includes(a.status) && (
-                        <button className="btn-sm btn-danger-sm" onClick={() => handleCancel(a.id)}>
+                        <button className="btn btn-danger btn-sm" onClick={() => handleCancel(a.id)}>
                           Cancelar
                         </button>
                       )}
                       {isStaff && a.status === 'confirmed' && (
-                        <button className="btn-sm btn-success-sm" onClick={() => handleComplete(a.id)}>
+                        <button className="btn btn-success btn-sm" onClick={() => handleComplete(a.id)}>
                           Completar
                         </button>
                       )}
@@ -207,6 +212,7 @@ export default function Appointments() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -219,7 +225,7 @@ export default function Appointments() {
               <button className="modal-close" onClick={() => setModal(false)}>×</button>
             </div>
             {feedback && (
-              <div className={`alert alert-${feedback.type}`} style={{ margin: '0 1.5rem' }}>
+              <div className={`alert alert-${feedback.type} modal-alert`}>
                 {feedback.msg}
               </div>
             )}
@@ -227,7 +233,7 @@ export default function Appointments() {
               {isSuperadmin && (
                 <div className="form-group">
                   <label>Negocio *</label>
-                  <select name="tenant_id" value={form.tenant_id} onChange={handleChange}>
+                  <select className="form-select" name="tenant_id" value={form.tenant_id} onChange={handleChange}>
                     <option value="">Selecciona un negocio</option>
                     {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
@@ -235,7 +241,7 @@ export default function Appointments() {
               )}
               <div className="form-group">
                 <label>Servicio *</label>
-                <select name="service_id" value={form.service_id} onChange={handleChange}>
+                <select className="form-select" name="service_id" value={form.service_id} onChange={handleChange}>
                   <option value="">Selecciona un servicio</option>
                   {availableServices.map(s => (
                     <option key={s.id} value={s.id}>
@@ -246,7 +252,7 @@ export default function Appointments() {
               </div>
               <div className="form-group">
                 <label>Cliente *</label>
-                <select name="client_id" value={form.client_id} onChange={handleChange}>
+                <select className="form-select" name="client_id" value={form.client_id} onChange={handleChange}>
                   <option value="">Selecciona un cliente</option>
                   {availableClients.map(c => <option key={c.id} value={c.id}>{c.full_name}</option>)}
                 </select>
@@ -254,16 +260,16 @@ export default function Appointments() {
               <div className="form-row">
                 <div className="form-group">
                   <label>Fecha *</label>
-                  <input type="date" name="appointment_date" value={form.appointment_date} onChange={handleChange} />
+                  <input className="form-input" type="date" name="appointment_date" value={form.appointment_date} onChange={handleChange} />
                 </div>
                 <div className="form-group">
                   <label>Hora inicio *</label>
-                  <input type="time" name="start_time" value={form.start_time} onChange={handleChange} />
+                  <input className="form-input" type="time" name="start_time" value={form.start_time} onChange={handleChange} />
                 </div>
               </div>
               <div className="form-group">
                 <label>Notas</label>
-                <textarea name="notes" value={form.notes} onChange={handleChange} rows={2} placeholder="Observaciones de la cita..." />
+                <textarea className="form-textarea" name="notes" value={form.notes} onChange={handleChange} rows={2} placeholder="Observaciones de la cita..." />
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => setModal(false)}>Cancelar</button>

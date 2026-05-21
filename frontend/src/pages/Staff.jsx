@@ -114,16 +114,17 @@ export default function Staff() {
         <button className="btn btn-primary" onClick={openCreate}>+ Agregar miembro</button>
       </div>
 
-      <div className="card">
+      <div className="table-card">
         {staff.length === 0 ? (
           <div className="empty-state">
-            <div className="icon">👤</div>
-            <p>No hay personal registrado aún.</p>
-            <button className="btn btn-primary" onClick={openCreate}>Agregar primer miembro</button>
+            <h2 className="empty-state-title">Sin personal registrado</h2>
+            <p className="empty-state-text">Agrega miembros del equipo para administrar disponibilidad y atención.</p>
+            <button className="btn btn-primary empty-state-action" onClick={openCreate}>Agregar primer miembro</button>
           </div>
         ) : (
-          <table>
-            <thead>
+          <div className="table-responsive">
+            <table className="data-table staff-table">
+              <thead>
               <tr>
                 <th>Nombre</th>
                 <th>Correo</th>
@@ -135,19 +136,19 @@ export default function Staff() {
               {staff.map(s => (
                 <tr key={s.id}>
                   <td>
-                    <strong>{s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim()}</strong>
-                    {s.phone && <div className="table-sub">📞 {s.phone}</div>}
+                    <span className="cell-main">{s.full_name || `${s.first_name || ''} ${s.last_name || ''}`.trim()}</span>
+                    {s.phone && <span className="cell-muted">Teléfono: {s.phone}</span>}
                   </td>
-                  <td className="table-sub">{s.email}</td>
+                  <td><span className="cell-email">{s.email}</span></td>
                   <td>
-                    <span className={`badge ${s.is_active ? 'badge-confirmed' : 'badge-cancelled'}`}>
+                    <span className={`badge ${s.is_active ? 'badge-success' : 'badge-neutral'}`}>
                       {s.is_active ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
-                  <td>
+                  <td className="cell-actions">
                     <div className="table-actions">
                       <button
-                        className={`btn-sm ${s.is_active ? 'btn-danger-sm' : 'btn-success-sm'}`}
+                        className={`btn btn-sm ${s.is_active ? 'btn-danger' : 'btn-success'}`}
                         onClick={() => toggleActive(s)}
                       >
                         {s.is_active ? 'Desactivar' : 'Activar'}
@@ -158,6 +159,7 @@ export default function Staff() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -168,7 +170,7 @@ export default function Staff() {
               <h3>Agregar miembro del personal</h3>
               <button className="modal-close" onClick={() => setModal(false)}>×</button>
             </div>
-            {feedback && <div className={`alert alert-${feedback.type}`} style={{margin:'0 1.5rem'}}>{feedback.msg}</div>}
+            {feedback && <div className={`alert alert-${feedback.type} modal-alert`}>{feedback.msg}</div>}
             <form onSubmit={handleSubmit} className="modal-form" noValidate>
               <div className="form-row">
                 <div className="form-group">

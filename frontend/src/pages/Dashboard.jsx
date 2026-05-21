@@ -37,10 +37,10 @@ function PlanBar({ used, max, label }) {
 
 function StatusBadge({ status }) {
   const map = {
-    pending:   { label: 'Pendiente',  cls: 'badge-pending' },
-    confirmed: { label: 'Confirmada', cls: 'badge-confirmed' },
-    cancelled: { label: 'Cancelada',  cls: 'badge-cancelled' },
-    completed: { label: 'Completada', cls: 'badge-completed' },
+    pending:   { label: 'Pendiente',  cls: 'badge-warning' },
+    confirmed: { label: 'Confirmada', cls: 'badge-success' },
+    cancelled: { label: 'Cancelada',  cls: 'badge-danger' },
+    completed: { label: 'Completada', cls: 'badge-neutral' },
   }
   const s = map[status] || { label: status, cls: '' }
   return <span className={`badge ${s.cls}`}>{s.label}</span>
@@ -70,12 +70,12 @@ function SuperadminDashboard() {
       </div>
 
       <div className="stats-grid">
-        <StatCard label="Negocios totales"    value={data.total_tenants}          color="#6c3fc5" icon="🏢" />
-        <StatCard label="Negocios activos"    value={data.active_tenants}         color="#22c55e" icon="✅" />
-        <StatCard label="Clientes totales"    value={data.total_clients}          color="#3b82f6" icon="👥" />
-        <StatCard label="Citas este mes"      value={data.appointments_this_month} color="#f59e0b" icon="📅" />
-        <StatCard label="Citas hoy"           value={data.appointments_today}     color="#ec4899" icon="🗓️" />
-        <StatCard label="Negocios inactivos"  value={data.inactive_tenants}       color="#ef4444" icon="⛔" />
+        <StatCard label="Negocios totales"    value={data.total_tenants}          color="#6c3fc5" icon="NG" />
+        <StatCard label="Negocios activos"    value={data.active_tenants}         color="#22c55e" icon="AC" />
+        <StatCard label="Clientes totales"    value={data.total_clients}          color="#3b82f6" icon="CL" />
+        <StatCard label="Citas este mes"      value={data.appointments_this_month} color="#f59e0b" icon="CM" />
+        <StatCard label="Citas hoy"           value={data.appointments_today}     color="#ec4899" icon="CH" />
+        <StatCard label="Negocios inactivos"  value={data.inactive_tenants}       color="#ef4444" icon="IN" />
       </div>
 
       <div className="dashboard-grid">
@@ -140,8 +140,8 @@ function TenantDashboard() {
   if (error)   return <div className="alert alert-error">Error: {error}</div>
   if (!data)   return (
     <div className="empty-state">
-      <div className="icon">📊</div>
-      <p>Selecciona un negocio en el menú lateral para ver su dashboard.</p>
+      <h2 className="empty-state-title">Selecciona un negocio</h2>
+      <p className="empty-state-text">Selecciona un negocio en el menú lateral para ver su dashboard.</p>
     </div>
   )
 
@@ -155,13 +155,13 @@ function TenantDashboard() {
       </div>
 
       <div className="stats-grid">
-        <StatCard label="Citas hoy"            value={data.appointments_today}  color="#6c3fc5" icon="🗓️" />
-        <StatCard label="Citas esta semana"    value={data.appointments_week}   color="#3b82f6" icon="📅" />
-        <StatCard label="Citas este mes"       value={data.appointments_month}  color="#f59e0b" icon="📋" />
-        <StatCard label="Clientes registrados" value={data.total_clients}       color="#22c55e" icon="👥" />
-        <StatCard label="Servicios activos"    value={data.active_services}     color="#ec4899" icon="✂️"
+        <StatCard label="Citas hoy"            value={data.appointments_today}  color="#6c3fc5" icon="CH" />
+        <StatCard label="Citas esta semana"    value={data.appointments_week}   color="#3b82f6" icon="CS" />
+        <StatCard label="Citas este mes"       value={data.appointments_month}  color="#f59e0b" icon="CM" />
+        <StatCard label="Clientes registrados" value={data.total_clients}       color="#22c55e" icon="CL" />
+        <StatCard label="Servicios activos"    value={data.active_services}     color="#ec4899" icon="SV"
           sub={data.total_services > data.active_services ? `${data.total_services - data.active_services} inactivos` : null} />
-        <StatCard label="Cancelaciones (%)"    value={`${data.cancellation_rate}%`} color="#ef4444" icon="❌" />
+        <StatCard label="Cancelaciones (%)"    value={`${data.cancellation_rate}%`} color="#ef4444" icon="CA" />
       </div>
 
       <div className="dashboard-grid">
@@ -205,7 +205,7 @@ function TenantDashboard() {
           <div className="card">
             <h2 className="card-title">Servicio del mes</h2>
             <div className="top-service">
-              <span className="top-service-icon">✂️</span>
+              <span className="top-service-icon">SV</span>
               <div>
                 <div className="top-service-name">{data.top_service.name}</div>
                 <div className="top-service-count">{data.top_service.count} citas este mes</div>
@@ -220,20 +220,22 @@ function TenantDashboard() {
           {data.upcoming_appointments.length === 0 ? (
             <div className="empty-state-sm">No hay citas próximas programadas.</div>
           ) : (
-            <table className="table-sm">
-              <thead>
-                <tr><th>Fecha</th><th>Hora</th><th>Estado</th></tr>
-              </thead>
-              <tbody>
-                {data.upcoming_appointments.map(a => (
-                  <tr key={a.id}>
-                    <td>{new Date(a.date).toLocaleDateString('es')}</td>
-                    <td>{a.start_time.slice(0, 5)}</td>
-                    <td><StatusBadge status={a.status} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="table-responsive">
+              <table className="data-table dashboard-table">
+                <thead>
+                  <tr><th>Fecha</th><th>Hora</th><th>Estado</th></tr>
+                </thead>
+                <tbody>
+                  {data.upcoming_appointments.map(a => (
+                    <tr key={a.id}>
+                      <td className="cell-nowrap">{new Date(a.date).toLocaleDateString('es')}</td>
+                      <td className="cell-nowrap">{a.start_time.slice(0, 5)}</td>
+                      <td><StatusBadge status={a.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
       </div>

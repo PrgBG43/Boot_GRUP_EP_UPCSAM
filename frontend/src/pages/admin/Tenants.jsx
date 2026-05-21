@@ -406,8 +406,14 @@ export default function AdminTenants() {
     ? `${t.owner_user.first_name || ''} ${t.owner_user.last_name || ''}`.trim() || '—'
     : '—'
   const adminEmail  = (t) => t.owner_user?.email || '—'
+  const planBadgeClass = (t) => {
+    const raw = `${t.plan?.name || ''} ${t.plan?.display_name || ''}`.toLowerCase()
+    if (raw.includes('enterprise') || raw.includes('empresarial')) return 'badge-enterprise'
+    if (raw.includes('premium')) return 'badge-premium'
+    return 'badge-free'
+  }
   const statusBadge = (active) => (
-    <span className={`badge badge-${active ? 'confirmed' : 'cancelled'}`}>
+    <span className={`badge ${active ? 'badge-success' : 'badge-neutral'}`}>
       {active ? 'Activo' : 'Inactivo'}
     </span>
   )
@@ -434,40 +440,47 @@ export default function AdminTenants() {
       </div>
 
       {/* Barra de filtros + PDF */}
-      <div className="businesses-toolbar">
-        <div className="plan-filters">
+      <div className="page-toolbar">
+        <div className="filter-group">
           {PLAN_FILTERS.map(opt => (
             <button
               key={opt.value}
-              className={`filter-btn${planFilter === opt.value ? ' active' : ''}`}
+              className={`filter-pill${planFilter === opt.value ? ' active' : ''}`}
               onClick={() => setPlanFilter(opt.value)}
             >
               {opt.label}
             </button>
           ))}
         </div>
-        <button className="btn btn-outline" onClick={downloadPDF} title="Descargar PDF con el filtro actual">
-          Descargar PDF
-        </button>
+        <div className="action-group">
+          <button className="btn btn-secondary" onClick={downloadPDF} title="Descargar PDF con el filtro actual">
+            Descargar PDF
+          </button>
+        </div>
       </div>
 
       {/* Alerta global */}
       {feedback && !modal && (
-        <div className="alert alert-error" style={{ marginBottom: '1rem' }}>{feedback}</div>
+        <div className="alert alert-error">{feedback}</div>
       )}
 
       {/* Tabla o estado vacío */}
       {tenants.length === 0 ? (
         <div className="empty-state">
-          <div className="icon">🏢</div>
-          <p>{planFilter ? 'No hay negocios con el plan seleccionado.' : 'No hay negocios registrados aún.'}</p>
+          <h2 className="empty-state-title">
+            {planFilter ? 'Sin negocios para este plan' : 'Sin negocios registrados'}
+          </h2>
+          <p className="empty-state-text">
+            {planFilter ? 'No hay negocios con el plan seleccionado.' : 'Crea el primer negocio para empezar a gestionar la plataforma.'}
+          </p>
           {!planFilter && (
-            <button className="btn btn-primary" onClick={openCreate}>Crear primer negocio</button>
+            <button className="btn btn-primary empty-state-action" onClick={openCreate}>Crear primer negocio</button>
           )}
         </div>
       ) : (
-        <div className="card table-responsive">
-          <table>
+        <div className="table-card">
+          <div className="table-responsive">
+          <table className="data-table tenants-table">
             <thead>
               <tr>
                 <th>Negocio</th>
@@ -485,29 +498,29 @@ export default function AdminTenants() {
               {tenants.map(t => (
                 <tr key={t.id}>
                   <td>
-                    <strong>{t.name}</strong>
+                    <span className="cell-main">{t.name}</span>
                     {t.slug && (
-                      <div className="table-sub">
+                      <div className="cell-muted">
                         <code className="slug-code">{t.slug}</code>
                       </div>
                     )}
                   </td>
-                  <td>{t.state_name || '—'}</td>
-                  <td>{t.city_name || t.city || '—'}</td>
-                  <td>{t.phone || '—'}</td>
-                  <td>{adminName(t)}</td>
+                  <td className="cell-nowrap">{t.state_name || '—'}</td>
+                  <td className="cell-nowrap">{t.city_name || t.city || '—'}</td>
+                  <td className="cell-nowrap">{t.phone || '—'}</td>
+                  <td className="cell-nowrap">{adminName(t)}</td>
                   <td>
-                    <span className="admin-email">{adminEmail(t)}</span>
+                    <span className="cell-email">{adminEmail(t)}</span>
                   </td>
-                  <td><span className="plan-pill">{planName(t)}</span></td>
+                  <td><span className={`badge badge-plan ${planBadgeClass(t)}`}>{planName(t)}</span></td>
                   <td>{statusBadge(t.is_active)}</td>
-                  <td>
+                  <td className="cell-actions">
                     <div className="table-actions">
-                      <button className="btn-sm btn-outline" onClick={() => openEdit(t)}>
+                      <button className="btn btn-outline btn-sm" onClick={() => openEdit(t)}>
                         Editar
                       </button>
                       <button
-                        className={`btn-sm ${t.is_active ? 'btn-danger-sm' : 'btn-success-sm'}`}
+                        className={`btn btn-sm ${t.is_active ? 'btn-danger' : 'btn-success'}`}
                         onClick={() => toggleActive(t)}
                       >
                         {t.is_active ? 'Desactivar' : 'Activar'}
@@ -518,6 +531,7 @@ export default function AdminTenants() {
               ))}
             </tbody>
           </table>
+        </div>
         </div>
       )}
 
@@ -531,7 +545,7 @@ export default function AdminTenants() {
             </div>
 
             {feedback && (
-              <div className="alert alert-error" style={{ margin: '0 1.5rem 1rem' }}>
+              <div className="alert alert-error modal-alert">
                 {feedback}
               </div>
             )}
@@ -678,8 +692,8 @@ export default function AdminTenants() {
                   </select>
                   <FieldError msg={fieldErrors.plan_id} />
                 </div>
-                <div className="form-group" style={{ justifyContent: 'flex-end' }}>
-                  <div className="form-check" style={{ marginTop: 'auto', paddingBottom: '.35rem' }}>
+                <div className="form-group form-group-end">
+                  <div className="form-check form-check-bottom">
                     <input
                       type="checkbox"
                       id="is_active_create"
@@ -693,7 +707,7 @@ export default function AdminTenants() {
               </div>
 
               {/* -- Sección: Accesos del administrador ---- */}
-              <div className="modal-section-header" style={{ marginTop: '.25rem' }}>
+              <div className="modal-section-header modal-section-header-spaced">
                 Accesos del administrador
               </div>
 
@@ -775,7 +789,7 @@ export default function AdminTenants() {
                 </div>
               </div>
 
-              <div className="alert alert-info" style={{ fontSize: '.82rem', marginTop: '0' }}>
+              <div className="alert alert-info alert-compact">
                 El administrador podrá iniciar sesión con el correo y contraseña asignados.
                 El rol <strong>tenant_admin</strong> se asigna automáticamente.
               </div>
@@ -803,7 +817,7 @@ export default function AdminTenants() {
             </div>
 
             {feedback && (
-              <div className="alert alert-error" style={{ margin: '0 1.5rem 1rem' }}>
+              <div className="alert alert-error modal-alert">
                 {feedback}
               </div>
             )}

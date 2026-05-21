@@ -18,7 +18,7 @@ const EMPTY_FORM = {
 
 function RolePill({ role }) {
   const r = ROLE_LABELS[role] || { label: role, cls: '' }
-  return <span className={`role-pill ${r.cls}`}>{r.label}</span>
+  return <span className={`badge badge-role ${r.cls}`}>{r.label}</span>
 }
 
 export default function AdminUsers() {
@@ -42,7 +42,8 @@ export default function AdminUsers() {
     setLoading(true)
     try {
       const params = {}
-      if (filterTenant) params.tenant_id = filterTenant
+      if (filterTenant && filterTenant !== "") params.tenant_id = filterTenant
+      
       const [u, b] = await Promise.all([api.getUsers(params), api.getBusinesses()])
       setUsers(u || [])
       setBusinesses(b || [])
@@ -169,40 +170,34 @@ export default function AdminUsers() {
       </div>
 
       {/* Filtros */}
-      <div className="card" style={{ marginBottom: '1rem', padding: '.75rem 1rem' }}>
-        <div className="form-row" style={{ alignItems: 'flex-end', gap: '.75rem' }}>
-          <div className="form-group" style={{ flex: 2, margin: 0 }}>
+      <div className="page-toolbar">
+        <div className="filter-group">
             <input
-              className="form-control"
+              className="search-input users-search"
               placeholder="Buscar por nombre o correo…"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
-          </div>
-          <div className="form-group" style={{ flex: 1, margin: 0 }}>
-            <select className="form-control" value={filterRole} onChange={e => setFilterRole(e.target.value)}>
+            <select className="filter-select" value={filterRole} onChange={e => setFilterRole(e.target.value)}>
               <option value="">Todos los roles</option>
               {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]?.label || r}</option>)}
             </select>
-          </div>
-          <div className="form-group" style={{ flex: 1, margin: 0 }}>
-            <select className="form-control" value={filterTenant} onChange={e => setFilterTenant(e.target.value)}>
+            <select className="filter-select" value={filterTenant} onChange={e => setFilterTenant(e.target.value)}>
               <option value="">Todos los negocios</option>
               {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
-          </div>
         </div>
       </div>
 
-      <div className="card">
+      <div className="table-card">
         {filtered.length === 0 ? (
           <div className="empty-state">
-            <div className="icon">🔑</div>
-            <p>No se encontraron usuarios.</p>
+            <h2 className="empty-state-title">Sin usuarios para mostrar</h2>
+            <p className="empty-state-text">No se encontraron usuarios con los filtros aplicados.</p>
           </div>
         ) : (
           <div className="table-responsive">
-            <table>
+            <table className="data-table users-table">
               <thead>
                 <tr>
                   <th>Nombre</th>
@@ -216,22 +211,22 @@ export default function AdminUsers() {
               <tbody>
                 {filtered.map(u => (
                   <tr key={u.id}>
-                    <td>{u.first_name || u.last_name ? `${u.first_name || ''} ${u.last_name || ''}`.trim() : '—'}</td>
-                    <td>{u.email}</td>
+                    <td><span className="cell-main">{u.first_name || u.last_name ? `${u.first_name || ''} ${u.last_name || ''}`.trim() : '—'}</span></td>
+                    <td><span className="cell-email">{u.email}</span></td>
                     <td><RolePill role={u.role} /></td>
-                    <td>{u.tenant_id ? tenantName(u.tenant_id) : <span className="text-muted">Global</span>}</td>
+                    <td>{u.tenant_id ? <span className="cell-nowrap">{tenantName(u.tenant_id)}</span> : <span className="cell-muted">Global</span>}</td>
                     <td>
-                      <span className={`badge ${u.is_active ? 'badge-confirmed' : 'badge-cancelled'}`}>
+                      <span className={`badge ${u.is_active ? 'badge-success' : 'badge-neutral'}`}>
                         {u.is_active ? 'Activo' : 'Inactivo'}
                       </span>
                     </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '.4rem', flexWrap: 'wrap' }}>
+                    <td className="cell-actions">
+                      <div className="table-actions">
                         <button className="btn btn-sm btn-outline" onClick={() => openEdit(u)}>Editar</button>
-                        <button className="btn btn-sm btn-outline" onClick={() => openReset(u)}>Reset pwd</button>
+                        <button className="btn btn-sm btn-secondary" onClick={() => openReset(u)}>Restablecer</button>
                         {u.id !== me?.id && (
                           <button
-                            className={`btn btn-sm ${u.is_active ? 'btn-danger' : 'btn-outline'}`}
+                            className={`btn btn-sm ${u.is_active ? 'btn-danger' : 'btn-success'}`}
                             onClick={() => toggleActive(u)}
                           >
                             {u.is_active ? 'Desactivar' : 'Activar'}
@@ -255,47 +250,47 @@ export default function AdminUsers() {
               <h3>Nuevo usuario</h3>
               <button className="modal-close" onClick={() => setModal(null)}>✕</button>
             </div>
-            <form onSubmit={handleCreate} noValidate>
+            <form onSubmit={handleCreate} className="modal-form" noValidate>
               <div className="modal-body">
                 <div className="modal-section-header">Datos personales</div>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Nombre *</label>
-                    <input className="form-control" name="first_name" value={form.first_name} onChange={handleChange} />
+                    <input className="form-input" name="first_name" value={form.first_name} onChange={handleChange} />
                   </div>
                   <div className="form-group">
                     <label>Apellido</label>
-                    <input className="form-control" name="last_name" value={form.last_name} onChange={handleChange} />
+                    <input className="form-input" name="last_name" value={form.last_name} onChange={handleChange} />
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Teléfono</label>
-                    <input className="form-control" name="phone" value={form.phone} onChange={handleChange} />
+                    <input className="form-input" name="phone" value={form.phone} onChange={handleChange} />
                   </div>
                 </div>
 
-                <div className="modal-section-header" style={{ marginTop: '1rem' }}>Acceso</div>
+                <div className="modal-section-header modal-section-header-spaced">Acceso</div>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Correo electrónico *</label>
-                    <input className="form-control" type="email" name="email" value={form.email} onChange={handleChange} />
+                    <input className="form-input" type="email" name="email" value={form.email} onChange={handleChange} />
                   </div>
                   <div className="form-group">
                     <label>Contraseña *</label>
-                    <input className="form-control" type="password" name="password" value={form.password} onChange={handleChange} placeholder="Mínimo 8 caracteres" />
+                    <input className="form-input" type="password" name="password" value={form.password} onChange={handleChange} placeholder="Mínimo 8 caracteres" />
                   </div>
                 </div>
                 <div className="form-row">
                   <div className="form-group">
                     <label>Rol *</label>
-                    <select className="form-control" name="role_name" value={form.role_name} onChange={handleChange}>
+                    <select className="form-select" name="role_name" value={form.role_name} onChange={handleChange}>
                       {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]?.label || r}</option>)}
                     </select>
                   </div>
                   <div className="form-group">
                     <label>Negocio</label>
-                    <select className="form-control" name="tenant_id" value={form.tenant_id} onChange={handleChange}>
+                    <select className="form-select" name="tenant_id" value={form.tenant_id} onChange={handleChange}>
                       <option value="">Sin negocio (global)</option>
                       {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                     </select>
@@ -324,11 +319,11 @@ export default function AdminUsers() {
               <h3>Editar usuario</h3>
               <button className="modal-close" onClick={() => setModal(null)}>✕</button>
             </div>
-            <form onSubmit={handleEdit} noValidate>
+            <form onSubmit={handleEdit} className="modal-form" noValidate>
               <div className="modal-body">
                 <div className="form-group">
                   <label>Correo electrónico</label>
-                  <input className="form-control" type="email" name="email" value={form.email} onChange={handleChange} />
+                  <input className="form-input" type="email" name="email" value={form.email} onChange={handleChange} />
                 </div>
                 <div className="form-group">
                   <label>Rol</label>
@@ -366,7 +361,7 @@ export default function AdminUsers() {
             </div>
             <form onSubmit={handleResetPassword} noValidate>
               <div className="modal-body">
-                <p style={{ marginBottom: '.75rem', color: 'var(--text-secondary)' }}>
+                <p className="modal-helper-text">
                   Cambiando contraseña de <strong>{selected.email}</strong>
                 </p>
                 <div className="form-group">

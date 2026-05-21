@@ -77,16 +77,17 @@ export default function Services() {
         <button className="btn btn-primary" onClick={openCreate}>+ Nuevo servicio</button>
       </div>
 
-      <div className="card">
+      <div className="table-card">
         {services.length === 0 ? (
           <div className="empty-state">
-            <div className="icon">Servicios</div>
-            <p>No hay servicios registrados aún.</p>
-            <button className="btn btn-primary" onClick={openCreate}>Crear primer servicio</button>
+            <h2 className="empty-state-title">Sin servicios registrados</h2>
+            <p className="empty-state-text">Crea el primer servicio para habilitar la agenda del negocio.</p>
+            <button className="btn btn-primary empty-state-action" onClick={openCreate}>Crear primer servicio</button>
           </div>
         ) : (
-          <table>
-            <thead>
+          <div className="table-responsive">
+            <table className="data-table services-table">
+              <thead>
               <tr>
                 {isSuperadmin && <th>Negocio</th>}
                 <th>Nombre</th>
@@ -99,23 +100,23 @@ export default function Services() {
             <tbody>
               {services.map(s => (
                 <tr key={s.id}>
-                  {isSuperadmin && <td className="table-sub">{businessName(s.tenant_id)}</td>}
+                  {isSuperadmin && <td><span className="cell-main">{businessName(s.tenant_id)}</span></td>}
                   <td>
-                    <strong>{s.name}</strong>
-                    {s.description && <div className="table-sub">{s.description}</div>}
+                    <span className="cell-main">{s.name}</span>
+                    {s.description && <span className="cell-muted">{s.description}</span>}
                   </td>
-                  <td>{s.duration_minutes} min</td>
-                  <td>${Number(s.price).toLocaleString('es-CO')}</td>
+                  <td className="cell-nowrap">{s.duration_minutes} min</td>
+                  <td className="cell-nowrap">${Number(s.price).toLocaleString('es-CO')}</td>
                   <td>
-                    <span className={`badge ${s.is_active ? 'badge-confirmed' : 'badge-cancelled'}`}>
+                    <span className={`badge ${s.is_active ? 'badge-success' : 'badge-neutral'}`}>
                       {s.is_active ? 'Activo' : 'Inactivo'}
                     </span>
                   </td>
-                  <td>
+                  <td className="cell-actions">
                     <div className="table-actions">
-                      <button className="btn-sm btn-outline-sm" onClick={() => openEdit(s)}>Editar</button>
+                      <button className="btn btn-outline btn-sm" onClick={() => openEdit(s)}>Editar</button>
                       <button
-                        className={`btn-sm ${s.is_active ? 'btn-danger-sm' : 'btn-success-sm'}`}
+                        className={`btn btn-sm ${s.is_active ? 'btn-danger' : 'btn-success'}`}
                         onClick={() => handleToggle(s)}
                       >
                         {s.is_active ? 'Desactivar' : 'Activar'}
@@ -126,6 +127,7 @@ export default function Services() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -136,12 +138,12 @@ export default function Services() {
               <h3>{editing ? 'Editar servicio' : 'Nuevo servicio'}</h3>
               <button className="modal-close" onClick={() => setModal(false)}>×</button>
             </div>
-            {feedback && <div className={`alert alert-${feedback.type}`} style={{margin:'0 1.5rem'}}>{feedback.msg}</div>}
+            {feedback && <div className={`alert alert-${feedback.type} modal-alert`}>{feedback.msg}</div>}
             <form onSubmit={handleSubmit} className="modal-form" noValidate>
               {isSuperadmin && (
                 <div className="form-group">
                   <label>Negocio *</label>
-                  <select name="tenant_id" value={form.tenant_id} onChange={handleChange}>
+                  <select className="form-select" name="tenant_id" value={form.tenant_id} onChange={handleChange}>
                     <option value="">Selecciona un negocio</option>
                     {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
@@ -149,20 +151,20 @@ export default function Services() {
               )}
               <div className="form-group">
                 <label>Nombre *</label>
-                <input name="name" value={form.name} onChange={handleChange} placeholder="Ej: Corte de cabello" />
+                <input className="form-input" name="name" value={form.name} onChange={handleChange} placeholder="Ej: Corte de cabello" />
               </div>
               <div className="form-group">
                 <label>Descripción</label>
-                <textarea name="description" value={form.description} onChange={handleChange} rows={2} placeholder="Descripción breve del servicio" />
+                <textarea className="form-textarea" name="description" value={form.description} onChange={handleChange} rows={2} placeholder="Descripción breve del servicio" />
               </div>
               <div className="form-row">
                 <div className="form-group">
                   <label>Duración (min) *</label>
-                  <input type="number" name="duration_minutes" value={form.duration_minutes} onChange={handleChange} min={5} />
+                  <input className="form-input" type="number" name="duration_minutes" value={form.duration_minutes} onChange={handleChange} min={5} />
                 </div>
                 <div className="form-group">
                   <label>Precio (COP) *</label>
-                  <input type="number" name="price" value={form.price} onChange={handleChange} step="0.01" min={0} />
+                  <input className="form-input" type="number" name="price" value={form.price} onChange={handleChange} step="0.01" min={0} />
                 </div>
               </div>
               <div className="form-group form-check">

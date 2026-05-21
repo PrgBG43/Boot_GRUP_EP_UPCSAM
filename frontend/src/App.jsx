@@ -54,7 +54,7 @@ function RoleBadge({ role }) {
     customer: { label: 'Cliente', cls: 'role-customer' },
   }
   const value = labels[role] || { label: role, cls: '' }
-  return <span className={`role-pill ${value.cls}`}>{value.label}</span>
+  return <span className={`badge badge-role ${value.cls}`}>{value.label}</span>
 }
 
 function TenantSelector() {
@@ -152,7 +152,7 @@ function Layout({ navItems }) {
           <div className="topbar-left">
             {activeTenantName && <span className="topbar-tenant">{activeTenantName}</span>}
             {isSuperadmin && !activeTenantName && (
-              <span className="topbar-tenant" style={{ color: 'var(--accent)' }}>Vista global - Plataforma Turnix</span>
+              <span className="topbar-tenant topbar-tenant-global">Vista global - Plataforma Turnix</span>
             )}
           </div>
           <div className="topbar-right">
@@ -160,7 +160,8 @@ function Layout({ navItems }) {
             <span className="topbar-email">{user?.email}</span>
           </div>
         </header>
-        <main className="main-content">
+        <main className="main-content-wrapper">
+          <div className="main-content">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/services" element={
@@ -202,6 +203,7 @@ function Layout({ navItems }) {
             } />
             <Route path="/unauthorized" element={<Unauthorized />} />
           </Routes>
+          </div>
         </main>
       </div>
     </div>

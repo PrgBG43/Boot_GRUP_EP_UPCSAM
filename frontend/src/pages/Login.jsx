@@ -67,9 +67,9 @@ export default function Login() {
           Plataforma SaaS para administrar servicios, clientes, agenda y conversaciones desde un panel profesional.
         </p>
         <div className="login-features">
-          <div className="feature-item"><span className="feature-icon">✓</span><span>Negocios multi-tenant</span></div>
-          <div className="feature-item"><span className="feature-icon">✓</span><span>Roles y accesos controlados</span></div>
-          <div className="feature-item"><span className="feature-icon">✓</span><span>Agendamiento conectado con Telegram</span></div>
+          <div className="feature-item"><span className="feature-icon">01</span><span>Negocios multi-tenant</span></div>
+          <div className="feature-item"><span className="feature-icon">02</span><span>Roles y accesos controlados</span></div>
+          <div className="feature-item"><span className="feature-icon">03</span><span>Agendamiento conectado con Telegram</span></div>
         </div>
       </div>
 
@@ -111,7 +111,7 @@ export default function Login() {
               />
               <FieldError msg={fieldErrors.password} />
             </div>
-            <button type="submit" className="login-btn" disabled={loading}>
+            <button type="submit" className="btn btn-primary btn-block login-btn" disabled={loading}>
               {loading ? 'Verificando...' : 'Ingresar al panel'}
             </button>
           </form>

@@ -57,21 +57,21 @@ export default function BusinessConfig() {
           <p>Actualiza los datos y horarios de tu negocio</p>
         </div>
         {business && (
-          <span className={`badge ${business.is_active ? 'badge-confirmed' : 'badge-cancelled'}`}>
+          <span className={`badge ${business.is_active ? 'badge-success' : 'badge-neutral'}`}>
             {business.is_active ? 'Activo' : 'Inactivo'}
           </span>
         )}
       </div>
 
       {feedback && (
-        <div className={`alert alert-${feedback.type}`} style={{marginBottom:'1.25rem'}}>
+        <div className={`alert alert-${feedback.type}`}>
           {feedback.msg}
         </div>
       )}
 
       {business && (
-        <div className="card" style={{maxWidth:'680px'}}>
-          <div style={{marginBottom:'1.5rem',fontSize:'.85rem',color:'var(--text-muted)'}}>
+        <div className="card business-config-card">
+          <div className="panel-meta business-slug">
             Slug: <code>{business.slug}</code>
           </div>
           <form onSubmit={handleSubmit} noValidate>
@@ -103,7 +103,7 @@ export default function BusinessConfig() {
                 <input type="time" name="closing_time" value={form.closing_time} onChange={handleChange} />
               </div>
             </div>
-            <div style={{display:'flex',justifyContent:'flex-end',marginTop:'1rem'}}>
+            <div className="form-actions">
               <button type="submit" className="btn btn-primary" disabled={saving}>
                 {saving ? 'Guardando...' : 'Guardar cambios'}
               </button>
