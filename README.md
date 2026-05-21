@@ -183,9 +183,13 @@ En Linux o macOS:
 cp .env.example .env
 ```
 
-El backend lee el token global del bot desde `TELEGRAM_BOT_TOKEN` en el archivo `.env` local. No se deben incluir tokens reales, contraseñas ni credenciales sensibles dentro del repositorio.
+El token de cada bot se ingresa desde el panel de Turnix y queda asociado a un negocio. El archivo `.env` local solo debe incluir la clave usada para proteger esos tokens en base de datos.
 
-El archivo `.env.example` solo incluye el nombre de la variable del bot con un valor de ejemplo. Las demás variables pueden agregarse localmente si el entorno lo requiere; cuando no están presentes, el backend usa los valores de desarrollo definidos en `app/core/config.py`.
+```env
+TELEGRAM_TOKEN_ENCRYPTION_KEY=your_encryption_key_here
+```
+
+No se deben incluir tokens reales, contraseñas ni credenciales sensibles dentro del repositorio.
 
 Para un entorno con PostgreSQL, se debe configurar localmente la variable `DATABASE_URL` con la cadena de conexión correspondiente.
 
@@ -262,7 +266,7 @@ Para configurarlo:
 2. Busca el bot oficial **BotFather**.
 3. Crea un nuevo bot con el comando `/newbot`.
 4. Copia el token generado.
-5. Agrega el token en el archivo `.env` local del backend usando la variable indicada en `.env.example`.
+5. Entra al panel de Turnix, abre Configuración de Telegram del negocio y pega allí el token.
 
 Para iniciar el bot:
 
@@ -270,16 +274,17 @@ Para iniciar el bot:
 python -m app.bot.telegram_bot
 ```
 
-Turnix usa un bot global y enlaces por negocio:
+Turnix usa un bot propio por negocio. El enlace público queda asociado al username del bot conectado:
 
 ```text
-https://t.me/usuario_publico_del_bot?start=slug-del-negocio
-/start slug-del-negocio
+https://t.me/usuario_publico_del_bot
 Seleccionar servicio
 Elegir fecha
 Elegir horario disponible
 Confirmar cita
 ```
+
+En desarrollo local, `python -m app.bot.telegram_bot` inicia por polling todos los bots conectados desde el panel. En producción puede evaluarse webhook con una URL pública.
 
 ---
 
@@ -372,7 +377,7 @@ El despliegue en producción puede realizarse posteriormente mediante servicios 
 - [x] Documentación automática de la API con Swagger/OpenAPI.
 - [x] Frontend desarrollado con React y Vite.
 - [x] Panel administrativo funcional para demostración.
-- [ ] Bot de Telegram pendiente de validación completa con token real.
+- [x] Bot de Telegram configurable por negocio mediante token ingresado desde el panel.
 - [ ] Despliegue en entorno de producción pendiente.
 
 ---

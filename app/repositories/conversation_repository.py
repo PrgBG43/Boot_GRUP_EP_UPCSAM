@@ -1,13 +1,13 @@
 from typing import Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.conversation import Conversation
 from app.schemas.conversation import ConversationCreate, ConversationUpdate
 
 
 def list_conversations(db: Session, skip: int = 0, limit: int = 100, tenant_id: Optional[int] = None):
-    query = db.query(Conversation)
+    query = db.query(Conversation).options(joinedload(Conversation.tenant), joinedload(Conversation.client))
     if tenant_id is not None:
         query = query.filter(Conversation.tenant_id == tenant_id)
     return query.order_by(Conversation.last_interaction_at.desc()).offset(skip).limit(limit).all()

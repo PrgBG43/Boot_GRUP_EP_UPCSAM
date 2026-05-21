@@ -17,8 +17,11 @@ class Conversation(Base):
         Integer, ForeignKey("clients.id", ondelete="SET NULL"), nullable=True
     )
     chat_id = Column(String, nullable=False, index=True)
+    bot_id = Column(String, nullable=True, index=True)
     channel = Column(String, nullable=False, default="telegram")
     status = Column(String, nullable=False, default="active")
+    current_step = Column(String, nullable=True)
+    context_data = Column(String, nullable=True)
     last_interaction_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
     visit_count = Column(Integer, default=0)
 
@@ -27,3 +30,11 @@ class Conversation(Base):
     messages = relationship(
         "Message", back_populates="conversation", cascade="all, delete-orphan"
     )
+
+    @property
+    def tenant_name(self):
+        return self.tenant.name if self.tenant else None
+
+    @property
+    def client_name(self):
+        return self.client.full_name if self.client else None

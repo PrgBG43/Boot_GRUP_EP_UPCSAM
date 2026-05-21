@@ -164,11 +164,21 @@ export const api = {
     const qs = tenantId ? `?tenant_id=${tenantId}` : ''
     return request(`/telegram-config/${qs}`, { method: 'PUT', body: JSON.stringify(data) })
   },
-  validateTelegramToken: (botToken, tenantId) => {
+  connectTelegramBot: (botToken, tenantId) => {
+    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
+    return request(`/telegram-config/connect${qs}`, {
+      method: 'POST',
+      body: JSON.stringify({ bot_token: botToken }),
+    })
+  },
+  disconnectTelegramBot: (tenantId) => {
+    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
+    return request(`/telegram-config/disconnect${qs}`, { method: 'POST' })
+  },
+  validateTelegramBot: (tenantId) => {
     const qs = tenantId ? `?tenant_id=${tenantId}` : ''
     return request(`/telegram-config/validate${qs}`, {
       method: 'POST',
-      body: JSON.stringify({ bot_token: botToken }),
     })
   },
 }

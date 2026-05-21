@@ -12,7 +12,8 @@ class Channel(Base):
         Integer, ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False
     )
     type = Column(String, nullable=False)
-    bot_token = Column(String, nullable=False)
+    bot_token_encrypted = Column(String, nullable=True)
+    bot_token_masked = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
 
     tenant = relationship("Tenant", back_populates="channels")

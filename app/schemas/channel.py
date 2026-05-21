@@ -6,12 +6,11 @@ from pydantic import BaseModel
 class ChannelBase(BaseModel):
     tenant_id: int
     type: str
-    bot_token: str
     is_active: bool = True
 
 
 class ChannelCreate(ChannelBase):
-    pass
+    bot_token: str
 
 
 class ChannelUpdate(BaseModel):
@@ -20,8 +19,12 @@ class ChannelUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
-class ChannelResponse(ChannelBase):
+class ChannelResponse(BaseModel):
     id: int
+    tenant_id: int
+    type: str
+    bot_token_masked: Optional[str] = None
+    is_active: bool = True
 
     class Config:
         from_attributes = True

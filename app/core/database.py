@@ -1,10 +1,9 @@
 """Configuracion del motor de base de datos, sesion y utilidades."""
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.core.config import settings
 
-# SQLite requiere check_same_thread=False para uso con FastAPI
 connect_args = {}
 if settings.db_url.startswith("sqlite"):
     connect_args = {"check_same_thread": False}
@@ -24,6 +23,9 @@ def get_db():
 
 
 def create_tables():
-    """Crea todas las tablas definidas en los modelos (util con SQLite)."""
-    import app.models  # noqa: F401 – importar todos los modelos antes de crear tablas
+    """Crea tablas y agrega columnas nuevas en bases locales existentes."""
+    import app.models  # noqa: F401
+    from app.core.schema_migrations import ensure_schema_compatibility
+
     Base.metadata.create_all(bind=engine)
+    ensure_schema_compatibility(engine)

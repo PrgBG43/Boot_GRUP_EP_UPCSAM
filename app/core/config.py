@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 480
 
     # Superadmin inicial y datos demo
-    TURNIX_SUPERADMIN_EMAIL: str = "admin@turnix.local"
+    TURNIX_SUPERADMIN_EMAIL: str = "admin@turnix.com"
     TURNIX_SUPERADMIN_PASSWORD: str = "Admin123*"
     TURNIX_SUPERADMIN_FIRST_NAME: str = "Administrador"
     TURNIX_SUPERADMIN_LAST_NAME: str = "Turnix"
@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     # Telegram Bot global
     TELEGRAM_BOT_TOKEN: Optional[str] = None
     TELEGRAM_BOT_USERNAME: Optional[str] = None
+    TELEGRAM_TOKEN_ENCRYPTION_KEY: Optional[str] = None
 
     # Frontend
     FRONTEND_URL: str = "http://localhost:5173"

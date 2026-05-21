@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 import app.models  # noqa: F401
 from app.core.config import settings
 from app.core.database import Base, SessionLocal, engine
+from app.core.schema_migrations import ensure_schema_compatibility
 from app.core.security import hash_password
 from app.core.slug import ensure_unique_slug
 
@@ -359,7 +360,6 @@ def _create_demo_data(db, plans, roles, locations):
                 allow_cancellation=True,
                 show_prices=True,
                 show_duration=True,
-                use_global_bot=True,
             )
         )
         db.commit()
@@ -375,6 +375,7 @@ def run_seed():
     _warn_missing_env()
     print("Creando tablas si no existen...")
     Base.metadata.create_all(bind=engine)
+    ensure_schema_compatibility(engine)
 
     db = SessionLocal()
     try:
@@ -390,11 +391,16 @@ def run_seed():
         print(f"Superadmin inicial listo: {superadmin.email}")
 
         if settings.TURNIX_DEMO_SEED:
+            print("TURNIX_DEMO_SEED=true: creando datos de demostración...")
             _create_demo_data(db, plans, roles, locations)
         else:
             print("TURNIX_DEMO_SEED=false: no se crean negocio ni usuarios demo.")
 
         print("Seed completado correctamente.")
+        print("\nPara reiniciar datos demo desde cero:")
+        print("  1. Cerrar el backend (o matar proceso en puerto 8000)")
+        print("  2. Ejecutar: Remove-Item turnix.db -Force")
+        print("  3. Ejecutar: python -m app.database.seed")
     except Exception as exc:
         db.rollback()
         print(f"ERROR en seed: {exc}")

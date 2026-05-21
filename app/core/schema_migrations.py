@@ -1,0 +1,55 @@
+"""Migraciones ligeras para desarrollo local con SQLite/create_all."""
+from sqlalchemy import inspect, text
+
+
+def _add_columns_if_missing(engine, table_name: str, columns: dict[str, str]) -> None:
+    inspector = inspect(engine)
+    if table_name not in inspector.get_table_names():
+        return
+
+    existing = {column["name"] for column in inspector.get_columns(table_name)}
+    missing = [(name, ddl) for name, ddl in columns.items() if name not in existing]
+    if not missing:
+        return
+
+    with engine.begin() as conn:
+        for name, ddl in missing:
+            conn.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {name} {ddl}"))
+
+
+def ensure_schema_compatibility(engine) -> None:
+    """Agrega columnas nuevas cuando una base SQLite ya existia antes del cambio."""
+    _add_columns_if_missing(
+        engine,
+        "telegram_configs",
+        {
+            "bot_token_encrypted": "TEXT",
+            "bot_id": "VARCHAR",
+            "bot_commands": "TEXT",
+            "is_connected": "BOOLEAN DEFAULT 0",
+            "connection_status": "VARCHAR DEFAULT 'not_connected'",
+            "ask_name_message": "TEXT",
+            "ask_phone_message": "TEXT",
+            "ask_service_message": "TEXT",
+            "goodbye_message": "TEXT",
+            "collect_phone": "BOOLEAN DEFAULT 1",
+            "require_confirmation": "BOOLEAN DEFAULT 1",
+        },
+    )
+    _add_columns_if_missing(
+        engine,
+        "conversations",
+        {
+            "bot_id": "VARCHAR",
+            "current_step": "VARCHAR",
+            "context_data": "TEXT",
+        },
+    )
+    _add_columns_if_missing(
+        engine,
+        "channels",
+        {
+            "bot_token_encrypted": "TEXT",
+            "bot_token_masked": "VARCHAR",
+        },
+    )

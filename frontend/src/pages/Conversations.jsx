@@ -23,7 +23,7 @@ export default function Conversations() {
       setMessages(msgs || [])
     } catch(e) {
       setMessages([])
-      setError(e.message || 'No fue posible cargar los mensajes de la conversación.')
+      setError(e.message || 'No fue posible cargar los mensajes de la conversacion.')
     }
     setLoadingMsgs(false)
   }
@@ -35,7 +35,7 @@ export default function Conversations() {
     <div>
       <div className="page-header">
         <h1>Conversaciones</h1>
-        <p>Registro de conversaciones de Telegram</p>
+        <p>Historial bidireccional de conversaciones de Telegram</p>
       </div>
 
       <div className={`section-spacing conversation-grid${selected ? ' conversation-grid--split' : ''}`}>
@@ -43,21 +43,33 @@ export default function Conversations() {
           {conversations.length === 0 ? (
             <div className="empty-state">
               <h2 className="empty-state-title">Sin conversaciones registradas</h2>
-              <p className="empty-state-text">Las conversaciones aparecerán aquí cuando los clientes interactúen por Telegram.</p>
+              <p className="empty-state-text">Las conversaciones apareceran aqui cuando los clientes interactuen por Telegram.</p>
             </div>
           ) : (
             <div className="table-responsive">
             <table className="data-table conversations-table">
-              <thead><tr><th>ID</th><th>Chat ID</th><th>Canal</th><th>Estado</th><th>Visitas</th><th>Última interacción</th><th>Acciones</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Negocio</th>
+                  <th>Cliente</th>
+                  <th>Canal</th>
+                  <th>Estado</th>
+                  <th>Paso</th>
+                  <th>Ultima interaccion</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
               <tbody>
                 {conversations.map(c => (
                   <tr key={c.id} className="clickable-row" onClick={() => openConversation(c)}>
                     <td className="cell-nowrap">#{c.id}</td>
-                    <td className="cell-nowrap">{c.chat_id}</td>
+                    <td className="cell-nowrap">{c.tenant_name || `#${c.tenant_id}`}</td>
+                    <td className="cell-nowrap">{c.client_name || `Chat ${c.chat_id}`}</td>
                     <td className="cell-nowrap">{c.channel}</td>
                     <td><span className={`badge ${c.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>{c.status}</span></td>
-                    <td className="cell-nowrap">{c.visit_count}</td>
-                    <td className="cell-nowrap">{c.last_interaction_at ? new Date(c.last_interaction_at).toLocaleString('es-CO') : '—'}</td>
+                    <td className="cell-nowrap">{c.current_step || '-'}</td>
+                    <td className="cell-nowrap">{c.last_interaction_at ? new Date(c.last_interaction_at).toLocaleString('es-CO') : '-'}</td>
                     <td className="cell-actions">
                       <div className="table-actions">
                         <button className="btn btn-outline btn-sm">Ver mensajes</button>
@@ -74,14 +86,14 @@ export default function Conversations() {
         {selected && (
           <div className="card">
             <div className="card-header-row">
-              <h3>Mensajes – Conversación #{selected.id}</h3>
+              <h3>Mensajes - Conversacion #{selected.id}</h3>
               <button className="btn btn-outline btn-sm" onClick={() => setSelected(null)}>Cerrar</button>
             </div>
             {loadingMsgs ? <div className="spinner" /> : (
               messages.length === 0 ? (
                 <div className="empty-state">
                   <h2 className="empty-state-title">Sin mensajes registrados</h2>
-                  <p className="empty-state-text">Esta conversación todavía no tiene mensajes guardados.</p>
+                  <p className="empty-state-text">Esta conversacion todavia no tiene mensajes guardados.</p>
                 </div>
               ) : (
                 <div className="messages-list">
@@ -89,7 +101,7 @@ export default function Conversations() {
                     <div key={m.id} className={`message-bubble message-${m.direction}`}>
                       <div className="message-content">{m.content}</div>
                       <div className="message-meta">
-                        {m.direction === 'incoming' ? 'Cliente' : 'Bot'} · {m.created_at ? new Date(m.created_at).toLocaleTimeString('es-CO') : ''}
+                        {m.direction === 'incoming' ? 'Cliente' : 'Bot'} - {m.created_at ? new Date(m.created_at).toLocaleTimeString('es-CO') : ''}
                       </div>
                     </div>
                   ))}

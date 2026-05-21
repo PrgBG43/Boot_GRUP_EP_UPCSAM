@@ -2,7 +2,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.auth import get_current_user, require_superadmin, require_tenant_admin_or_above
 from app.core.database import get_db
@@ -107,7 +107,12 @@ def list_users(
     current_user: User = Depends(require_tenant_admin_or_above),
 ):
     """Lista usuarios según el alcance del rol actual."""
-    query = db.query(User)
+    # Cargamos relaciones necesarias para evitar errores de Lazy Loading durante la serialización
+    query = db.query(User).options(
+        joinedload(User.person),
+        joinedload(User.roles),
+        joinedload(User.tenant)
+    )
     if current_user.primary_role == "superadmin":
         if tenant_id is not None:
             query = query.filter(User.tenant_id == tenant_id)
@@ -123,7 +128,13 @@ def list_staff(
     current_user: User = Depends(require_tenant_admin_or_above),
 ):
     """Lista personal del negocio."""
-    query = db.query(User).filter(User.roles.any(Role.name == "staff"))
+    # Aplicamos joinedload también aquí para optimizar la respuesta
+    query = db.query(User).options(
+        joinedload(User.person),
+        joinedload(User.roles),
+        joinedload(User.tenant)
+    ).filter(User.roles.any(Role.name == "staff"))
+
     if current_user.primary_role == "superadmin":
         if tenant_id is not None:
             query = query.filter(User.tenant_id == tenant_id)
