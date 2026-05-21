@@ -10,7 +10,7 @@ Flujo:
 import logging
 import os
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -44,8 +44,18 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("telegram").setLevel(logging.WARNING)
 
 MENU, SELECTING_SERVICE, ENTERING_DATE, SELECTING_SLOT, CONFIRMING_APPOINTMENT, CANCELLING_APPOINTMENT = range(6)
+
+MISSING_SLUG_MESSAGE = (
+    "Para iniciar, abre el enlace de Telegram generado desde el panel de Turnix "
+    "para el negocio correspondiente."
+)
+BUSINESS_NOT_FOUND_MESSAGE = "No se encontró el negocio asociado a este enlace."
+NO_SERVICES_MESSAGE = "Este negocio aún no tiene servicios disponibles para agendar."
+MISSING_TOKEN_MESSAGE = "No se encontró TELEGRAM_BOT_TOKEN en el archivo .env."
 
 
 def _get_tenant_by_slug(db, slug: str) -> Optional[Tenant]:
@@ -117,7 +127,7 @@ def _get_or_create_conversation(db, client: Client, chat_id: int, tenant_id: int
         db.add(conversation)
     else:
         conversation.visit_count = (conversation.visit_count or 0) + 1
-        conversation.last_interaction_at = datetime.utcnow()
+        conversation.last_interaction_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(conversation)
     return conversation
@@ -128,6 +138,9 @@ def _save_message(conversation_id: Optional[int], direction: str, content: str) 
         return
     db = SessionLocal()
     try:
+        conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
+        if conversation:
+            conversation.last_interaction_at = datetime.now(timezone.utc)
         db.add(Message(conversation_id=conversation_id, direction=direction, content=content))
         db.commit()
     except Exception:
@@ -157,6 +170,13 @@ def _service_line(service: Service, config: TelegramConfig, index: Optional[int]
     return line
 
 
+def _services_prompt(services, config: TelegramConfig) -> str:
+    lines = [config.services_message or "Estos son nuestros servicios disponibles:"]
+    lines.extend(_service_line(service, config, i + 1) for i, service in enumerate(services))
+    lines.append("Escribe el número del servicio para agendar.")
+    return "\n".join(lines)
+
+
 async def _reply(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, **kwargs) -> None:
     await update.message.reply_text(text, **kwargs)
     _save_message(context.user_data.get("conversation_id"), "outgoing", text)
@@ -167,19 +187,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     db = SessionLocal()
     try:
         if not slug:
-            await update.message.reply_text(
-                "Abre el enlace público del negocio para iniciar la agenda de Turnix."
-            )
+            await update.message.reply_text(MISSING_SLUG_MESSAGE)
             return ConversationHandler.END
 
         tenant = _get_tenant_by_slug(db, slug)
         if not tenant:
-            await update.message.reply_text(
-                "No encontré un negocio activo con ese identificador. Verifica el enlace."
-            )
+            await update.message.reply_text(BUSINESS_NOT_FOUND_MESSAGE)
             return ConversationHandler.END
 
         config = _get_config(db, tenant.id)
+        services = _get_active_services(db, tenant.id)
         client = _get_or_create_client(db, update.effective_user, tenant.id)
         conversation = _get_or_create_conversation(db, client, update.effective_chat.id, tenant.id)
 
@@ -199,8 +216,24 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         welcome = config.welcome_message or f"Bienvenido a {tenant.name}. ¿En qué puedo ayudarte?"
         if "{business}" in welcome:
             welcome = welcome.replace("{business}", tenant.name)
-        await _reply(update, context, welcome, reply_markup=_menu_keyboard(config))
-        return MENU
+
+        if not services:
+            await _reply(
+                update,
+                context,
+                f"{welcome}\n\n{NO_SERVICES_MESSAGE}",
+                reply_markup=ReplyKeyboardRemove(),
+            )
+            return MENU
+
+        context.user_data["services_list"] = {str(i + 1): service.id for i, service in enumerate(services)}
+        await _reply(
+            update,
+            context,
+            f"{welcome}\n\n{_services_prompt(services, config)}",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+        return SELECTING_SERVICE
     finally:
         db.close()
 
@@ -208,6 +241,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text.strip()
     _save_message(context.user_data.get("conversation_id"), "incoming", text)
+    if not context.user_data.get("tenant_id"):
+        await update.message.reply_text(MISSING_SLUG_MESSAGE)
+        return ConversationHandler.END
+
     normalized = text.lower()
 
     if "servicio" in normalized:
@@ -234,7 +271,7 @@ async def show_services(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         config = _get_config(db, context.user_data["tenant_id"])
         services = _get_active_services(db, context.user_data["tenant_id"])
         if not services:
-            await _reply(update, context, "No hay servicios disponibles en este momento.")
+            await _reply(update, context, NO_SERVICES_MESSAGE)
             return MENU
 
         lines = [config.services_message or "Estos son nuestros servicios disponibles:"]
@@ -251,14 +288,11 @@ async def start_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         config = _get_config(db, context.user_data["tenant_id"])
         services = _get_active_services(db, context.user_data["tenant_id"])
         if not services:
-            await _reply(update, context, "No hay servicios disponibles para agendar.")
+            await _reply(update, context, NO_SERVICES_MESSAGE)
             return MENU
 
         context.user_data["services_list"] = {str(i + 1): service.id for i, service in enumerate(services)}
-        lines = ["¿Qué servicio deseas agendar?"]
-        lines.extend(_service_line(service, config, i + 1) for i, service in enumerate(services))
-        lines.append("Escribe el número del servicio.")
-        await _reply(update, context, "\n".join(lines), reply_markup=ReplyKeyboardRemove())
+        await _reply(update, context, _services_prompt(services, config), reply_markup=ReplyKeyboardRemove())
     finally:
         db.close()
     return SELECTING_SERVICE
@@ -267,6 +301,10 @@ async def start_booking(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 async def service_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.message.text.strip()
     _save_message(context.user_data.get("conversation_id"), "incoming", text)
+    if not context.user_data.get("tenant_id"):
+        await update.message.reply_text(MISSING_SLUG_MESSAGE)
+        return ConversationHandler.END
+
     service_id = context.user_data.get("services_list", {}).get(text)
     if not service_id:
         await _reply(update, context, "Escribe el número del servicio de la lista.")
@@ -361,7 +399,8 @@ async def confirm_appointment(update: Update, context: ContextTypes.DEFAULT_TYPE
         config = _get_config(db, context.user_data["tenant_id"])
         keyboard = _menu_keyboard(config)
         if text != "SI":
-            await _reply(update, context, "Cita cancelada. ¿En qué más puedo ayudarte?", reply_markup=keyboard)
+            cancel_msg = config.cancel_message or "Tu cita ha sido cancelada."
+            await _reply(update, context, f"{cancel_msg} ¿En qué más puedo ayudarte?", reply_markup=keyboard)
             return MENU
 
         appointment, error = appointment_repository.create_appointment(
@@ -377,6 +416,11 @@ async def confirm_appointment(update: Update, context: ContextTypes.DEFAULT_TYPE
         if error:
             await _reply(update, context, f"{error}\n¿En qué más puedo ayudarte?", reply_markup=keyboard)
             return MENU
+
+        appointment.status = "confirmed"
+        appointment.notes = "Cita creada desde Telegram"
+        db.commit()
+        db.refresh(appointment)
 
         msg = config.confirm_message or "Tu cita ha sido confirmada. Te esperamos."
         msg = (
@@ -496,6 +540,10 @@ async def cancel_by_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 async def unknown_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     _save_message(context.user_data.get("conversation_id"), "incoming", update.message.text or "")
+    if not context.user_data.get("tenant_id"):
+        await update.message.reply_text(MISSING_SLUG_MESSAGE)
+        return ConversationHandler.END
+
     db = SessionLocal()
     try:
         config = _get_config(db, context.user_data["tenant_id"])
@@ -508,9 +556,7 @@ async def unknown_message(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 def main():
     token = settings.TELEGRAM_BOT_TOKEN
     if not token or token.strip().lower() in {"your_telegram_bot_token_here", "tu_token_de_telegram"}:
-        logger.error(
-            "TELEGRAM_BOT_TOKEN no está definido. Configúralo en .env y ejecuta nuevamente."
-        )
+        logger.error(MISSING_TOKEN_MESSAGE)
         sys.exit(1)
 
     create_tables()
@@ -536,6 +582,9 @@ def main():
         application.run_polling(allowed_updates=Update.ALL_TYPES)
     except InvalidToken:
         logger.error("Telegram rechazó el token configurado. Verifica TELEGRAM_BOT_TOKEN en .env.")
+        sys.exit(1)
+    except Exception as exc:
+        logger.error("El bot se detuvo por un error: %s", type(exc).__name__)
         sys.exit(1)
 
 

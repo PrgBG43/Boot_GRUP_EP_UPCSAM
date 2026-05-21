@@ -33,13 +33,13 @@ function normalizeDetail(detail, status) {
   if (status === 403) return 'Permiso insuficiente.'
   if (status >= 500) return 'Ocurrió un error en el servidor. Intenta nuevamente.'
 
-  if (Array.isArray(detail)) {
+  if (detail && Array.isArray(detail)) {
     const first = detail.map(validationMessage).find(Boolean)
     return first || 'Revisa los campos del formulario.'
   }
 
   if (typeof detail === 'string') return detail
-  if (detail?.message) return detail.message
+  if (detail && detail.message) return detail.message
   if (detail?.detail) return normalizeDetail(detail.detail, status)
 
   return 'No fue posible completar la solicitud.'
@@ -155,6 +155,10 @@ export const api = {
   getTelegramConfig: (tenantId) => {
     const qs = tenantId ? `?tenant_id=${tenantId}` : ''
     return request(`/telegram-config/${qs}`)
+  },
+  getTelegramPublicLink: (tenantId) => {
+    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
+    return request(`/telegram-config/public-link${qs}`)
   },
   updateTelegramConfig: (data, tenantId) => {
     const qs = tenantId ? `?tenant_id=${tenantId}` : ''

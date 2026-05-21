@@ -60,9 +60,18 @@ export default function TelegramConfig() {
     setLoading(true)
     setFeedback(null)
     try {
-      const data = await api.getTelegramConfig(tenantId || undefined)
-      setConfig(data)
-      setForm(toForm(data))
+      const [data, link] = await Promise.all([
+        api.getTelegramConfig(tenantId || undefined),
+        api.getTelegramPublicLink(tenantId || undefined),
+      ])
+      const merged = {
+        ...data,
+        bot_username: link?.bot_username || data?.bot_username,
+        tenant_slug: link?.business_slug || data?.tenant_slug,
+        public_bot_link: link?.public_link || data?.public_bot_link,
+      }
+      setConfig(merged)
+      setForm(toForm(merged))
     } catch (err) {
       setFeedback({ type: 'error', msg: err.message })
     } finally {
@@ -171,7 +180,7 @@ export default function TelegramConfig() {
               </div>
             ) : (
               <div className="alert alert-info alert-compact">
-                Configura TELEGRAM_BOT_TOKEN en el archivo .env y ejecuta el bot para habilitar el enlace público. Si el username no se detecta, define TELEGRAM_BOT_USERNAME.
+                Configura el bot global en el archivo .env y ejecuta el bot para habilitar el enlace público.
               </div>
             )}
             <div className="panel-meta">

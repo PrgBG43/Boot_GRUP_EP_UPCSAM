@@ -9,11 +9,13 @@ from sqlalchemy.orm import Session
 from app.core.auth import require_tenant_admin_or_above
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.slug import ensure_unique_slug
 from app.models.telegram_config import TelegramConfig
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.telegram_config import (
     TelegramConfigResponse,
+    TelegramPublicLinkResponse,
     TelegramConfigUpdate,
     TelegramValidateRequest,
     TelegramValidateResponse,
@@ -55,6 +57,15 @@ def _get_or_create_config(db: Session, tenant_id: int) -> TelegramConfig:
     return config
 
 
+def _ensure_tenant_slug(db: Session, tenant: Tenant) -> str:
+    if tenant.slug:
+        return tenant.slug
+    tenant.slug = ensure_unique_slug(db, tenant.name, exclude_tenant_id=tenant.id)
+    db.commit()
+    db.refresh(tenant)
+    return tenant.slug
+
+
 def _global_bot_username() -> str | None:
     username = settings.TELEGRAM_BOT_USERNAME
     if username:
@@ -74,11 +85,12 @@ def _global_bot_username() -> str | None:
 
 def _serialize_config(db: Session, config: TelegramConfig) -> TelegramConfigResponse:
     tenant = db.query(Tenant).filter(Tenant.id == config.tenant_id).first()
+    tenant_slug = _ensure_tenant_slug(db, tenant) if tenant else None
     global_username = _global_bot_username()
     bot_username = global_username if config.use_global_bot else config.bot_username
     public_link = None
-    if bot_username and tenant and tenant.slug:
-        public_link = f"https://t.me/{bot_username}?start={tenant.slug}"
+    if bot_username and tenant_slug:
+        public_link = f"https://t.me/{bot_username}?start={tenant_slug}"
 
     status = config.bot_status
     is_active = config.is_active
@@ -89,7 +101,7 @@ def _serialize_config(db: Session, config: TelegramConfig) -> TelegramConfigResp
     return TelegramConfigResponse(
         id=config.id,
         tenant_id=config.tenant_id,
-        tenant_slug=tenant.slug if tenant else None,
+        tenant_slug=tenant_slug,
         welcome_message=config.welcome_message,
         services_message=config.services_message,
         ask_date_message=config.ask_date_message,
@@ -104,7 +116,6 @@ def _serialize_config(db: Session, config: TelegramConfig) -> TelegramConfigResp
         bot_name=config.bot_name,
         bot_description=config.bot_description,
         bot_short_description=config.bot_short_description,
-        bot_token_masked=config.bot_token_masked,
         bot_username=bot_username,
         global_bot_username=global_username,
         public_bot_link=public_link,
@@ -113,6 +124,21 @@ def _serialize_config(db: Session, config: TelegramConfig) -> TelegramConfigResp
         last_validated_at=config.last_validated_at,
         created_at=config.created_at,
         updated_at=config.updated_at,
+    )
+
+
+def _build_public_link(db: Session, tenant_id: int) -> TelegramPublicLinkResponse:
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Negocio no encontrado.")
+
+    business_slug = _ensure_tenant_slug(db, tenant)
+    bot_username = _global_bot_username()
+    public_link = f"https://t.me/{bot_username}?start={business_slug}" if bot_username else None
+    return TelegramPublicLinkResponse(
+        bot_username=bot_username,
+        business_slug=business_slug,
+        public_link=public_link,
     )
 
 
@@ -162,6 +188,16 @@ def update_telegram_config(
     db.commit()
     db.refresh(config)
     return _serialize_config(db, config)
+
+
+@router.get("/public-link", response_model=TelegramPublicLinkResponse)
+def get_public_telegram_link(
+    tenant_id: int = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_admin_or_above),
+):
+    tid = _get_tenant_id(current_user, tenant_id)
+    return _build_public_link(db, tid)
 
 
 @router.post("/validate", response_model=TelegramValidateResponse)

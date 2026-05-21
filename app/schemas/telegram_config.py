@@ -31,7 +31,6 @@ class TelegramConfigResponse(TelegramConfigBase):
     id: int
     tenant_id: int
     tenant_slug: Optional[str] = None
-    bot_token_masked: Optional[str] = None
     bot_username: Optional[str] = None
     global_bot_username: Optional[str] = None
     public_bot_link: Optional[str] = None
@@ -42,6 +41,12 @@ class TelegramConfigResponse(TelegramConfigBase):
     updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class TelegramPublicLinkResponse(BaseModel):
+    bot_username: Optional[str] = None
+    business_slug: Optional[str] = None
+    public_link: Optional[str] = None
 
 
 class TelegramValidateRequest(BaseModel):

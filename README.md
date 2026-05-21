@@ -183,32 +183,18 @@ En Linux o macOS:
 cp .env.example .env
 ```
 
-Variables principales para desarrollo local:
+El backend lee el token global del bot desde `TELEGRAM_BOT_TOKEN` en el archivo `.env` local. No se deben incluir tokens reales, contraseñas ni credenciales sensibles dentro del repositorio.
 
-```env
-DATABASE_URL=sqlite:///./turnix.db
-TELEGRAM_BOT_TOKEN=tu_token_de_telegram
-TELEGRAM_BOT_USERNAME=usuario_publico_del_bot_sin_arroba
-FRONTEND_URL=http://localhost:5173
-SECRET_KEY=valor-seguro-para-jwt
-TURNIX_SUPERADMIN_EMAIL=admin@turnix.local
-TURNIX_SUPERADMIN_PASSWORD=Admin123*
-TURNIX_SUPERADMIN_FIRST_NAME=Administrador
-TURNIX_SUPERADMIN_LAST_NAME=Turnix
-TURNIX_DEMO_SEED=false
-```
+El archivo `.env.example` solo incluye el nombre de la variable del bot con un valor de ejemplo. Las demás variables pueden agregarse localmente si el entorno lo requiere; cuando no están presentes, el backend usa los valores de desarrollo definidos en `app/core/config.py`.
 
-Para un entorno con PostgreSQL, se debe configurar la variable `DATABASE_URL` con la cadena de conexión correspondiente.
-
-No se deben incluir tokens reales, contraseñas ni credenciales sensibles dentro del repositorio.
-La `SECRET_KEY` incluida en `.env.example` es solo para desarrollo local.
+Para un entorno con PostgreSQL, se debe configurar localmente la variable `DATABASE_URL` con la cadena de conexión correspondiente.
 
 ### Superadmin inicial
 
 El superadmin inicial se configura en el archivo `.env` del backend mediante:
 
 ```env
-TURNIX_SUPERADMIN_EMAIL=admin@turnix.local
+TURNIX_SUPERADMIN_EMAIL=admin@turnix.com
 TURNIX_SUPERADMIN_PASSWORD=Admin123*
 TURNIX_SUPERADMIN_FIRST_NAME=Administrador
 TURNIX_SUPERADMIN_LAST_NAME=Turnix
@@ -276,12 +262,7 @@ Para configurarlo:
 2. Busca el bot oficial **BotFather**.
 3. Crea un nuevo bot con el comando `/newbot`.
 4. Copia el token generado.
-5. Agrega el token en el archivo `.env` del backend.
-
-```env
-TELEGRAM_BOT_TOKEN=tu_token_de_telegram
-TELEGRAM_BOT_USERNAME=usuario_publico_del_bot_sin_arroba
-```
+5. Agrega el token en el archivo `.env` local del backend usando la variable indicada en `.env.example`.
 
 Para iniciar el bot:
 
