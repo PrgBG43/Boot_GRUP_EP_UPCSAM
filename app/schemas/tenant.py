@@ -41,6 +41,7 @@ class TenantBase(BaseModel):
     plan_id: Optional[int] = None
     owner_user_id: Optional[int] = None
     is_active: bool = True
+    status: Optional[str] = "active"
 
 
 class TenantCreate(TenantBase):
@@ -77,6 +78,7 @@ class TenantUpdate(BaseModel):
     plan_id: Optional[int] = None
     owner_user_id: Optional[int] = None
     is_active: Optional[bool] = None
+    status: Optional[str] = None
 
     @field_validator("name")
     @classmethod
@@ -198,6 +200,8 @@ class TenantResponse(TenantBase):
     city_name: Optional[str] = None
     plan: Optional[PlanInfo] = None
     owner_user: Optional[OwnerInfo] = None
+    archived_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

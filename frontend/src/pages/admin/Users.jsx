@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext.jsx'
 import api from '../../api.js'
 
 const ROLES = ['superadmin', 'tenant_admin', 'staff', 'customer']
+const asItems = data => data?.items || data || []
 
 const ROLE_LABELS = {
   superadmin:   { label: 'Superadmin',    cls: 'role-superadmin' },
@@ -35,6 +36,8 @@ export default function AdminUsers() {
   const [search,     setSearch]    = useState('')
   const [filterRole, setFilterRole] = useState('')
   const [filterTenant, setFilterTenant] = useState('')
+  const [page, setPage] = useState(1)
+  const [pagination, setPagination] = useState({ total: 0, page: 1, page_size: 20, pages: 0 })
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
@@ -43,26 +46,30 @@ export default function AdminUsers() {
     try {
       const params = {}
       if (filterTenant && filterTenant !== "") params.tenant_id = filterTenant
+      if (search.trim()) params.search = search.trim()
+      if (filterRole) params.role = filterRole
+      params.page = page
+      params.page_size = 20
       
-      const [u, b] = await Promise.all([api.getUsers(params), api.getBusinesses()])
-      setUsers(u || [])
-      setBusinesses(b || [])
+      const [u, b] = await Promise.all([api.getUsers(params), api.getBusinesses({ page_size: 100 })])
+      setUsers(asItems(u))
+      setPagination(u?.items ? u : { total: (u || []).length, page: 1, page_size: (u || []).length, pages: 1 })
+      setBusinesses(asItems(b))
     } catch (e) {
       setError(e.message)
     }
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [filterTenant])
+  useEffect(() => { load() }, [filterTenant, filterRole, page])
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); load() }, 350)
+    return () => clearTimeout(timer)
+  }, [search])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const tenantName = (id) => businesses.find(b => b.id === id)?.name || `Negocio #${id}`
 
-  const filtered = users.filter(u => {
-    const name = `${u.first_name || ''} ${u.last_name || ''} ${u.email}`.toLowerCase()
-    const matchSearch = name.includes(search.toLowerCase())
-    const matchRole   = !filterRole   || u.role === filterRole
-    return matchSearch && matchRole
-  })
+  const filtered = users
 
   const openCreate = () => {
     setForm(EMPTY_FORM)
@@ -178,16 +185,25 @@ export default function AdminUsers() {
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
-            <select className="filter-select" value={filterRole} onChange={e => setFilterRole(e.target.value)}>
+            <select className="filter-select" value={filterRole} onChange={e => { setPage(1); setFilterRole(e.target.value) }}>
               <option value="">Todos los roles</option>
               {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]?.label || r}</option>)}
             </select>
-            <select className="filter-select" value={filterTenant} onChange={e => setFilterTenant(e.target.value)}>
+            <select className="filter-select" value={filterTenant} onChange={e => { setPage(1); setFilterTenant(e.target.value) }}>
               <option value="">Todos los negocios</option>
               {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
         </div>
       </div>
+
+      {pagination.pages > 1 && (
+        <div className="pagination-bar">
+          <span>Total: {pagination.total} registros</span>
+          <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</button>
+          <span>Pagina {pagination.page} de {pagination.pages}</span>
+          <button className="btn btn-outline btn-sm" disabled={page >= pagination.pages} onClick={() => setPage(p => p + 1)}>Siguiente</button>
+        </div>
+      )}
 
       <div className="table-card">
         {filtered.length === 0 ? (

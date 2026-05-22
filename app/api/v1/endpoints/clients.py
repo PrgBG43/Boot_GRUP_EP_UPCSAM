@@ -1,27 +1,51 @@
-from typing import List, Optional
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import get_current_user, require_tenant_admin_or_above, require_staff_or_above
 from app.models.user import User
+from app.models.client import Client
 from app.schemas.client import ClientCreate, ClientResponse, ClientUpdate
 from app.repositories import client_repository
+from app.services.pagination import paginate_query
 
 router = APIRouter()
 
 
-@router.get("/", response_model=List[ClientResponse])
+@router.get("/")
 def list_clients(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     skip: int = 0,
     limit: int = 100,
     tenant_id: Optional[int] = None,
+    search: Optional[str] = None,
+    sort_by: str = Query("created_at"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_staff_or_above),
 ):
+    if skip:
+        page = int(skip / (limit or page_size)) + 1
+        page_size = limit or page_size
     effective_tenant = tenant_id if current_user.primary_role == "superadmin" else current_user.tenant_id
-    return client_repository.list_clients(db, skip=skip, limit=limit, tenant_id=effective_tenant)
+    query = db.query(Client)
+    if effective_tenant is not None:
+        query = query.filter(Client.tenant_id == effective_tenant)
+    if search:
+        term = f"%{search.strip()}%"
+        query = query.filter(or_(Client.full_name.ilike(term), Client.username.ilike(term), Client.phone.ilike(term)))
+    sortable = {"created_at": Client.created_at, "full_name": Client.full_name, "id": Client.id}
+    column = sortable.get(sort_by, Client.created_at)
+    query = query.order_by(column.asc() if sort_order == "asc" else column.desc())
+    page_data = paginate_query(query, page, page_size)
+    return {
+        **page_data,
+        "items": [ClientResponse.model_validate(item).model_dump(mode="json") for item in page_data["items"]],
+    }
 
 
 @router.post("/", response_model=ClientResponse, status_code=status.HTTP_201_CREATED)

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.appointment import Appointment
 from app.models.service import Service
 from app.schemas.appointment import AppointmentCreate, AppointmentUpdate
+from app.services.plan_usage_service import assert_can_create_appointment
 
 
 def list_appointments(
@@ -30,6 +31,8 @@ def list_appointments(
 
 
 def create_appointment(db: Session, appt_in: AppointmentCreate):
+    assert_can_create_appointment(db, appt_in.tenant_id)
+
     service = db.query(Service).filter(Service.id == appt_in.service_id).first()
     if not service:
         return None, "Servicio no encontrado."

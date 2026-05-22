@@ -1,6 +1,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
@@ -17,6 +18,7 @@ from app.schemas.user import (
     UserStaffCreate,
     UserUpdate,
 )
+from app.services.pagination import paginate_query
 
 router = APIRouter()
 
@@ -98,11 +100,18 @@ def _create_user_with_person(
     return new_user
 
 
-@router.get("/", response_model=List[UserResponse])
+@router.get("/")
 def list_users(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     skip: int = 0,
     limit: int = 100,
     tenant_id: Optional[int] = Query(None),
+    search: Optional[str] = Query(None),
+    role: Optional[str] = Query(None),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    sort_by: str = Query("id"),
+    sort_order: str = Query("asc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_tenant_admin_or_above),
 ):
@@ -113,12 +122,33 @@ def list_users(
         joinedload(User.roles),
         joinedload(User.tenant)
     )
+    if skip:
+        page = int(skip / (limit or page_size)) + 1
+        page_size = limit or page_size
     if current_user.primary_role == "superadmin":
         if tenant_id is not None:
             query = query.filter(User.tenant_id == tenant_id)
     else:
         query = query.filter(User.tenant_id == current_user.tenant_id)
-    return query.order_by(User.id).offset(skip).limit(limit).all()
+    if role:
+        query = query.filter(User.roles.any(Role.name == role))
+    if status_filter in {"active", "activo"}:
+        query = query.filter(User.is_active == True)
+    elif status_filter in {"inactive", "inactivo"}:
+        query = query.filter(User.is_active == False)
+    if search:
+        term = f"%{search.strip()}%"
+        query = query.outerjoin(Person, Person.id == User.person_id).filter(
+            or_(User.email.ilike(term), Person.first_name.ilike(term), Person.last_name.ilike(term))
+        )
+    sortable = {"id": User.id, "email": User.email, "created_at": User.created_at}
+    column = sortable.get(sort_by, User.id)
+    query = query.order_by(column.asc() if sort_order == "asc" else column.desc())
+    page_data = paginate_query(query, page, page_size)
+    return {
+        **page_data,
+        "items": [UserResponse.model_validate(item).model_dump(mode="json") for item in page_data["items"]],
+    }
 
 
 @router.get("/staff", response_model=List[UserResponse])

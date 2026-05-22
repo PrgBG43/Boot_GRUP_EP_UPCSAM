@@ -43,6 +43,8 @@ class AppointmentResponse(BaseModel):
     end_time: time
     status: str
     notes: Optional[str] = None
+    reminder_30_sent_at: Optional[datetime] = None
+    reminder_15_sent_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

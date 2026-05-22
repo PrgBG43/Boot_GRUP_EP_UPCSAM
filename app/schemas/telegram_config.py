@@ -16,6 +16,9 @@ class TelegramConfigUpdate(BaseModel):
     cancel_message: Optional[str] = None
     unavailable_message: Optional[str] = None
     goodbye_message: Optional[str] = None
+    plan_limit_public_message: Optional[str] = None
+    reminder_30_message: Optional[str] = None
+    reminder_15_message: Optional[str] = None
     allow_cancellation: Optional[bool] = None
     show_prices: Optional[bool] = None
     show_duration: Optional[bool] = None
@@ -56,6 +59,9 @@ class TelegramConfigResponse(BaseModel):
     cancel_message: Optional[str] = None
     unavailable_message: Optional[str] = None
     goodbye_message: Optional[str] = None
+    plan_limit_public_message: Optional[str] = None
+    reminder_30_message: Optional[str] = None
+    reminder_15_message: Optional[str] = None
     allow_cancellation: bool = True
     show_prices: bool = True
     show_duration: bool = True

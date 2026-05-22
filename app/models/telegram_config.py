@@ -45,6 +45,27 @@ class TelegramConfig(Base):
     cancel_message = Column(Text, nullable=True, default="Tu cita ha sido cancelada.")
     unavailable_message = Column(Text, nullable=True, default="No hay horarios disponibles para esa fecha. Elige otra.")
     goodbye_message = Column(Text, nullable=True, default="Gracias por contactarnos. Te esperamos.")
+    plan_limit_public_message = Column(
+        Text,
+        nullable=True,
+        default=(
+            "En este momento el negocio no esta disponible para recibir nuevas citas por este medio. "
+            "Intenta mas tarde o comunicate directamente con el establecimiento."
+        ),
+    )
+    reminder_30_message = Column(
+        Text,
+        nullable=True,
+        default="Te recordamos que tienes una cita en {business_name} a las {time}. Te esperamos.",
+    )
+    reminder_15_message = Column(
+        Text,
+        nullable=True,
+        default=(
+            "Tu cita en {business_name} sera en 15 minutos. "
+            "Gracias por usar nuestro sistema de agendamiento."
+        ),
+    )
 
     allow_cancellation = Column(Boolean, default=True)
     show_prices = Column(Boolean, default=True)

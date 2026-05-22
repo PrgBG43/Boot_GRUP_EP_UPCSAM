@@ -1,6 +1,7 @@
-from typing import List, Optional
+from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -9,6 +10,7 @@ from app.models.user import User
 from app.models.service import Service
 from app.models.tenant import Tenant
 from app.schemas.service import ServiceCreate, ServiceResponse, ServiceUpdate
+from app.services.pagination import paginate_query
 
 router = APIRouter()
 
@@ -54,21 +56,44 @@ def create_service(
     return new_service
 
 
-@router.get("/", response_model=List[ServiceResponse])
+@router.get("/")
 def list_services(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
     skip: int = 0,
     limit: int = 100,
     tenant_id: Optional[int] = None,
+    search: Optional[str] = None,
+    status_filter: Optional[str] = Query(None, alias="status"),
+    sort_by: str = Query("name"),
+    sort_order: str = Query("asc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    if skip:
+        page = int(skip / (limit or page_size)) + 1
+        page_size = limit or page_size
     query = db.query(Service)
     if current_user.primary_role == "superadmin":
         if tenant_id:
             query = query.filter(Service.tenant_id == tenant_id)
     else:
         query = query.filter(Service.tenant_id == current_user.tenant_id)
-    return query.offset(skip).limit(limit).all()
+    if search:
+        term = f"%{search.strip()}%"
+        query = query.filter(or_(Service.name.ilike(term), Service.description.ilike(term)))
+    if status_filter in {"active", "activo"}:
+        query = query.filter(Service.is_active == True)
+    elif status_filter in {"inactive", "inactivo"}:
+        query = query.filter(Service.is_active == False)
+    sortable = {"name": Service.name, "price": Service.price, "duration_minutes": Service.duration_minutes, "id": Service.id}
+    column = sortable.get(sort_by, Service.name)
+    query = query.order_by(column.asc() if sort_order == "asc" else column.desc())
+    page_data = paginate_query(query, page, page_size)
+    return {
+        **page_data,
+        "items": [ServiceResponse.model_validate(item).model_dump(mode="json") for item in page_data["items"]],
+    }
 
 
 @router.get("/{service_id}", response_model=ServiceResponse)

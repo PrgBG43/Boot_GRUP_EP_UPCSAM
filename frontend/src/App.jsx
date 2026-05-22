@@ -62,7 +62,7 @@ function TenantSelector() {
   const [tenants, setTenants] = useState([])
 
   useEffect(() => {
-    api.getBusinesses().then(data => setTenants(data || [])).catch(() => {})
+    api.getBusinesses({ page_size: 100 }).then(data => setTenants(data?.items || data || [])).catch(() => {})
   }, [])
 
   const handleChange = (e) => {

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
 
+const asItems = data => data?.items || data || []
+
 export default function Clients() {
   const { user, isSuperadmin } = useAuth()
   const [clients,    setClients]    = useState([])
@@ -15,33 +17,43 @@ export default function Clients() {
   const [saving,     setSaving]     = useState(false)
   const [feedback,   setFeedback]   = useState(null)
   const [search,     setSearch]     = useState('')
+  const [page,       setPage]       = useState(1)
+  const [pagination, setPagination] = useState({ total: 0, page: 1, page_size: 20, pages: 0 })
+  const [lastUpdated, setLastUpdated] = useState(null)
 
   const load = async () => {
     setLoading(true)
     try {
-      const params = {}
+      const params = { page, page_size: 20 }
       if (isSuperadmin && filterTenant) params.tenant_id = filterTenant
+      if (search.trim()) params.search = search.trim()
       const [c, b] = await Promise.all([
         api.getClients(params),
-        isSuperadmin ? api.getBusinesses() : Promise.resolve([]),
+        isSuperadmin ? api.getBusinesses({ page_size: 100 }) : Promise.resolve([]),
       ])
-      setClients(c || [])
-      if (isSuperadmin) setBusinesses(b || [])
+      setClients(asItems(c))
+      setPagination(c?.items ? c : { total: (c || []).length, page: 1, page_size: (c || []).length, pages: 1 })
+      if (isSuperadmin) setBusinesses(asItems(b))
+      setLastUpdated(new Date())
     } catch (e) {
       setError(e.message)
     }
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [filterTenant])
+  useEffect(() => {
+    load()
+    const timer = setInterval(load, 10000)
+    return () => clearInterval(timer)
+  }, [filterTenant, page])
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); load() }, 350)
+    return () => clearTimeout(timer)
+  }, [search])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const businessName = (tid) => businesses.find(b => b.id === tid)?.name || `Negocio #${tid}`
 
-  const filtered = clients.filter(c =>
-    c.full_name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.username || '').toLowerCase().includes(search.toLowerCase()) ||
-    (c.phone || '').includes(search)
-  )
+  const filtered = clients
 
   const emptyForm = () => ({ full_name: '', username: '', phone: '', telegram_user_id: '' })
 
@@ -97,7 +109,11 @@ export default function Clients() {
               : `Clientes de ${user?.tenant_name || 'tu negocio'}`}
           </p>
         </div>
-        <button className="btn btn-primary" onClick={openCreate}>+ Nuevo cliente</button>
+        <div className="header-actions">
+          {lastUpdated && <span className="refresh-label">Actualizado hace unos segundos</span>}
+          <button className="btn btn-outline" onClick={load}>Actualizar</button>
+          <button className="btn btn-primary" onClick={openCreate}>+ Nuevo cliente</button>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -112,7 +128,7 @@ export default function Clients() {
           {isSuperadmin && (
             <select
               value={filterTenant}
-              onChange={e => setFilterTenant(e.target.value)}
+              onChange={e => { setPage(1); setFilterTenant(e.target.value) }}
               className="filter-select"
             >
               <option value="">Todos los negocios</option>
@@ -122,12 +138,21 @@ export default function Clients() {
         </div>
         {(search || filterTenant) && (
           <div className="action-group">
-            <button type="button" className="btn btn-outline" onClick={() => { setSearch(''); setFilterTenant('') }}>
+            <button type="button" className="btn btn-outline" onClick={() => { setSearch(''); setFilterTenant(''); setPage(1) }}>
               Limpiar filtros
             </button>
           </div>
         )}
       </div>
+
+      {pagination.pages > 1 && (
+        <div className="pagination-bar">
+          <span>Total: {pagination.total} registros</span>
+          <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</button>
+          <span>Pagina {pagination.page} de {pagination.pages}</span>
+          <button className="btn btn-outline btn-sm" disabled={page >= pagination.pages} onClick={() => setPage(p => p + 1)}>Siguiente</button>
+        </div>
+      )}
 
       <div className="table-card">
         {filtered.length === 0 ? (

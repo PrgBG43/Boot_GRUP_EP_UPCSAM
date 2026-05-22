@@ -29,9 +29,7 @@ class Settings(BaseSettings):
     TURNIX_SUPERADMIN_LAST_NAME: str = "Turnix"
     TURNIX_DEMO_SEED: bool = False
 
-    # Telegram Bot global
-    TELEGRAM_BOT_TOKEN: Optional[str] = None
-    TELEGRAM_BOT_USERNAME: Optional[str] = None
+    # Telegram bot tokens are configured per tenant from the panel.
     TELEGRAM_TOKEN_ENCRYPTION_KEY: Optional[str] = None
 
     # Frontend

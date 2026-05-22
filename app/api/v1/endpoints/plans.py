@@ -31,12 +31,17 @@ class PlanResponse(BaseModel):
 
 @router.get("/", response_model=List[PlanResponse])
 def list_plans(db: Session = Depends(get_db)):
-    return db.query(Plan).filter(Plan.is_active == True).all()
+    return (
+        db.query(Plan)
+        .filter(Plan.is_active == True, Plan.name.in_(["free", "premium"]))
+        .order_by(Plan.id)
+        .all()
+    )
 
 
 @router.get("/{plan_id}", response_model=PlanResponse)
 def get_plan(plan_id: int, db: Session = Depends(get_db)):
-    plan = db.query(Plan).filter(Plan.id == plan_id).first()
+    plan = db.query(Plan).filter(Plan.id == plan_id, Plan.name.in_(["free", "premium"])).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan no encontrado")
     return plan

@@ -80,6 +80,31 @@ async function request(path, options = {}) {
   return res.json()
 }
 
+async function requestForm(path, formData, options = {}) {
+  const token = getToken()
+  const headers = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...options.headers,
+  }
+
+  let res
+  try {
+    res = await fetch(`${BASE_URL}${path}`, { ...options, method: options.method || 'POST', headers, body: formData })
+  } catch {
+    throw new ApiError('No se pudo establecer conexion con el servidor.', { status: 0 })
+  }
+
+  if (res.status === 401) {
+    clearSession()
+    window.dispatchEvent(new Event('turnix:unauthorized'))
+    throw new ApiError('La sesion expiro. Inicia sesion nuevamente.', { status: 401 })
+  }
+
+  if (!res.ok) throw await parseErrorResponse(res)
+  if (res.status === 204) return null
+  return res.json()
+}
+
 export const api = {
   health: () => fetch(`${HEALTH_URL}/health`).then(r => r.json()),
 
@@ -97,7 +122,10 @@ export const api = {
   updateBusiness: (id, data) => request(`/businesses/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   activateTenant: (id) => request(`/businesses/${id}/activate`, { method: 'PATCH' }),
   deactivateTenant: (id) => request(`/businesses/${id}/deactivate`, { method: 'PATCH' }),
+  archiveTenant: (id) => request(`/businesses/${id}/archive`, { method: 'PATCH' }),
+  restoreTenant: (id) => request(`/businesses/${id}/restore`, { method: 'PATCH' }),
   assignPlan: (id, plan) => request(`/businesses/${id}/plan?plan_name=${encodeURIComponent(plan)}`, { method: 'PATCH' }),
+  getBusinessUsage: (id) => request(`/businesses/${id}/usage`),
 
   getStates: () => request('/states/?limit=100'),
   getCities: (stateId) => request(`/cities/?state_id=${encodeURIComponent(stateId)}&limit=500`),
@@ -180,6 +208,16 @@ export const api = {
     return request(`/telegram-config/validate${qs}`, {
       method: 'POST',
     })
+  },
+  uploadTelegramProfilePhoto: (file, tenantId) => {
+    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
+    const form = new FormData()
+    form.append('photo', file)
+    return requestForm(`/telegram-config/profile-photo${qs}`, form)
+  },
+  removeTelegramProfilePhoto: (tenantId) => {
+    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
+    return request(`/telegram-config/profile-photo${qs}`, { method: 'DELETE' })
   },
 }
 

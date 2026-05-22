@@ -6,7 +6,7 @@ class Plan(Base):
     __tablename__ = "plans"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False, unique=True)          # free | premium | enterprise
+    name = Column(String, nullable=False, unique=True)          # free | premium | future plans
     display_name = Column(String, nullable=False)
     max_appointments_monthly = Column(Integer, nullable=True)   # None = ilimitado
     max_active_services = Column(Integer, nullable=True)        # None = ilimitado

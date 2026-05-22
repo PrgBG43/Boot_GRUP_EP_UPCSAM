@@ -1,6 +1,8 @@
-from typing import List, Optional
+from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -14,6 +16,8 @@ from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.models.user import Role, User
 from app.schemas.tenant import TenantCreate, TenantResponse, TenantUpdate, TenantWithAdminCreate
+from app.services.pagination import clamp_page, clamp_page_size, paginate_query
+from app.services.plan_usage_service import get_plan_usage_summary
 
 router = APIRouter()
 
@@ -21,8 +25,6 @@ PLAN_ALIASES = {
     "free": "free",
     "gratuito": "free",
     "premium": "premium",
-    "enterprise": "enterprise",
-    "empresarial": "enterprise",
 }
 ALL_PLAN_VALUES = {"", "all", "todos", "todo"}
 
@@ -58,24 +60,100 @@ def _get_plan(db: Session, plan_id: Optional[int]) -> Optional[Plan]:
     return plan
 
 
+def _tenant_payload(db: Session, tenant: Tenant) -> dict:
+    payload = TenantResponse.model_validate(tenant).model_dump(mode="json")
+    payload["plan_usage"] = get_plan_usage_summary(db, tenant.id)
+    return payload
+
+
+def _sort_tenants(query, sort_by: str, sort_order: str):
+    sortable = {
+        "id": Tenant.id,
+        "name": Tenant.name,
+        "created_at": Tenant.created_at,
+        "status": Tenant.status,
+    }
+    column = sortable.get(sort_by, Tenant.id)
+    return query.order_by(column.asc() if sort_order == "asc" else column.desc())
+
+
 def _tenant_response_not_found() -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Negocio no encontrado.")
 
 
-@router.get("/", response_model=List[TenantResponse])
+@router.get("/")
 def list_businesses(
-    skip: int = 0,
-    limit: int = 100,
-    plan: Optional[str] = Query(None, description="free/gratuito, premium, enterprise/empresarial o todos"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    skip: Optional[int] = None,
+    limit: Optional[int] = None,
+    search: Optional[str] = Query(None),
+    sort_by: str = Query("id"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
+    plan: Optional[str] = Query(None, description="free/gratuito, premium o todos"),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    near_limit: bool = Query(False),
+    limit_reached: bool = Query(False),
     db: Session = Depends(get_db),
     _: User = Depends(require_superadmin),
 ):
-    """Superadmin lista todos los negocios, con filtro opcional por plan."""
+    """Superadmin lista negocios con paginacion, filtros y uso del plan."""
+    if skip is not None:
+        page = int(skip / (limit or page_size)) + 1
+        page_size = limit or page_size
+
     query = db.query(Tenant)
     normalized_plan = _normalize_plan_filter(plan)
     if normalized_plan:
         query = query.join(Plan, Tenant.plan_id == Plan.id).filter(Plan.name == normalized_plan)
-    return query.order_by(Tenant.id.desc()).offset(skip).limit(limit).all()
+    if search:
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            (Tenant.name.ilike(term))
+            | (Tenant.phone.ilike(term))
+            | (Tenant.city.ilike(term))
+            | (Tenant.slug.ilike(term))
+        )
+
+    status_value = (status_filter or "").strip().lower()
+    if status_value in {"archived", "archivado"}:
+        query = query.filter(Tenant.status == "archived")
+    elif status_value in {"inactive", "inactivo"}:
+        query = query.filter(or_(Tenant.status != "archived", Tenant.status.is_(None)), Tenant.is_active == False)
+    elif status_value in {"active", "activo"}:
+        query = query.filter(or_(Tenant.status != "archived", Tenant.status.is_(None)), Tenant.is_active == True)
+    elif status_value not in {"all", "todos", "todo"}:
+        query = query.filter(or_(Tenant.status != "archived", Tenant.status.is_(None)))
+
+    query = _sort_tenants(query, sort_by, sort_order)
+
+    page = clamp_page(page)
+    page_size = clamp_page_size(page_size)
+
+    if near_limit or limit_reached:
+        candidates = query.all()
+        filtered = []
+        for tenant in candidates:
+            usage = get_plan_usage_summary(db, tenant.id)
+            if near_limit and not usage["near_limit"]:
+                continue
+            if limit_reached and not usage["limit_reached"]:
+                continue
+            payload = TenantResponse.model_validate(tenant).model_dump(mode="json")
+            payload["plan_usage"] = usage
+            filtered.append(payload)
+        total = len(filtered)
+        start = (page - 1) * page_size
+        return {
+            "items": filtered[start:start + page_size],
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "pages": (total + page_size - 1) // page_size if total else 0,
+        }
+
+    page_data = paginate_query(query, page, page_size)
+    return {**page_data, "items": [_tenant_payload(db, item) for item in page_data["items"]]}
 
 
 @router.get("/me", response_model=TenantResponse)
@@ -124,6 +202,8 @@ def create_business(
         data["city"] = city.description
 
     new_tenant = Tenant(**data)
+    if not new_tenant.status:
+        new_tenant.status = "active" if new_tenant.is_active else "inactive"
     db.add(new_tenant)
     try:
         db.commit()
@@ -164,6 +244,7 @@ def create_business_with_admin(
         closing_time=business.closing_time,
         plan_id=business.plan_id,
         is_active=business.is_active,
+        status="active" if business.is_active else "inactive",
     )
     db.add(new_tenant)
 
@@ -217,6 +298,10 @@ def update_business(
         raise _tenant_response_not_found()
 
     data = tenant_in.model_dump(exclude_unset=True)
+    if current_user.primary_role == "tenant_admin":
+        data.pop("plan_id", None)
+        data.pop("status", None)
+        data.pop("is_active", None)
     if "plan_id" in data:
         _get_plan(db, data.get("plan_id"))
 
@@ -234,6 +319,9 @@ def update_business(
     for key, value in data.items():
         setattr(tenant, key, value)
 
+    if "is_active" in data and "status" not in data and tenant.status != "archived":
+        tenant.status = "active" if tenant.is_active else "inactive"
+
     db.commit()
     db.refresh(tenant)
     return tenant
@@ -249,6 +337,9 @@ def activate_business(
     if not tenant:
         raise _tenant_response_not_found()
     tenant.is_active = True
+    tenant.status = "active"
+    tenant.archived_at = None
+    tenant.deleted_at = None
     db.commit()
     db.refresh(tenant)
     return tenant
@@ -264,6 +355,8 @@ def deactivate_business(
     if not tenant:
         raise _tenant_response_not_found()
     tenant.is_active = False
+    if tenant.status != "archived":
+        tenant.status = "inactive"
     db.commit()
     db.refresh(tenant)
     return tenant
@@ -293,6 +386,52 @@ def assign_plan(
     return tenant
 
 
+@router.patch("/{tenant_id}/archive", response_model=TenantResponse)
+def archive_business(
+    tenant_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_superadmin),
+):
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise _tenant_response_not_found()
+    tenant.is_active = False
+    tenant.status = "archived"
+    tenant.archived_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(tenant)
+    return tenant
+
+
+@router.patch("/{tenant_id}/restore", response_model=TenantResponse)
+def restore_business(
+    tenant_id: int,
+    db: Session = Depends(get_db),
+    _: User = Depends(require_superadmin),
+):
+    tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
+    if not tenant:
+        raise _tenant_response_not_found()
+    tenant.is_active = True
+    tenant.status = "active"
+    tenant.archived_at = None
+    tenant.deleted_at = None
+    db.commit()
+    db.refresh(tenant)
+    return tenant
+
+
+@router.get("/{tenant_id}/usage")
+def get_business_usage(
+    tenant_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_staff_or_above),
+):
+    if current_user.primary_role != "superadmin" and current_user.tenant_id != tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado.")
+    return get_plan_usage_summary(db, tenant_id)
+
+
 @router.delete("/{tenant_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_business(
     tenant_id: int,
@@ -302,5 +441,7 @@ def delete_business(
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise _tenant_response_not_found()
-    db.delete(tenant)
+    tenant.is_active = False
+    tenant.status = "archived"
+    tenant.archived_at = datetime.now(timezone.utc)
     db.commit()

@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
 
 const STATUS_LABELS = { pending: 'Pendiente', confirmed: 'Confirmada', cancelled: 'Cancelada', completed: 'Completada' }
+const asItems = data => data?.items || data || []
 
 export default function Appointments() {
   const { user, isSuperadmin, isStaff } = useAuth()
@@ -19,6 +20,10 @@ export default function Appointments() {
   const [filterDate,    setFilterDate]    = useState('')
   const [filterStatus,  setFilterStatus]  = useState('')
   const [filterTenant,  setFilterTenant]  = useState('')
+  const [search,        setSearch]        = useState('')
+  const [page,          setPage]          = useState(1)
+  const [pagination,    setPagination]    = useState({ total: 0, page: 1, page_size: 20, pages: 0 })
+  const [lastUpdated,   setLastUpdated]   = useState(null)
 
   const emptyForm = () => ({
     tenant_id:        isSuperadmin ? '' : (user?.tenant_id || ''),
@@ -31,20 +36,23 @@ export default function Appointments() {
 
   const load = () => {
     setLoading(true)
-    const params = {}
+    const params = { page, page_size: 20 }
     if (filterDate)   params.date      = filterDate
     if (filterStatus) params.status    = filterStatus
     if (isSuperadmin && filterTenant) params.tenant_id = filterTenant
+    if (search.trim()) params.search = search.trim()
 
-    const calls = [api.getAppointments(params), api.getServices(), api.getClients()]
-    if (isSuperadmin) calls.push(api.getBusinesses())
+    const calls = [api.getAppointments(params), api.getServices({ page_size: 100 }), api.getClients({ page_size: 100 })]
+    if (isSuperadmin) calls.push(api.getBusinesses({ page_size: 100 }))
 
     Promise.all(calls)
       .then(([a, s, c, b]) => {
-        setAppointments(a || [])
-        setServices(s || [])
-        setClients(c || [])
-        if (b) setBusinesses(b)
+        setAppointments(asItems(a))
+        setPagination(a?.items ? a : { total: (a || []).length, page: 1, page_size: (a || []).length, pages: 1 })
+        setServices(asItems(s))
+        setClients(asItems(c))
+        if (b) setBusinesses(asItems(b))
+        setLastUpdated(new Date())
         setLoading(false)
       })
       .catch(e => {
@@ -53,7 +61,15 @@ export default function Appointments() {
       })
   }
 
-  useEffect(load, [filterDate, filterStatus, filterTenant])
+  useEffect(() => {
+    load()
+    const timer = setInterval(load, 10000)
+    return () => clearInterval(timer)
+  }, [filterDate, filterStatus, filterTenant, page])
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); load() }, 350)
+    return () => clearTimeout(timer)
+  }, [search])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const clientName   = id => clients.find(c => c.id === id)?.full_name || `#${id}`
   const serviceName  = id => services.find(s => s.id === id)?.name     || `#${id}`
@@ -113,21 +129,31 @@ export default function Appointments() {
               : `Citas de ${user?.tenant_name || 'tu negocio'}`}
           </p>
         </div>
-        {!isStaff && <button className="btn btn-primary" onClick={openCreate}>+ Nueva cita</button>}
+        <div className="header-actions">
+          {lastUpdated && <span className="refresh-label">Actualizado hace unos segundos</span>}
+          <button className="btn btn-outline" onClick={load}>Actualizar</button>
+          {!isStaff && <button className="btn btn-primary" onClick={openCreate}>+ Nueva cita</button>}
+        </div>
       </div>
 
       {/* Filtros */}
       <div className="page-toolbar">
         <div className="filter-group">
           <input
+            className="search-input"
+            placeholder="Buscar cliente o servicio..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          <input
             type="date"
             value={filterDate}
-            onChange={e => setFilterDate(e.target.value)}
+            onChange={e => { setPage(1); setFilterDate(e.target.value) }}
             className="filter-select"
           />
           <select
             value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value)}
+            onChange={e => { setPage(1); setFilterStatus(e.target.value) }}
             className="filter-select"
           >
             <option value="">Todos los estados</option>
@@ -139,7 +165,7 @@ export default function Appointments() {
           {isSuperadmin && (
             <select
               value={filterTenant}
-              onChange={e => setFilterTenant(e.target.value)}
+              onChange={e => { setPage(1); setFilterTenant(e.target.value) }}
               className="filter-select"
             >
               <option value="">Todos los negocios</option>
@@ -147,14 +173,23 @@ export default function Appointments() {
             </select>
           )}
         </div>
-        {(filterDate || filterStatus || filterTenant) && (
+        {(search || filterDate || filterStatus || filterTenant) && (
           <div className="action-group">
-            <button type="button" className="btn btn-outline" onClick={() => { setFilterDate(''); setFilterStatus(''); setFilterTenant('') }}>
+            <button type="button" className="btn btn-outline" onClick={() => { setSearch(''); setFilterDate(''); setFilterStatus(''); setFilterTenant(''); setPage(1) }}>
               Limpiar filtros
             </button>
           </div>
         )}
       </div>
+
+      {pagination.pages > 1 && (
+        <div className="pagination-bar">
+          <span>Total: {pagination.total} registros</span>
+          <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</button>
+          <span>Pagina {pagination.page} de {pagination.pages}</span>
+          <button className="btn btn-outline btn-sm" disabled={page >= pagination.pages} onClick={() => setPage(p => p + 1)}>Siguiente</button>
+        </div>
+      )}
 
       <div className="table-card">
         {appointments.length === 0 ? (

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import api from '../api.js'
 
+const asItems = data => data?.items || data || []
+
 export default function Conversations() {
   const [conversations, setConversations] = useState([])
   const [loading,       setLoading]       = useState(true)
@@ -8,12 +10,35 @@ export default function Conversations() {
   const [selected,      setSelected]      = useState(null)
   const [messages,      setMessages]      = useState([])
   const [loadingMsgs,   setLoadingMsgs]   = useState(false)
+  const [search,        setSearch]        = useState('')
+  const [status,        setStatus]        = useState('')
+  const [page,          setPage]          = useState(1)
+  const [pagination,    setPagination]    = useState({ total: 0, page: 1, page_size: 20, pages: 0 })
+  const [lastUpdated,   setLastUpdated]   = useState(null)
+
+  const load = () => {
+    const params = { page, page_size: 20 }
+    if (search.trim()) params.search = search.trim()
+    if (status) params.status = status
+    api.getConversations(params)
+      .then(c => {
+        setConversations(asItems(c))
+        setPagination(c?.items ? c : { total: (c || []).length, page: 1, page_size: (c || []).length, pages: 1 })
+        setLastUpdated(new Date())
+        setLoading(false)
+      })
+      .catch(e => { setError(e.message); setLoading(false) })
+  }
 
   useEffect(() => {
-    api.getConversations()
-      .then(c => { setConversations(c || []); setLoading(false) })
-      .catch(e => { setError(e.message); setLoading(false) })
-  }, [])
+    load()
+    const timer = setInterval(load, 10000)
+    return () => clearInterval(timer)
+  }, [status, page])
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); load() }, 350)
+    return () => clearTimeout(timer)
+  }, [search])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const openConversation = async (conv) => {
     setSelected(conv)
@@ -34,8 +59,25 @@ export default function Conversations() {
   return (
     <div>
       <div className="page-header">
-        <h1>Conversaciones</h1>
-        <p>Historial bidireccional de conversaciones de Telegram</p>
+        <div>
+          <h1>Conversaciones</h1>
+          <p>Historial bidireccional de conversaciones de Telegram</p>
+        </div>
+        <div className="header-actions">
+          {lastUpdated && <span className="refresh-label">Actualizado hace unos segundos</span>}
+          <button className="btn btn-outline" onClick={load}>Actualizar</button>
+        </div>
+      </div>
+
+      <div className="page-toolbar">
+        <div className="filter-group">
+          <input className="search-input" placeholder="Buscar cliente, chat o negocio..." value={search} onChange={e => setSearch(e.target.value)} />
+          <select className="filter-select" value={status} onChange={e => { setPage(1); setStatus(e.target.value) }}>
+            <option value="">Todos los estados</option>
+            <option value="active">Activas</option>
+            <option value="closed">Cerradas</option>
+          </select>
+        </div>
       </div>
 
       <div className={`section-spacing conversation-grid${selected ? ' conversation-grid--split' : ''}`}>
@@ -111,6 +153,15 @@ export default function Conversations() {
           </div>
         )}
       </div>
+
+      {pagination.pages > 1 && (
+        <div className="pagination-bar">
+          <span>Total: {pagination.total} registros</span>
+          <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</button>
+          <span>Pagina {pagination.page} de {pagination.pages}</span>
+          <button className="btn btn-outline btn-sm" disabled={page >= pagination.pages} onClick={() => setPage(p => p + 1)}>Siguiente</button>
+        </div>
+      )}
     </div>
   )
 }

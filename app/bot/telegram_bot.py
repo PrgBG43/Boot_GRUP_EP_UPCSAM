@@ -17,6 +17,7 @@ from typing import Any, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
+from fastapi import HTTPException
 from sqlalchemy.orm import joinedload
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.error import InvalidToken, TelegramError
@@ -40,6 +41,7 @@ from app.models.tenant import Tenant
 from app.repositories import appointment_repository
 from app.schemas.appointment import AppointmentCreate
 from app.services.availability_service import get_available_slots
+from app.services.plan_usage_service import INTERNAL_LIMIT_MESSAGE
 from app.services.telegram_token_service import decrypt_token
 
 logging.basicConfig(format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO)
@@ -382,17 +384,34 @@ async def _create_appointment(update: Update, context: ContextTypes.DEFAULT_TYPE
     service = db.query(Service).filter(Service.id == context.user_data["selected_service_id"]).first()
     selected_time = context.user_data["selected_time"]
 
-    appointment, error = appointment_repository.create_appointment(
-        db,
-        AppointmentCreate(
-            tenant_id=tenant.id,
-            service_id=service.id,
-            client_id=client.id,
-            appointment_date=context.user_data["selected_date"],
-            start_time=datetime.strptime(selected_time, "%H:%M").time(),
-            notes="Cita creada desde Telegram",
-        ),
-    )
+    try:
+        appointment, error = appointment_repository.create_appointment(
+            db,
+            AppointmentCreate(
+                tenant_id=tenant.id,
+                service_id=service.id,
+                client_id=client.id,
+                appointment_date=context.user_data["selected_date"],
+                start_time=datetime.strptime(selected_time, "%H:%M").time(),
+                notes="Cita creada desde Telegram",
+            ),
+        )
+    except HTTPException as exc:
+        detail = exc.detail if isinstance(exc.detail, dict) else {}
+        if detail.get("code") == "PLAN_LIMIT_REACHED":
+            logger.warning("El negocio %s alcanzo el limite mensual del plan Gratuito.", tenant.name)
+            public_message = config.plan_limit_public_message or (
+                "En este momento el negocio no esta disponible para recibir nuevas citas por este medio. "
+                "Intenta mas tarde o comunicate directamente con el establecimiento."
+            )
+            await _reply(update, context, _format_message(public_message, _variables(tenant, config, client, service)))
+            _set_conversation_step(
+                context.user_data.get("conversation_id"),
+                "PLAN_LIMIT_REACHED",
+                {"internal_message": INTERNAL_LIMIT_MESSAGE},
+            )
+            return ConversationHandler.END
+        raise
     if error:
         await _reply(update, context, _format_message(config.unavailable_message, _variables(tenant, config, client, service)))
         return SELECT_DATE

@@ -32,8 +32,28 @@ def ensure_schema_compatibility(engine) -> None:
             "ask_phone_message": "TEXT",
             "ask_service_message": "TEXT",
             "goodbye_message": "TEXT",
+            "plan_limit_public_message": "TEXT",
+            "reminder_30_message": "TEXT",
+            "reminder_15_message": "TEXT",
             "collect_phone": "BOOLEAN DEFAULT 1",
             "require_confirmation": "BOOLEAN DEFAULT 1",
+        },
+    )
+    _add_columns_if_missing(
+        engine,
+        "tenants",
+        {
+            "status": "VARCHAR DEFAULT 'active'",
+            "archived_at": "DATETIME",
+            "deleted_at": "DATETIME",
+        },
+    )
+    _add_columns_if_missing(
+        engine,
+        "appointments",
+        {
+            "reminder_30_sent_at": "DATETIME",
+            "reminder_15_sent_at": "DATETIME",
         },
     )
     _add_columns_if_missing(

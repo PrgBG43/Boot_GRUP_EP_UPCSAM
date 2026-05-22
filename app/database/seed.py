@@ -77,15 +77,16 @@ def _warn_missing_env():
 
 def _seed_plans(db):
     from app.models.plan import Plan
+    from app.models.tenant import Tenant
 
     plans = [
         (
             "free",
             {
                 "display_name": "Gratuito",
-                "max_appointments_monthly": 30,
-                "max_active_services": 5,
-                "max_staff": 1,
+                "max_appointments_monthly": 50,
+                "max_active_services": None,
+                "max_staff": 3,
                 "allows_advanced_reminders": False,
                 "allows_analytics": False,
                 "is_active": True,
@@ -95,18 +96,6 @@ def _seed_plans(db):
             "premium",
             {
                 "display_name": "Premium",
-                "max_appointments_monthly": 200,
-                "max_active_services": 20,
-                "max_staff": 5,
-                "allows_advanced_reminders": True,
-                "allows_analytics": True,
-                "is_active": True,
-            },
-        ),
-        (
-            "enterprise",
-            {
-                "display_name": "Empresarial",
                 "max_appointments_monthly": None,
                 "max_active_services": None,
                 "max_staff": None,
@@ -122,6 +111,17 @@ def _seed_plans(db):
         for key, value in data.items():
             setattr(plan, key, value)
         result[name] = plan
+
+    enterprise = db.query(Plan).filter(Plan.name == "enterprise").first()
+    if enterprise:
+        db.query(Tenant).filter(Tenant.plan_id == enterprise.id).update({"plan_id": result["premium"].id})
+        enterprise.is_active = False
+        enterprise.display_name = "Premium"
+        enterprise.max_appointments_monthly = None
+        enterprise.max_active_services = None
+        enterprise.max_staff = None
+        enterprise.allows_advanced_reminders = True
+        enterprise.allows_analytics = True
     db.commit()
     return result
 
@@ -231,17 +231,17 @@ def _create_demo_data(db, plans, roles, locations):
     cundinamarca = locations["cundinamarca"]
     girardot = locations["girardot"]
 
-    tenant = db.query(Tenant).filter(Tenant.slug == "barberia-demo").first()
+    tenant = db.query(Tenant).filter(Tenant.slug.in_(["barberia-centro-turnix", "barberia-demo"])).first()
     if not tenant:
         tenant = Tenant(
-            name="Barbería Demo Turnix",
-            description="Negocio de demostración para desarrollo local.",
+            name="Barberia Centro Turnix",
+            description="Negocio de prueba para desarrollo local.",
             phone="3001234567",
             address="Carrera 10 # 15-20, Girardot",
             city=girardot.description,
             state_id=cundinamarca.id,
             city_id=girardot.id,
-            slug=ensure_unique_slug(db, "barberia-demo"),
+            slug=ensure_unique_slug(db, "barberia-centro-turnix"),
             opening_time="08:00",
             closing_time="20:00",
             plan_id=plans["premium"].id,
@@ -250,6 +250,9 @@ def _create_demo_data(db, plans, roles, locations):
         db.add(tenant)
         db.flush()
     else:
+        tenant.name = "Barberia Centro Turnix"
+        tenant.description = "Negocio de prueba para desarrollo local."
+        tenant.slug = "barberia-centro-turnix"
         tenant.state_id = cundinamarca.id
         tenant.city_id = girardot.id
         tenant.city = girardot.description
@@ -279,7 +282,7 @@ def _create_demo_data(db, plans, roles, locations):
         return user
 
     business_admin = create_demo_user(
-        "negocio@turnix.demo",
+        "negocio@turnix.local",
         "Negocio123*",
         "Carlos",
         "Mendoza",
@@ -287,7 +290,7 @@ def _create_demo_data(db, plans, roles, locations):
         tenant.id,
         "3109876543",
     )
-    create_demo_user("staff@turnix.demo", "Staff123*", "Laura", "Gómez", "staff", tenant.id, "3154567890")
+    create_demo_user("staff@turnix.local", "Staff123*", "Laura", "Gomez", "staff", tenant.id, "3154567890")
     tenant.owner_user_id = business_admin.id
     db.commit()
 
@@ -306,8 +309,8 @@ def _create_demo_data(db, plans, roles, locations):
     db.commit()
 
     clients_data = [
-        {"full_name": "Cliente Demo", "username": "clientedemo", "phone": "3159876543", "telegram_user_id": "999999999"},
-        {"full_name": "María García", "phone": "3001112222"},
+        {"full_name": "Cliente Prueba", "username": "clienteprueba", "phone": "3159876543", "telegram_user_id": "999999999"},
+        {"full_name": "Maria Garcia", "phone": "3001112222"},
     ]
     clients = []
     for item in clients_data:
@@ -341,7 +344,7 @@ def _create_demo_data(db, plans, roles, locations):
                     start_time=start_time,
                     end_time=end_time,
                     status="confirmed",
-                    notes="Cita de demostración",
+                    notes="Cita de prueba",
                 )
             )
     db.commit()
@@ -364,11 +367,11 @@ def _create_demo_data(db, plans, roles, locations):
         )
         db.commit()
 
-    print("Datos demo creados/actualizados.")
-    print("Credenciales demo de desarrollo:")
-    print("  Negocio:  negocio@turnix.demo / Negocio123*")
-    print("  Staff:    staff@turnix.demo   / Staff123*")
-    print(f"Negocio demo: {tenant.name} | slug={tenant.slug} | ciudad=GIRARDOT(494)")
+    print("Datos de prueba creados/actualizados.")
+    print("Credenciales de desarrollo:")
+    print("  Negocio:  negocio@turnix.local / Negocio123*")
+    print("  Staff:    staff@turnix.local   / Staff123*")
+    print(f"Negocio de prueba: {tenant.name} | slug={tenant.slug} | ciudad=GIRARDOT(494)")
 
 
 def run_seed():
@@ -391,13 +394,13 @@ def run_seed():
         print(f"Superadmin inicial listo: {superadmin.email}")
 
         if settings.TURNIX_DEMO_SEED:
-            print("TURNIX_DEMO_SEED=true: creando datos de demostración...")
+            print("TURNIX_DEMO_SEED=true: creando datos de prueba...")
             _create_demo_data(db, plans, roles, locations)
         else:
             print("TURNIX_DEMO_SEED=false: no se crean negocio ni usuarios demo.")
 
         print("Seed completado correctamente.")
-        print("\nPara reiniciar datos demo desde cero:")
+        print("\nPara reiniciar datos de prueba desde cero:")
         print("  1. Cerrar el backend (o matar proceso en puerto 8000)")
         print("  2. Ejecutar: Remove-Item turnix.db -Force")
         print("  3. Ejecutar: python -m app.database.seed")

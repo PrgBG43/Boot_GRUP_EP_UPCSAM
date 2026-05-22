@@ -50,11 +50,18 @@ function StatusBadge({ status }) {
 function SuperadminDashboard() {
   const [data, setData]     = useState(null)
   const [loading, setLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState(null)
+
+  const load = () => {
+    api.getSuperadminDashboard()
+      .then(d => { setData(d); setLastUpdated(new Date()) })
+      .finally(() => setLoading(false))
+  }
 
   useEffect(() => {
-    api.getSuperadminDashboard()
-      .then(setData)
-      .finally(() => setLoading(false))
+    load()
+    const timer = setInterval(load, 10000)
+    return () => clearInterval(timer)
   }, [])
 
   if (loading) return <div className="spinner" />
@@ -67,15 +74,20 @@ function SuperadminDashboard() {
           <h1>Panel de Plataforma</h1>
           <p>Vista global de todos los negocios en Turnix</p>
         </div>
+        <div className="header-actions">
+          {lastUpdated && <span className="refresh-label">Actualizado hace unos segundos</span>}
+          <button className="btn btn-outline" onClick={load}>Actualizar</button>
+        </div>
       </div>
 
       <div className="stats-grid">
         <StatCard label="Negocios totales"    value={data.total_tenants}          color="#6c3fc5" icon="NG" />
         <StatCard label="Negocios activos"    value={data.active_tenants}         color="#22c55e" icon="AC" />
+        <StatCard label="Negocios premium"    value={data.premium_tenants}        color="#8b5cf6" icon="PR" />
+        <StatCard label="Negocios gratuitos"  value={data.free_tenants}           color="#10b981" icon="GR" />
         <StatCard label="Clientes totales"    value={data.total_clients}          color="#3b82f6" icon="CL" />
         <StatCard label="Citas este mes"      value={data.appointments_this_month} color="#f59e0b" icon="CM" />
-        <StatCard label="Citas hoy"           value={data.appointments_today}     color="#ec4899" icon="CH" />
-        <StatCard label="Negocios inactivos"  value={data.inactive_tenants}       color="#ef4444" icon="IN" />
+        <StatCard label="Negocios archivados" value={data.archived_tenants}       color="#64748b" icon="AR" />
       </div>
 
       <div className="dashboard-grid">
@@ -111,6 +123,24 @@ function SuperadminDashboard() {
             </div>
           )}
         </div>
+
+        <div className="card">
+          <h2 className="card-title">Uso del plan Gratuito</h2>
+          {(data.tenants_near_limit?.length || data.tenants_limit_reached?.length) ? (
+            <div className="top-list">
+              {[...(data.tenants_limit_reached || []), ...(data.tenants_near_limit || [])].slice(0, 8).map(item => (
+                <div key={item.tenant_id} className="top-list-item">
+                  <span className="top-name">{item.tenant_name}</span>
+                  <span className={`badge ${item.limit_reached ? 'badge-danger' : 'badge-warning'}`}>
+                    {item.used_this_month}/{item.monthly_limit}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="empty-state-sm">Sin negocios cercanos al limite</div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -122,8 +152,9 @@ function TenantDashboard() {
   const [data, setData]       = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError]     = useState(null)
+  const [lastUpdated, setLastUpdated] = useState(null)
 
-  useEffect(() => {
+  const load = () => {
     if (isSuperadmin && !activeTenantId) {
       setLoading(false)
       setData(null)
@@ -131,9 +162,15 @@ function TenantDashboard() {
     }
     setLoading(true)
     api.getTenantDashboard(isSuperadmin ? activeTenantId : null)
-      .then(setData)
+      .then(d => { setData(d); setLastUpdated(new Date()) })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    load()
+    const timer = setInterval(load, 10000)
+    return () => clearInterval(timer)
   }, [activeTenantId])
 
   if (loading) return <div className="spinner" />
@@ -152,12 +189,19 @@ function TenantDashboard() {
           <h1>Dashboard</h1>
           <p>{user?.tenant_name || 'Resumen del negocio'}</p>
         </div>
+        <div className="header-actions">
+          {lastUpdated && <span className="refresh-label">Actualizado hace unos segundos</span>}
+          <button className="btn btn-outline" onClick={load}>Actualizar</button>
+        </div>
       </div>
 
       <div className="stats-grid">
         <StatCard label="Citas hoy"            value={data.appointments_today}  color="#6c3fc5" icon="CH" />
         <StatCard label="Citas esta semana"    value={data.appointments_week}   color="#3b82f6" icon="CS" />
         <StatCard label="Citas este mes"       value={data.appointments_month}  color="#f59e0b" icon="CM" />
+        <StatCard label="Pendientes"           value={data.pending_month}       color="#0ea5e9" icon="PE" />
+        <StatCard label="Completadas"          value={data.completed_month}     color="#22c55e" icon="CO" />
+        <StatCard label="Conversaciones"       value={data.conversations_month} color="#8b5cf6" icon="CV" />
         <StatCard label="Clientes registrados" value={data.total_clients}       color="#22c55e" icon="CL" />
         <StatCard label="Servicios activos"    value={data.active_services}     color="#ec4899" icon="SV"
           sub={data.total_services > data.active_services ? `${data.total_services - data.active_services} inactivos` : null} />
@@ -183,20 +227,27 @@ function TenantDashboard() {
           </ResponsiveContainer>
         </div>
 
-        {/* Plan y límites */}
-        {data.plan && (
+        {/* Plan y limites */}
+        {data.plan_usage && (
           <div className="card">
-            <h2 className="card-title">Plan activo — {data.plan.display_name}</h2>
+            <h2 className="card-title">Uso del plan</h2>
+            <div className="inline-meta">
+              <span className="badge badge-plan">{data.plan_usage.plan}</span>
+              {data.plan_usage.limit_reached && <span className="badge badge-danger">Limite alcanzado</span>}
+              {!data.plan_usage.limit_reached && data.plan_usage.usage_percentage >= 80 && <span className="badge badge-warning">Uso alto</span>}
+            </div>
             <PlanBar
               label="Citas del mes"
-              used={data.plan.appointments_used_month}
-              max={data.plan.max_appointments_monthly}
+              used={data.plan_usage.used_this_month}
+              max={data.plan_usage.monthly_limit}
             />
-            <PlanBar
-              label="Servicios activos"
-              used={data.plan.services_used}
-              max={data.plan.max_active_services}
-            />
+            {data.plan_usage.monthly_limit ? (
+              <p className="card-note">
+                Has usado {data.plan_usage.used_this_month} de {data.plan_usage.monthly_limit} citas disponibles este mes.
+              </p>
+            ) : (
+              <p className="card-note">Tu plan Premium tiene citas mensuales ilimitadas.</p>
+            )}
           </div>
         )}
 

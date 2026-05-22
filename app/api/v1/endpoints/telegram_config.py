@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.auth import require_tenant_admin_or_above
@@ -115,6 +115,38 @@ def _sync_bot_profile(token: str, config: TelegramConfig) -> None:
         _telegram_request(token, "setMyCommands", {"commands": commands})
 
 
+def _telegram_upload_profile_photo(token: str, content: bytes, filename: str, content_type: str) -> None:
+    payload = {"photo": '{"type":"static","photo":"attach://profile_photo"}'}
+    files = {"profile_photo": (filename, content, content_type or "image/jpeg")}
+    try:
+        with httpx.Client(timeout=20.0) as client:
+            response = client.post(
+                TELEGRAM_API.format(token=token, method="setMyProfilePhoto"),
+                data=payload,
+                files=files,
+            )
+        result = response.json()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="No se pudo actualizar la foto del bot con Telegram.",
+        )
+    if not result.get("ok"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("description") or "Telegram no acepto la foto del bot.",
+        )
+
+
+def _telegram_remove_profile_photo(token: str) -> None:
+    result = _telegram_request(token, "removeMyProfilePhoto")
+    if not result.get("ok"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("description") or "Telegram no pudo quitar la foto del bot.",
+        )
+
+
 def _serialize(config: TelegramConfig) -> TelegramConfigResponse:
     return TelegramConfigResponse(
         id=config.id,
@@ -141,6 +173,9 @@ def _serialize(config: TelegramConfig) -> TelegramConfigResponse:
         cancel_message=config.cancel_message,
         unavailable_message=config.unavailable_message,
         goodbye_message=config.goodbye_message,
+        plan_limit_public_message=config.plan_limit_public_message,
+        reminder_30_message=config.reminder_30_message,
+        reminder_15_message=config.reminder_15_message,
         allow_cancellation=bool(config.allow_cancellation),
         show_prices=bool(config.show_prices),
         show_duration=bool(config.show_duration),
@@ -307,4 +342,73 @@ def get_public_telegram_link(
         is_connected=bool(config.is_connected),
         bot_username=config.bot_username,
         public_link=_public_link(config),
+    )
+
+
+@router.post("/profile-photo", response_model=TelegramConnectionResponse)
+async def update_bot_profile_photo(
+    tenant_id: int = None,
+    photo: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_admin_or_above),
+):
+    tid = _get_tenant_id(current_user, tenant_id)
+    config = _get_or_create_config(db, tid)
+    token = decrypt_token(config.bot_token_encrypted)
+    if not token or not config.is_connected:
+        raise HTTPException(status_code=400, detail="Conecta el bot antes de actualizar la foto.")
+
+    if photo.content_type not in {"image/jpeg", "image/jpg"}:
+        raise HTTPException(status_code=400, detail="Usa una imagen JPG.")
+    content = await photo.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="La imagen debe pesar maximo 5 MB.")
+
+    _telegram_upload_profile_photo(
+        token,
+        content,
+        photo.filename or "profile-photo.jpg",
+        photo.content_type or "image/jpeg",
+    )
+    config.last_validated_at = datetime.now(timezone.utc)
+    config.connection_status = "connected"
+    db.commit()
+    db.refresh(config)
+    return TelegramConnectionResponse(
+        is_connected=True,
+        bot_username=config.bot_username,
+        bot_name=config.bot_name,
+        public_link=_public_link(config),
+        bot_token_masked=config.bot_token_masked,
+        last_validated_at=config.last_validated_at,
+        connection_status=config.connection_status,
+        message="Foto del bot actualizada correctamente.",
+    )
+
+
+@router.delete("/profile-photo", response_model=TelegramConnectionResponse)
+def remove_bot_profile_photo(
+    tenant_id: int = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_admin_or_above),
+):
+    tid = _get_tenant_id(current_user, tenant_id)
+    config = _get_or_create_config(db, tid)
+    token = decrypt_token(config.bot_token_encrypted)
+    if not token or not config.is_connected:
+        raise HTTPException(status_code=400, detail="Conecta el bot antes de quitar la foto.")
+    _telegram_remove_profile_photo(token)
+    config.last_validated_at = datetime.now(timezone.utc)
+    config.connection_status = "connected"
+    db.commit()
+    db.refresh(config)
+    return TelegramConnectionResponse(
+        is_connected=True,
+        bot_username=config.bot_username,
+        bot_name=config.bot_name,
+        public_link=_public_link(config),
+        bot_token_masked=config.bot_token_masked,
+        last_validated_at=config.last_validated_at,
+        connection_status=config.connection_status,
+        message="Foto del bot removida correctamente.",
     )

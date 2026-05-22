@@ -26,6 +26,9 @@ class Tenant(Base):
         Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     is_active = Column(Boolean, default=True)
+    status = Column(String, nullable=False, default="active", index=True)
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
     updated_at = Column(
         DateTime(timezone=True),
@@ -64,4 +67,3 @@ class Tenant(Base):
     @property
     def city_name(self):
         return self.city_rel.description if self.city_rel else None
-

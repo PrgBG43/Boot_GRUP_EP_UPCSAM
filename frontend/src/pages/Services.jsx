@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
 
+const asItems = data => data?.items || data || []
+
 export default function Services() {
   const { user, isSuperadmin } = useAuth()
   const [services, setServices]   = useState([])
@@ -13,6 +15,10 @@ export default function Services() {
   const [editing, setEditing]     = useState(null)
   const [saving, setSaving]       = useState(false)
   const [feedback, setFeedback]   = useState(null)
+  const [search, setSearch]       = useState('')
+  const [status, setStatus]       = useState('')
+  const [page, setPage]           = useState(1)
+  const [pagination, setPagination] = useState({ total: 0, page: 1, page_size: 20, pages: 0 })
 
   const emptyForm = () => ({
     tenant_id: isSuperadmin ? '' : user?.tenant_id,
@@ -21,14 +27,26 @@ export default function Services() {
 
   const load = () => {
     setLoading(true)
-    const calls = [api.getServices()]
-    if (isSuperadmin) calls.push(api.getBusinesses())
+    const params = { page, page_size: 20 }
+    if (search.trim()) params.search = search.trim()
+    if (status) params.status = status
+    const calls = [api.getServices(params)]
+    if (isSuperadmin) calls.push(api.getBusinesses({ page_size: 100 }))
     Promise.all(calls)
-      .then(([s, b]) => { setServices(s || []); if (b) setBusinesses(b); setLoading(false) })
+      .then(([s, b]) => {
+        setServices(asItems(s))
+        setPagination(s?.items ? s : { total: (s || []).length, page: 1, page_size: (s || []).length, pages: 1 })
+        if (b) setBusinesses(asItems(b))
+        setLoading(false)
+      })
       .catch(e => { setError(e.message); setLoading(false) })
   }
 
-  useEffect(load, [])
+  useEffect(load, [status, page])
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); load() }, 350)
+    return () => clearTimeout(timer)
+  }, [search])  // eslint-disable-line react-hooks/exhaustive-deps
 
   const openCreate = () => { setForm(emptyForm()); setEditing(null); setModal(true); setFeedback(null) }
   const openEdit   = (s) => {
@@ -75,6 +93,17 @@ export default function Services() {
           <p>Gestiona los servicios ofrecidos por el negocio</p>
         </div>
         <button className="btn btn-primary" onClick={openCreate}>+ Nuevo servicio</button>
+      </div>
+
+      <div className="page-toolbar">
+        <div className="filter-group">
+          <input className="search-input" placeholder="Buscar servicio..." value={search} onChange={e => setSearch(e.target.value)} />
+          <select className="filter-select" value={status} onChange={e => { setPage(1); setStatus(e.target.value) }}>
+            <option value="">Todos los estados</option>
+            <option value="active">Activos</option>
+            <option value="inactive">Inactivos</option>
+          </select>
+        </div>
       </div>
 
       <div className="table-card">
@@ -130,6 +159,15 @@ export default function Services() {
           </div>
         )}
       </div>
+
+      {pagination.pages > 1 && (
+        <div className="pagination-bar">
+          <span>Total: {pagination.total} registros</span>
+          <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</button>
+          <span>Pagina {pagination.page} de {pagination.pages}</span>
+          <button className="btn btn-outline btn-sm" disabled={page >= pagination.pages} onClick={() => setPage(p => p + 1)}>Siguiente</button>
+        </div>
+      )}
 
       {modal && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(false)}>

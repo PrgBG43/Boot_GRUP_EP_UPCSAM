@@ -27,6 +27,8 @@ class Appointment(Base):
     end_time = Column(Time, nullable=False)
     status = Column(String, nullable=False, default="pending")
     notes = Column(String, nullable=True)
+    reminder_30_sent_at = Column(DateTime(timezone=True), nullable=True)
+    reminder_15_sent_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
     updated_at = Column(
         DateTime(timezone=True),

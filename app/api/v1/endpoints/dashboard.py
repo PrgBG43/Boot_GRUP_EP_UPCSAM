@@ -14,6 +14,8 @@ from app.models.service import Service
 from app.models.client import Client
 from app.models.appointment import Appointment
 from app.models.conversation import Conversation
+from app.models.plan import Plan
+from app.services.plan_usage_service import get_plan_usage_summary
 
 router = APIRouter()
 
@@ -27,7 +29,17 @@ def superadmin_dashboard(
     month_start = today.replace(day=1)
 
     total_tenants = db.query(func.count(Tenant.id)).scalar()
-    active_tenants = db.query(func.count(Tenant.id)).filter(Tenant.is_active == True).scalar()
+    active_tenants = (
+        db.query(func.count(Tenant.id))
+        .filter(Tenant.is_active == True, Tenant.status != "archived")
+        .scalar()
+    )
+    archived_tenants = db.query(func.count(Tenant.id)).filter(Tenant.status == "archived").scalar()
+    inactive_tenants = (
+        db.query(func.count(Tenant.id))
+        .filter(Tenant.is_active == False, Tenant.status != "archived")
+        .scalar()
+    )
     total_clients = db.query(func.count(Client.id)).scalar()
     total_appointments = db.query(func.count(Appointment.id)).scalar()
     appointments_this_month = (
@@ -41,13 +53,25 @@ def superadmin_dashboard(
         .scalar()
     )
 
-    # Distribución por plan
-    from app.models.plan import Plan
+    # Distribucion por plan
     plan_distribution = (
         db.query(Plan.display_name, func.count(Tenant.id))
         .outerjoin(Tenant, Tenant.plan_id == Plan.id)
+        .filter(Plan.is_active == True)
         .group_by(Plan.display_name)
         .all()
+    )
+    free_tenants = (
+        db.query(func.count(Tenant.id))
+        .join(Plan, Tenant.plan_id == Plan.id)
+        .filter(Plan.name == "free", Tenant.status != "archived")
+        .scalar()
+    )
+    premium_tenants = (
+        db.query(func.count(Tenant.id))
+        .join(Plan, Tenant.plan_id == Plan.id)
+        .filter(Plan.name == "premium", Tenant.status != "archived")
+        .scalar()
     )
 
     # Top tenants por citas del mes
@@ -60,17 +84,37 @@ def superadmin_dashboard(
         .limit(5)
         .all()
     )
+    usage_rows = []
+    for tenant in db.query(Tenant).filter(Tenant.status != "archived").all():
+        usage = get_plan_usage_summary(db, tenant.id)
+        if usage["near_limit"] or usage["limit_reached"]:
+            usage_rows.append(usage)
+
+    clients_by_city = (
+        db.query(Tenant.city, func.count(Client.id))
+        .join(Client, Client.tenant_id == Tenant.id)
+        .group_by(Tenant.city)
+        .order_by(func.count(Client.id).desc())
+        .limit(10)
+        .all()
+    )
 
     return {
         "total_tenants": total_tenants,
         "active_tenants": active_tenants,
-        "inactive_tenants": total_tenants - active_tenants,
+        "inactive_tenants": inactive_tenants,
+        "archived_tenants": archived_tenants,
+        "free_tenants": free_tenants,
+        "premium_tenants": premium_tenants,
         "total_clients": total_clients,
         "total_appointments": total_appointments,
         "appointments_this_month": appointments_this_month,
         "appointments_today": appointments_today,
         "plan_distribution": [{"plan": p, "count": c} for p, c in plan_distribution],
         "top_tenants_month": [{"name": n, "appointments": c} for n, c in top_tenants],
+        "tenants_near_limit": [item for item in usage_rows if item["near_limit"] and not item["limit_reached"]],
+        "tenants_limit_reached": [item for item in usage_rows if item["limit_reached"]],
+        "clients_by_city": [{"city": city or "Sin ciudad", "clients": count} for city, count in clients_by_city],
     }
 
 
@@ -131,6 +175,47 @@ def tenant_dashboard(
         )
         .scalar()
     )
+    completed_month = (
+        db.query(func.count(Appointment.id))
+        .filter(
+            Appointment.tenant_id == tid,
+            Appointment.appointment_date >= month_start,
+            Appointment.status == "completed",
+        )
+        .scalar()
+    )
+    pending_month = (
+        db.query(func.count(Appointment.id))
+        .filter(
+            Appointment.tenant_id == tid,
+            Appointment.appointment_date >= month_start,
+            Appointment.status.in_(["pending", "confirmed"]),
+        )
+        .scalar()
+    )
+    conversations_month = (
+        db.query(func.count(Conversation.id))
+        .filter(
+            Conversation.tenant_id == tid,
+            Conversation.last_interaction_at >= month_start,
+        )
+        .scalar()
+    )
+    bot_usage = (
+        db.query(func.count(Conversation.id))
+        .filter(Conversation.tenant_id == tid, Conversation.channel == "telegram")
+        .scalar()
+    )
+    estimated_income = (
+        db.query(func.coalesce(func.sum(Service.price), 0))
+        .join(Appointment, Appointment.service_id == Service.id)
+        .filter(
+            Appointment.tenant_id == tid,
+            Appointment.appointment_date >= month_start,
+            Appointment.status.in_(["confirmed", "completed"]),
+        )
+        .scalar()
+    )
     cancellation_rate = round((cancelled_month / appointments_month * 100) if appointments_month else 0, 1)
 
     # Servicio más solicitado del mes
@@ -170,7 +255,9 @@ def tenant_dashboard(
     # Plan info
     tenant = db.query(Tenant).filter(Tenant.id == tid).first()
     plan_info = None
+    plan_usage = None
     if tenant and tenant.plan:
+        plan_usage = get_plan_usage_summary(db, tid)
         plan_info = {
             "name": tenant.plan.name,
             "display_name": tenant.plan.display_name,
@@ -178,6 +265,8 @@ def tenant_dashboard(
             "max_active_services": tenant.plan.max_active_services,
             "appointments_used_month": appointments_month,
             "services_used": active_services,
+            "allows_advanced_reminders": bool(tenant.plan.allows_advanced_reminders),
+            "allows_analytics": bool(tenant.plan.allows_analytics),
         }
 
     return {
@@ -187,7 +276,13 @@ def tenant_dashboard(
         "appointments_today": appointments_today,
         "appointments_week": appointments_week,
         "appointments_month": appointments_month,
+        "completed_month": completed_month,
+        "cancelled_month": cancelled_month,
+        "pending_month": pending_month,
         "cancellation_rate": cancellation_rate,
+        "conversations_month": conversations_month,
+        "bot_usage": bot_usage,
+        "estimated_income": float(estimated_income or 0),
         "top_service": {"name": top_service[0], "count": top_service[1]} if top_service else None,
         "upcoming_appointments": [
             {
@@ -202,6 +297,7 @@ def tenant_dashboard(
         ],
         "daily_chart": daily_counts,
         "plan": plan_info,
+        "plan_usage": plan_usage,
     }
 
 
@@ -280,4 +376,3 @@ def staff_dashboard(
             for a in upcoming
         ],
     }
-

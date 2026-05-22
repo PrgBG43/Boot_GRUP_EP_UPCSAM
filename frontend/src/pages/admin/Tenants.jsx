@@ -45,7 +45,13 @@ const PLAN_FILTERS = [
   { value: '',           label: 'Todos' },
   { value: 'free',       label: 'Gratuito' },
   { value: 'premium',    label: 'Premium' },
-  { value: 'enterprise', label: 'Empresarial' },
+]
+
+const STATUS_FILTERS = [
+  { value: '', label: 'Activos e inactivos' },
+  { value: 'active', label: 'Activos' },
+  { value: 'inactive', label: 'Inactivos' },
+  { value: 'archived', label: 'Archivados' },
 ]
 
 // -- Función de normalización para PDF -----------------------
@@ -74,18 +80,30 @@ export default function AdminTenants() {
   const [feedback, setFeedback]   = useState(null)
   const [fieldErrors, setFieldErrors] = useState({})
   const [planFilter, setPlanFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [search, setSearch] = useState('')
+  const [usageFilter, setUsageFilter] = useState('')
+  const [page, setPage] = useState(1)
+  const [pagination, setPagination] = useState({ total: 0, page: 1, page_size: 20, pages: 0 })
 
   // -- Carga de datos ---------------------------------------
   const load = async () => {
     setLoading(true)
     try {
       const params = planFilter ? { plan: planFilter } : {}
+      params.page = page
+      params.page_size = 20
+      if (statusFilter) params.status = statusFilter
+      if (search.trim()) params.search = search.trim()
+      if (usageFilter === 'near') params.near_limit = true
+      if (usageFilter === 'reached') params.limit_reached = true
       const [t, p, s] = await Promise.all([
         api.getBusinesses(params),
         api.getPlans(),
         api.getStates(),
       ])
-      setTenants(t || [])
+      setTenants(t?.items || t || [])
+      setPagination(t?.items ? t : { total: (t || []).length, page: 1, page_size: (t || []).length, pages: 1 })
       setPlans(p || [])
       setStates(s || [])
     } catch (err) {
@@ -106,7 +124,11 @@ export default function AdminTenants() {
     }
   }
 
-  useEffect(() => { load() }, [planFilter])  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load() }, [planFilter, statusFilter, usageFilter, page])  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); load() }, 350)
+    return () => clearTimeout(timer)
+  }, [search])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // -- Carga de ciudades cuando cambia el departamento ------
   useEffect(() => {
@@ -343,6 +365,24 @@ export default function AdminTenants() {
     }
   }
 
+  const archiveTenant = async (t) => {
+    try {
+      await api.archiveTenant(t.id)
+      load()
+    } catch (err) {
+      setFeedback(err.message)
+    }
+  }
+
+  const restoreTenant = async (t) => {
+    try {
+      await api.restoreTenant(t.id)
+      load()
+    } catch (err) {
+      setFeedback(err.message)
+    }
+  }
+
   // -- Descargar PDF ----------------------------------------
   const downloadPDF = async () => {
     const { jsPDF }             = await import('jspdf')
@@ -408,15 +448,27 @@ export default function AdminTenants() {
   const adminEmail  = (t) => t.owner_user?.email || '—'
   const planBadgeClass = (t) => {
     const raw = `${t.plan?.name || ''} ${t.plan?.display_name || ''}`.toLowerCase()
-    if (raw.includes('enterprise') || raw.includes('empresarial')) return 'badge-enterprise'
     if (raw.includes('premium')) return 'badge-premium'
     return 'badge-free'
   }
-  const statusBadge = (active) => (
-    <span className={`badge ${active ? 'badge-success' : 'badge-neutral'}`}>
-      {active ? 'Activo' : 'Inactivo'}
+  const statusBadge = (t) => (
+    <span className={`badge ${t.status === 'archived' ? 'badge-neutral' : t.is_active ? 'badge-success' : 'badge-warning'}`}>
+      {t.status === 'archived' ? 'Archivado' : t.is_active ? 'Activo' : 'Inactivo'}
     </span>
   )
+  const usageText = (t) => {
+    const usage = t.plan_usage
+    if (!usage) return 'Sin datos'
+    if (!usage.monthly_limit) return `${usage.used_this_month} citas / ilimitado`
+    return `${usage.used_this_month} de ${usage.monthly_limit}`
+  }
+  const usageClass = (t) => {
+    const usage = t.plan_usage
+    if (!usage || !usage.monthly_limit) return 'badge-neutral'
+    if (usage.limit_reached) return 'badge-danger'
+    if (usage.usage_percentage >= 80) return 'badge-warning'
+    return 'badge-success'
+  }
 
   if (loading) return <div className="spinner" />
 
@@ -434,23 +486,37 @@ export default function AdminTenants() {
 
       {/* Mini-estadísticas */}
       <div className="stats-row">
-        <div className="mini-stat"><strong>{tenants.length}</strong><span>Total</span></div>
+        <div className="mini-stat"><strong>{pagination.total}</strong><span>Total</span></div>
         <div className="mini-stat"><strong>{tenants.filter(t => t.is_active).length}</strong><span>Activos</span></div>
-        <div className="mini-stat"><strong>{tenants.filter(t => !t.is_active).length}</strong><span>Inactivos</span></div>
+        <div className="mini-stat"><strong>{tenants.filter(t => t.status === 'archived').length}</strong><span>Archivados</span></div>
       </div>
 
       {/* Barra de filtros + PDF */}
       <div className="page-toolbar">
         <div className="filter-group">
+          <input
+            className="search-input"
+            placeholder="Buscar negocio, ciudad o telefono..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
           {PLAN_FILTERS.map(opt => (
             <button
               key={opt.value}
               className={`filter-pill${planFilter === opt.value ? ' active' : ''}`}
-              onClick={() => setPlanFilter(opt.value)}
+              onClick={() => { setPage(1); setPlanFilter(opt.value) }}
             >
               {opt.label}
             </button>
           ))}
+          <select className="filter-select" value={statusFilter} onChange={e => { setPage(1); setStatusFilter(e.target.value) }}>
+            {STATUS_FILTERS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+          </select>
+          <select className="filter-select" value={usageFilter} onChange={e => { setPage(1); setUsageFilter(e.target.value) }}>
+            <option value="">Uso del plan</option>
+            <option value="near">Cerca del limite</option>
+            <option value="reached">Limite alcanzado</option>
+          </select>
         </div>
         <div className="action-group">
           <button className="btn btn-secondary" onClick={downloadPDF} title="Descargar PDF con el filtro actual">
@@ -490,6 +556,7 @@ export default function AdminTenants() {
                 <th>Administrador</th>
                 <th>Correo admin</th>
                 <th>Plan</th>
+                <th>Uso del plan</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -513,18 +580,28 @@ export default function AdminTenants() {
                     <span className="cell-email">{adminEmail(t)}</span>
                   </td>
                   <td><span className={`badge badge-plan ${planBadgeClass(t)}`}>{planName(t)}</span></td>
-                  <td>{statusBadge(t.is_active)}</td>
+                  <td><span className={`badge ${usageClass(t)}`}>{usageText(t)}</span></td>
+                  <td>{statusBadge(t)}</td>
                   <td className="cell-actions">
                     <div className="table-actions">
                       <button className="btn btn-outline btn-sm" onClick={() => openEdit(t)}>
                         Editar
                       </button>
-                      <button
-                        className={`btn btn-sm ${t.is_active ? 'btn-danger' : 'btn-success'}`}
-                        onClick={() => toggleActive(t)}
-                      >
-                        {t.is_active ? 'Desactivar' : 'Activar'}
-                      </button>
+                      {t.status === 'archived' ? (
+                        <button className="btn btn-success btn-sm" onClick={() => restoreTenant(t)}>Restaurar</button>
+                      ) : (
+                        <>
+                          <button
+                            className={`btn btn-sm ${t.is_active ? 'btn-danger' : 'btn-success'}`}
+                            onClick={() => toggleActive(t)}
+                          >
+                            {t.is_active ? 'Desactivar' : 'Activar'}
+                          </button>
+                          <button className="btn btn-outline btn-sm" onClick={() => archiveTenant(t)}>
+                            Archivar
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -532,6 +609,15 @@ export default function AdminTenants() {
             </tbody>
           </table>
         </div>
+        </div>
+      )}
+
+      {pagination.pages > 1 && (
+        <div className="pagination-bar">
+          <span>Total: {pagination.total} registros</span>
+          <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</button>
+          <span>Pagina {pagination.page} de {pagination.pages}</span>
+          <button className="btn btn-outline btn-sm" disabled={page >= pagination.pages} onClick={() => setPage(p => p + 1)}>Siguiente</button>
         </div>
       )}
 

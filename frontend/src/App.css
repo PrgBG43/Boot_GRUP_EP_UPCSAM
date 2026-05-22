@@ -9,7 +9,7 @@
   --border: #e5e7eb;
   --bg: #f3f4f6;
   --card-bg: #ffffff;
-  --radius: 10px;
+  --radius: 8px;
   --text-muted: #6b7280;
   --bg-muted: #f9fafb;
   --success: #10b981;
@@ -208,6 +208,22 @@
   margin-bottom: .2rem;
 }
 .page-header p { color: var(--text-secondary); font-size: .875rem; }
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .5rem;
+  flex-wrap: wrap;
+}
+.refresh-label {
+  color: var(--text-secondary);
+  font-size: .8rem;
+}
+.card-note {
+  color: var(--text-secondary);
+  font-size: .85rem;
+  margin-top: .75rem;
+}
 
 /* ── Cards ───────────────────────────────────── */
 .card {
@@ -217,6 +233,17 @@
   padding: 1.25rem;
 }
 .card-wide { grid-column: span 2; }
+
+.pagination-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: .75rem;
+  margin-top: 1rem;
+  color: var(--text-secondary);
+  font-size: .875rem;
+  flex-wrap: wrap;
+}
 
 /* ── Page Toolbar (Filtros y Acciones) ───────── */
 .page-toolbar {
@@ -1262,12 +1289,6 @@
   background: #eff6ff;
   color: #1d4ed8;
   border-color: #bfdbfe;
-}
-
-.badge-enterprise {
-  background: #ecfdf5;
-  color: #047857;
-  border-color: #a7f3d0;
 }
 
 .role-superadmin {

@@ -19,6 +19,9 @@ const MESSAGE_FIELDS = [
   { key: 'ask_time_message', label: 'Mensaje para solicitar hora' },
   { key: 'confirm_message', label: 'Mensaje de confirmacion' },
   { key: 'unavailable_message', label: 'Mensaje de horario no disponible' },
+  { key: 'plan_limit_public_message', label: 'Mensaje publico por agenda no disponible' },
+  { key: 'reminder_30_message', label: 'Recordatorio Premium 30 minutos antes' },
+  { key: 'reminder_15_message', label: 'Recordatorio Premium 15 minutos antes' },
   { key: 'cancel_message', label: 'Mensaje de cancelacion' },
   { key: 'goodbye_message', label: 'Mensaje de despedida' },
 ]
@@ -49,6 +52,9 @@ function toForm(config) {
     confirm_message: config?.confirm_message || '',
     cancel_message: config?.cancel_message || '',
     unavailable_message: config?.unavailable_message || '',
+    plan_limit_public_message: config?.plan_limit_public_message || '',
+    reminder_30_message: config?.reminder_30_message || '',
+    reminder_15_message: config?.reminder_15_message || '',
     goodbye_message: config?.goodbye_message || '',
     allow_cancellation: config?.allow_cancellation ?? true,
     show_prices: config?.show_prices ?? true,
@@ -64,11 +70,11 @@ function toForm(config) {
 
 function renderTemplate(text, config) {
   const values = {
-    business_name: 'Barberia Demo Turnix',
+    business_name: 'Barberia Centro Turnix',
     service_name: 'Corte de cabello',
     date: '2026-06-01',
     time: '10:00',
-    client_name: 'Cliente Demo',
+    client_name: 'Cliente Prueba',
     phone: '3001234567',
     price: '$18.000',
     duration: '30 min',
@@ -87,6 +93,8 @@ export default function TelegramConfig() {
   const [saving, setSaving] = useState(false)
   const [connecting, setConnecting] = useState(false)
   const [feedback, setFeedback] = useState(null)
+  const [photoFile, setPhotoFile] = useState(null)
+  const [photoSaving, setPhotoSaving] = useState(false)
 
   const selectedBusiness = useMemo(
     () => businesses.find(item => item.id === Number(selectedTenant)),
@@ -112,8 +120,8 @@ export default function TelegramConfig() {
 
   useEffect(() => {
     if (isSuperadmin) {
-      api.getBusinesses()
-        .then(data => setBusinesses(data || []))
+      api.getBusinesses({ page_size: 100 })
+        .then(data => setBusinesses(data?.items || data || []))
         .catch(err => setFeedback({ type: 'error', msg: err.message }))
         .finally(() => setLoading(false))
     } else {
@@ -212,6 +220,37 @@ export default function TelegramConfig() {
       setFeedback({ type: 'success', msg: 'Enlace copiado.' })
     } catch {
       setFeedback({ type: 'error', msg: 'No fue posible copiar el enlace.' })
+    }
+  }
+
+  const handlePhotoUpload = async () => {
+    if (!photoFile) {
+      setFeedback({ type: 'error', msg: 'Selecciona una imagen para actualizar la foto del bot.' })
+      return
+    }
+    setPhotoSaving(true)
+    setFeedback(null)
+    try {
+      const result = await api.uploadTelegramProfilePhoto(photoFile, tenantParam)
+      setFeedback({ type: 'success', msg: result.message || 'Foto actualizada.' })
+      setPhotoFile(null)
+    } catch (err) {
+      setFeedback({ type: 'error', msg: err.message })
+    } finally {
+      setPhotoSaving(false)
+    }
+  }
+
+  const handlePhotoRemove = async () => {
+    setPhotoSaving(true)
+    setFeedback(null)
+    try {
+      const result = await api.removeTelegramProfilePhoto(tenantParam)
+      setFeedback({ type: 'success', msg: result.message || 'Foto removida.' })
+    } catch (err) {
+      setFeedback({ type: 'error', msg: err.message })
+    } finally {
+      setPhotoSaving(false)
     }
   }
 
@@ -325,13 +364,32 @@ export default function TelegramConfig() {
                   <label>Comandos del bot</label>
                   <textarea className="form-textarea" name="bot_commands" value={form.bot_commands} onChange={handleChange} rows={5} />
                 </div>
-                <div className="alert alert-info alert-compact">
-                  La foto de perfil del bot debe configurarse desde BotFather o desde Telegram, ya que Telegram Bot API no permite modificarla directamente desde esta integracion.
+                <div className="form-group form-group-spaced">
+                  <label>Foto de perfil del bot</label>
+                  <input
+                    className="form-input"
+                    type="file"
+                    accept="image/jpeg"
+                    onChange={e => setPhotoFile(e.target.files?.[0] || null)}
+                    disabled={!config.is_connected}
+                  />
+                  <div className="form-actions">
+                    <button type="button" className="btn btn-outline" onClick={handlePhotoUpload} disabled={photoSaving || !config.is_connected || !photoFile}>
+                      {photoSaving ? 'Guardando...' : 'Actualizar foto'}
+                    </button>
+                    <button type="button" className="btn btn-outline" onClick={handlePhotoRemove} disabled={photoSaving || !config.is_connected}>
+                      Quitar foto
+                    </button>
+                  </div>
+                  <small className="form-help">Telegram permite actualizar la foto mediante Bot API usando JPG. Si Telegram rechaza la imagen, configurala desde BotFather o desde Telegram.</small>
                 </div>
               </div>
 
               <div className="card">
                 <h3 className="panel-heading">Opciones de comportamiento</h3>
+                <div className="alert alert-info alert-compact">
+                  Los recordatorios automaticos de 30 y 15 minutos se envian solo para negocios Premium.
+                </div>
                 {OPTION_FIELDS.map(({ key, label }) => (
                   <label className="toggle-row" key={key} htmlFor={key}>
                     <input id={key} type="checkbox" name={key} checked={!!form[key]} onChange={handleChange} />
