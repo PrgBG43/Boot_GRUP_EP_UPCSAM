@@ -25,6 +25,9 @@ env/
 # Logs
 *.log
 
+# Archivos subidos en runtime
+app/static/uploads/
+
 # Node / Frontend
 node_modules/
 dist/
@@ -53,3 +56,4 @@ alembic/versions/*.pyc
 
 # Scripts de corrección temporales
 fix_tenants_chars.py
+fix_utf8_force.py

@@ -1,8 +1,8 @@
 ﻿import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
+import { statusBadgeClass, statusLabel } from '../utils/labels.js'
 
-const STATUS_LABELS = { pending: 'Pendiente', confirmed: 'Confirmada', cancelled: 'Cancelada', completed: 'Completada', no_show: 'No asistió' }
 const asItems = data => data?.items || data || []
 
 export default function Appointments() {
@@ -224,8 +224,8 @@ export default function Appointments() {
                   <td><span className="cell-main">{clientName(a.client_id)}</span></td>
                   <td className="cell-nowrap">{serviceName(a.service_id)}</td>
                   <td>
-                    <span className={`badge badge-${a.status}`}>
-                      {STATUS_LABELS[a.status] || a.status}
+                    <span className={`badge ${statusBadgeClass(a.status)}`}>
+                      {statusLabel(a.status)}
                     </span>
                   </td>
                   <td className="cell-actions">

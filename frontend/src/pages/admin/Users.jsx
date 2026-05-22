@@ -1,16 +1,10 @@
 ﻿import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import api from '../../api.js'
+import { ROLE_OPTIONS, roleBadgeClass, roleLabel } from '../../utils/labels.js'
 
-const ROLES = ['superadmin', 'tenant_admin', 'staff', 'customer']
+const ROLES = ROLE_OPTIONS.map(option => option.value)
 const asItems = data => data?.items || data || []
-
-const ROLE_LABELS = {
-  superadmin:   { label: 'Superadmin',    cls: 'role-superadmin' },
-  tenant_admin: { label: 'Administrador', cls: 'role-admin' },
-  staff:        { label: 'Personal',      cls: 'role-staff' },
-  customer:     { label: 'Cliente',       cls: 'role-customer' },
-}
 
 const EMPTY_FORM = {
   first_name: '', last_name: '', email: '', password: '',
@@ -18,8 +12,7 @@ const EMPTY_FORM = {
 }
 
 function RolePill({ role }) {
-  const r = ROLE_LABELS[role] || { label: role, cls: '' }
-  return <span className={`badge badge-role ${r.cls}`}>{r.label}</span>
+  return <span className={`badge badge-role ${roleBadgeClass(role)}`}>{roleLabel(role)}</span>
 }
 
 export default function AdminUsers() {
@@ -187,7 +180,7 @@ export default function AdminUsers() {
             />
             <select className="filter-select" value={filterRole} onChange={e => { setPage(1); setFilterRole(e.target.value) }}>
               <option value="">Todos los roles</option>
-              {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]?.label || r}</option>)}
+              {ROLES.map(r => <option key={r} value={r}>{roleLabel(r)}</option>)}
             </select>
             <select className="filter-select" value={filterTenant} onChange={e => { setPage(1); setFilterTenant(e.target.value) }}>
               <option value="">Todos los negocios</option>
@@ -301,7 +294,7 @@ export default function AdminUsers() {
                   <div className="form-group">
                     <label>Rol *</label>
                     <select className="form-select" name="role_name" value={form.role_name} onChange={handleChange}>
-                      {ROLES.map(r => <option key={r} value={r}>{ROLE_LABELS[r]?.label || r}</option>)}
+                      {ROLES.map(r => <option key={r} value={r}>{roleLabel(r)}</option>)}
                     </select>
                   </div>
                   <div className="form-group">

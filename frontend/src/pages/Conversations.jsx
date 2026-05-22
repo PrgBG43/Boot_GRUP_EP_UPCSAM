@@ -1,5 +1,6 @@
 ﻿import { useEffect, useState } from 'react'
 import api from '../api.js'
+import { botStepLabel, channelLabel, statusBadgeClass, statusLabel } from '../utils/labels.js'
 
 const asItems = data => data?.items || data || []
 
@@ -108,9 +109,9 @@ export default function Conversations() {
                     <td className="cell-nowrap">#{c.id}</td>
                     <td className="cell-nowrap">{c.tenant_name || `#${c.tenant_id}`}</td>
                     <td className="cell-nowrap">{c.client_name || `Chat ${c.chat_id}`}</td>
-                    <td className="cell-nowrap">{c.channel}</td>
-                    <td><span className={`badge ${c.status === 'active' ? 'badge-success' : 'badge-neutral'}`}>{c.status}</span></td>
-                    <td className="cell-nowrap">{c.current_step || '-'}</td>
+                    <td className="cell-nowrap">{channelLabel(c.channel)}</td>
+                    <td><span className={`badge ${statusBadgeClass(c.status)}`}>{statusLabel(c.status)}</span></td>
+                    <td className="cell-nowrap">{botStepLabel(c.current_step)}</td>
                     <td className="cell-nowrap">{c.last_interaction_at ? new Date(c.last_interaction_at).toLocaleString('es-CO') : '-'}</td>
                     <td className="cell-actions">
                       <div className="table-actions">

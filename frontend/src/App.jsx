@@ -15,6 +15,7 @@ import TelegramConfig from './pages/TelegramConfig.jsx'
 import Unauthorized from './pages/Unauthorized.jsx'
 import AdminTenants from './pages/admin/Tenants.jsx'
 import AdminUsers from './pages/admin/Users.jsx'
+import { roleBadgeClass, roleLabel } from './utils/labels.js'
 import './App.css'
 
 const SUPERADMIN_NAV = [
@@ -47,14 +48,7 @@ const STAFF_NAV = [
 ]
 
 function RoleBadge({ role }) {
-  const labels = {
-    superadmin: { label: 'Superadmin', cls: 'role-superadmin' },
-    tenant_admin: { label: 'Administrador', cls: 'role-admin' },
-    staff: { label: 'Personal', cls: 'role-staff' },
-    customer: { label: 'Cliente', cls: 'role-customer' },
-  }
-  const value = labels[role] || { label: role, cls: '' }
-  return <span className={`badge badge-role ${value.cls}`}>{value.label}</span>
+  return <span className={`badge badge-role ${roleBadgeClass(role)}`}>{roleLabel(role)}</span>
 }
 
 function TenantSelector() {
@@ -225,4 +219,3 @@ export default function App() {
     </Routes>
   )
 }
-

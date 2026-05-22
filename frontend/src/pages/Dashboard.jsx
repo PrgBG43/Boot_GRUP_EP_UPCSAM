@@ -2,6 +2,7 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
+import { planLabel, statusBadgeClass, statusLabel } from '../utils/labels.js'
 import './Dashboard.css'
 
 function StatCard({ label, value, sub, color, icon }) {
@@ -36,15 +37,7 @@ function PlanBar({ used, max, label }) {
 }
 
 function StatusBadge({ status }) {
-  const map = {
-    pending:   { label: 'Pendiente',  cls: 'badge-warning' },
-    confirmed: { label: 'Confirmada', cls: 'badge-success' },
-    cancelled: { label: 'Cancelada',  cls: 'badge-danger' },
-    completed: { label: 'Completada', cls: 'badge-neutral' },
-    no_show: { label: 'No asistió', cls: 'badge-neutral' },
-  }
-  const s = map[status] || { label: status, cls: '' }
-  return <span className={`badge ${s.cls}`}>{s.label}</span>
+  return <span className={`badge ${statusBadgeClass(status)}`}>{statusLabel(status)}</span>
 }
 
 function SuperadminDashboard() {
@@ -99,7 +92,7 @@ function SuperadminDashboard() {
             <div className="plan-dist">
               {data.plan_distribution.map(p => (
                 <div key={p.plan} className="plan-dist-item">
-                  <span className="plan-dist-label">{p.plan || 'Sin plan'}</span>
+                  <span className="plan-dist-label">{planLabel(p.plan)}</span>
                   <span className="plan-dist-count">{p.count} negocios</span>
                 </div>
               ))}
@@ -231,8 +224,8 @@ function TenantDashboard() {
           <div className="card">
             <h2 className="card-title">Uso del plan</h2>
             <div className="inline-meta">
-              <span className="badge badge-plan">{data.plan_usage.plan}</span>
-              {data.plan_usage.limit_reached && <span className="badge badge-danger">Limite alcanzado</span>}
+              <span className="badge badge-plan">{planLabel(data.plan_usage.plan)}</span>
+              {data.plan_usage.limit_reached && <span className="badge badge-danger">Límite alcanzado</span>}
               {!data.plan_usage.limit_reached && data.plan_usage.usage_percentage >= 80 && <span className="badge badge-warning">Uso alto</span>}
             </div>
             <PlanBar
