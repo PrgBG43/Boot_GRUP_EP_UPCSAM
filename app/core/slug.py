@@ -1,4 +1,4 @@
-"""Helpers reutilizables para slugs públicos de negocios."""
+﻿"""Helpers reutilizables para slugs públicos de negocios."""
 import re
 import unicodedata
 from typing import Optional
@@ -37,3 +37,4 @@ def ensure_unique_slug(
             return candidate
         candidate = f"{base}-{suffix}"
         suffix += 1
+

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 
 from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, String, Time
 from sqlalchemy.orm import relationship
@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 # Estados válidos para una cita
-APPOINTMENT_STATUSES = ("pending", "confirmed", "cancelled", "completed")
+APPOINTMENT_STATUSES = ("pending", "confirmed", "cancelled", "completed", "no_show")
 
 
 class Appointment(Base):
@@ -39,3 +39,4 @@ class Appointment(Base):
     tenant = relationship("Tenant", back_populates="appointments")
     service = relationship("Service", back_populates="appointments")
     client = relationship("Client", back_populates="appointments")
+

@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+﻿from sqlalchemy.orm import Session
 
 from app.models.user import Role
 from app.schemas.role import RoleCreate, RoleUpdate
@@ -39,3 +39,4 @@ def delete_role(db: Session, role_id: int):
     db.delete(role)
     db.commit()
     return role
+

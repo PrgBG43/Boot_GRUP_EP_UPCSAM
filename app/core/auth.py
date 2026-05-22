@@ -1,4 +1,4 @@
-"""Dependencias de autenticacion y autorizacion para FastAPI."""
+﻿"""Dependencias de autenticacion y autorizacion para FastAPI."""
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
@@ -72,3 +72,4 @@ def get_tenant_id_for_user(current_user: User) -> Optional[int]:
     if current_user.primary_role == "superadmin":
         return None
     return current_user.tenant_id
+

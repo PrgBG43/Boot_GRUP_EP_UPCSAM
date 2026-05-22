@@ -1,4 +1,4 @@
-"""Validadores compartidos de dominio."""
+﻿"""Validadores compartidos de dominio."""
 import re
 from typing import Optional
 
@@ -26,3 +26,4 @@ def validate_colombian_mobile(
     if not CO_MOBILE_RE.fullmatch(phone):
         raise ValueError(PHONE_ERROR)
     return phone
+

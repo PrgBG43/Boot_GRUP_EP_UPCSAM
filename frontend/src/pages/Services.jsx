@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
 
@@ -164,7 +164,7 @@ export default function Services() {
         <div className="pagination-bar">
           <span>Total: {pagination.total} registros</span>
           <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</button>
-          <span>Pagina {pagination.page} de {pagination.pages}</span>
+          <span>Página {pagination.page} de {pagination.pages}</span>
           <button className="btn btn-outline btn-sm" disabled={page >= pagination.pages} onClick={() => setPage(p => p + 1)}>Siguiente</button>
         </div>
       )}

@@ -1,9 +1,9 @@
-from datetime import date, datetime, time
+﻿from datetime import date, datetime, time
 from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
-VALID_STATUSES = ("pending", "confirmed", "cancelled", "completed")
+VALID_STATUSES = ("pending", "confirmed", "cancelled", "completed", "no_show")
 
 
 class AppointmentBase(BaseModel):
@@ -50,3 +50,4 @@ class AppointmentResponse(BaseModel):
 
     class Config:
         from_attributes = True
+

@@ -1,4 +1,4 @@
-from typing import List
+﻿from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
@@ -50,3 +50,4 @@ def delete_role(role_id: int, db: Session = Depends(get_db)):
     deleted = role_repository.delete_role(db, role_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found")
+

@@ -1,7 +1,26 @@
-from datetime import datetime
-from typing import Optional
+﻿from datetime import datetime
+from typing import Literal, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+TelegramCommandAction = Literal[
+    "iniciar_agendamiento",
+    "mostrar_servicios",
+    "mostrar_horarios",
+    "mostrar_citas_cliente",
+    "cancelar_cita",
+    "mostrar_ayuda",
+    "respuesta_personalizada",
+]
+
+
+class TelegramBotCommandConfig(BaseModel):
+    command: str
+    description: str
+    action_type: TelegramCommandAction = "respuesta_personalizada"
+    message: Optional[str] = None
+    is_active: bool = True
 
 
 class TelegramConfigUpdate(BaseModel):
@@ -20,6 +39,7 @@ class TelegramConfigUpdate(BaseModel):
     reminder_30_message: Optional[str] = None
     reminder_15_message: Optional[str] = None
     allow_cancellation: Optional[bool] = None
+    auto_start_on_greeting: Optional[bool] = None
     show_prices: Optional[bool] = None
     show_duration: Optional[bool] = None
     collect_phone: Optional[bool] = None
@@ -27,7 +47,7 @@ class TelegramConfigUpdate(BaseModel):
     bot_name: Optional[str] = None
     bot_description: Optional[str] = None
     bot_short_description: Optional[str] = None
-    bot_commands: Optional[str] = None
+    bot_commands: Optional[Union[list[TelegramBotCommandConfig], str]] = None
 
 
 class TelegramConnectRequest(BaseModel):
@@ -44,9 +64,11 @@ class TelegramConfigResponse(BaseModel):
     bot_name: Optional[str] = None
     bot_description: Optional[str] = None
     bot_short_description: Optional[str] = None
-    bot_commands: Optional[str] = None
+    bot_commands: list[TelegramBotCommandConfig] = Field(default_factory=list)
     bot_token_masked: Optional[str] = None
     public_link: Optional[str] = None
+    internal_logo_url: Optional[str] = None
+    internal_logo_updated_at: Optional[datetime] = None
     last_validated_at: Optional[datetime] = None
     welcome_message: Optional[str] = None
     services_message: Optional[str] = None
@@ -63,6 +85,7 @@ class TelegramConfigResponse(BaseModel):
     reminder_30_message: Optional[str] = None
     reminder_15_message: Optional[str] = None
     allow_cancellation: bool = True
+    auto_start_on_greeting: bool = False
     show_prices: bool = True
     show_duration: bool = True
     collect_phone: bool = True
@@ -88,3 +111,4 @@ class TelegramConnectionResponse(BaseModel):
     last_validated_at: Optional[datetime] = None
     connection_status: str
     message: str
+

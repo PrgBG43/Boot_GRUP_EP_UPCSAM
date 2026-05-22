@@ -1,4 +1,4 @@
-from typing import Optional
+﻿from typing import Optional
 
 from sqlalchemy.orm import Session, joinedload
 
@@ -46,3 +46,4 @@ def delete_conversation(db: Session, conversation_id: int):
     db.delete(conversation)
     db.commit()
     return conversation
+

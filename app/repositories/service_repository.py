@@ -1,4 +1,4 @@
-from typing import Optional
+﻿from typing import Optional
 
 from sqlalchemy.orm import Session
 
@@ -44,3 +44,4 @@ def delete_service(db: Session, service_id: int):
     db.delete(service)
     db.commit()
     return service
+

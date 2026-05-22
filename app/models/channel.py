@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
+﻿from sqlalchemy import Boolean, Column, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -17,3 +17,4 @@ class Channel(Base):
     is_active = Column(Boolean, default=True)
 
     tenant = relationship("Tenant", back_populates="channels")
+

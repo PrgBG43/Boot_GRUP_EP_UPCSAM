@@ -1,4 +1,4 @@
-"""Revision ID: c55d95de37f2
+﻿"""Revision ID: c55d95de37f2
 Revises: e881f41c3409
 Create Date: 2026-05-07 08:00:40.373304
 """
@@ -214,3 +214,4 @@ def downgrade() -> None:
 
     op.drop_table('plans')
     # ### end Alembic commands ###
+

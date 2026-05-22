@@ -1,4 +1,4 @@
-from datetime import date, datetime, time, timedelta
+﻿from datetime import date, datetime, time, timedelta
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.models.appointment import Appointment
 from app.models.service import Service
 from app.schemas.appointment import AppointmentCreate, AppointmentUpdate
+from app.services.availability_service import is_slot_available
 from app.services.plan_usage_service import assert_can_create_appointment
 
 
@@ -41,7 +42,9 @@ def create_appointment(db: Session, appt_in: AppointmentCreate):
     if not service.is_active:
         return None, "El servicio no está activo."
 
-    # Calcular hora fin
+    if not is_slot_available(db, appt_in.tenant_id, appt_in.service_id, appt_in.appointment_date, appt_in.start_time):
+        return None, "No hay disponibilidad para ese horario. Selecciona otro horario."
+
     start_dt = datetime.combine(appt_in.appointment_date, appt_in.start_time)
     end_dt = start_dt + timedelta(minutes=service.duration_minutes)
     end_time = end_dt.time()
@@ -110,3 +113,14 @@ def complete_appointment(db: Session, appointment_id: int):
     db.commit()
     db.refresh(appointment)
     return appointment
+
+
+def mark_no_show(db: Session, appointment_id: int):
+    appointment = get_appointment(db, appointment_id)
+    if not appointment:
+        return None
+    appointment.status = "no_show"
+    db.commit()
+    db.refresh(appointment)
+    return appointment
+

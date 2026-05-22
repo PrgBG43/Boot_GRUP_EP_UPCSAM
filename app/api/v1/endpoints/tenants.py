@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -242,8 +242,15 @@ def create_business_with_admin(
         city_id=business.city_id,
         opening_time=business.opening_time,
         closing_time=business.closing_time,
+        weekly_schedule=business.weekly_schedule,
+        base_slot_minutes=business.base_slot_minutes,
+        min_booking_notice_minutes=business.min_booking_notice_minutes,
+        max_booking_days=business.max_booking_days,
+        blocked_dates=business.blocked_dates,
+        blocked_time_ranges=business.blocked_time_ranges,
         plan_id=business.plan_id,
         is_active=business.is_active,
+        is_test_environment=business.is_test_environment,
         status="active" if business.is_active else "inactive",
     )
     db.add(new_tenant)
@@ -302,6 +309,7 @@ def update_business(
         data.pop("plan_id", None)
         data.pop("status", None)
         data.pop("is_active", None)
+        data.pop("is_test_environment", None)
     if "plan_id" in data:
         _get_plan(db, data.get("plan_id"))
 
@@ -445,3 +453,4 @@ def delete_business(
     tenant.status = "archived"
     tenant.archived_at = datetime.now(timezone.utc)
     db.commit()
+

@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+﻿from sqlalchemy.orm import Session
 
 from app.models.user import Permission
 from app.schemas.permission import PermissionCreate, PermissionUpdate
@@ -39,3 +39,4 @@ def delete_permission(db: Session, permission_id: int):
     db.delete(permission)
     db.commit()
     return permission
+

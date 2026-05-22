@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+﻿from sqlalchemy.orm import Session
 
 from app.models.location import State
 from app.schemas.state import StateCreate, StateUpdate
@@ -39,3 +39,4 @@ def delete_state(db: Session, state_id: int):
     db.delete(state)
     db.commit()
     return state
+

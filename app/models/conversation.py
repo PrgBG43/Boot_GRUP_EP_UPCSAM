@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
@@ -38,3 +38,4 @@ class Conversation(Base):
     @property
     def client_name(self):
         return self.client.full_name if self.client else None
+

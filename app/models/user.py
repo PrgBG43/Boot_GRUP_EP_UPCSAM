@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 
 from sqlalchemy import (
     Boolean,
@@ -128,3 +128,4 @@ class Permission(Base):
         secondary=user_permission_table,
         back_populates="permissions",
     )
+

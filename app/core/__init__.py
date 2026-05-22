@@ -1,2 +1,3 @@
-"""Configuración central y conexión a base de datos."""
+﻿"""Configuración central y conexión a base de datos."""
+
 

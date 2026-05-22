@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import api from '../api.js'
 
 const asItems = data => data?.items || data || []
@@ -48,7 +48,7 @@ export default function Conversations() {
       setMessages(msgs || [])
     } catch(e) {
       setMessages([])
-      setError(e.message || 'No fue posible cargar los mensajes de la conversacion.')
+      setError(e.message || 'No fue posible cargar los mensajes de la conversación.')
     }
     setLoadingMsgs(false)
   }
@@ -85,7 +85,7 @@ export default function Conversations() {
           {conversations.length === 0 ? (
             <div className="empty-state">
               <h2 className="empty-state-title">Sin conversaciones registradas</h2>
-              <p className="empty-state-text">Las conversaciones apareceran aqui cuando los clientes interactuen por Telegram.</p>
+              <p className="empty-state-text">Las conversaciones aparecerán aquí cuando los clientes interactúen por Telegram.</p>
             </div>
           ) : (
             <div className="table-responsive">
@@ -98,7 +98,7 @@ export default function Conversations() {
                   <th>Canal</th>
                   <th>Estado</th>
                   <th>Paso</th>
-                  <th>Ultima interaccion</th>
+                  <th>Última interacción</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
@@ -128,14 +128,14 @@ export default function Conversations() {
         {selected && (
           <div className="card">
             <div className="card-header-row">
-              <h3>Mensajes - Conversacion #{selected.id}</h3>
+              <h3>Mensajes - Conversación #{selected.id}</h3>
               <button className="btn btn-outline btn-sm" onClick={() => setSelected(null)}>Cerrar</button>
             </div>
             {loadingMsgs ? <div className="spinner" /> : (
               messages.length === 0 ? (
                 <div className="empty-state">
                   <h2 className="empty-state-title">Sin mensajes registrados</h2>
-                  <p className="empty-state-text">Esta conversacion todavia no tiene mensajes guardados.</p>
+                  <p className="empty-state-text">Esta conversación todavía no tiene mensajes guardados.</p>
                 </div>
               ) : (
                 <div className="messages-list">
@@ -158,10 +158,11 @@ export default function Conversations() {
         <div className="pagination-bar">
           <span>Total: {pagination.total} registros</span>
           <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</button>
-          <span>Pagina {pagination.page} de {pagination.pages}</span>
+          <span>Página {pagination.page} de {pagination.pages}</span>
           <button className="btn btn-outline btn-sm" disabled={page >= pagination.pages} onClick={() => setPage(p => p + 1)}>Siguiente</button>
         </div>
       )}
     </div>
   )
 }
+

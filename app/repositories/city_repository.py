@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+﻿from sqlalchemy.orm import Session
 
 from app.models.location import City
 from app.schemas.city import CityCreate, CityUpdate
@@ -39,3 +39,4 @@ def delete_city(db: Session, city_id: int):
     db.delete(city)
     db.commit()
     return city
+

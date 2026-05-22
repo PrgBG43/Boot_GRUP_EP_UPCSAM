@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
@@ -18,3 +18,4 @@ class Person(Base):
 
     city = relationship("City", back_populates="persons")
     user = relationship("User", back_populates="person", uselist=False)
+

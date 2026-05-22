@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
@@ -21,3 +21,4 @@ class Message(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
 
     conversation = relationship("Conversation", back_populates="messages")
+

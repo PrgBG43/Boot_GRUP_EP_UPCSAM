@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+﻿import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
 export default function Unauthorized() {
@@ -27,3 +27,4 @@ export default function Unauthorized() {
     </div>
   )
 }
+

@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+﻿from sqlalchemy.orm import Session
 
 from app.models.channel import Channel
 from app.schemas.channel import ChannelCreate, ChannelUpdate
@@ -46,3 +46,4 @@ def delete_channel(db: Session, channel_id: int):
     db.delete(channel)
     db.commit()
     return channel
+

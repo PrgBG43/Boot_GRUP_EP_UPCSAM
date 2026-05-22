@@ -1,4 +1,4 @@
-"""Plan usage rules for Turnix freemium tenants."""
+﻿"""Plan usage rules for Turnix freemium tenants."""
 from __future__ import annotations
 
 from calendar import monthrange
@@ -15,7 +15,7 @@ FREE_PLAN_NAME = "free"
 PREMIUM_PLAN_NAME = "premium"
 FREE_MONTHLY_APPOINTMENT_LIMIT = 50
 INTERNAL_LIMIT_MESSAGE = (
-    "Has alcanzado el limite de 50 citas mensuales del plan Gratuito. "
+    "Has alcanzado el límite de 50 citas mensuales del plan Gratuito. "
     "Actualiza a Premium para seguir recibiendo citas este mes."
 )
 
@@ -115,3 +115,4 @@ def assert_can_create_appointment(db: Session, tenant_id: int) -> None:
                 "usage": summary,
             },
         )
+

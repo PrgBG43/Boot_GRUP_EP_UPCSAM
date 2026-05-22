@@ -1,4 +1,4 @@
-"""Configuracion del motor de base de datos, sesion y utilidades."""
+﻿"""Configuración del motor de base de datos, sesión y utilidades."""
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
@@ -14,7 +14,7 @@ Base = declarative_base()
 
 
 def get_db():
-    """Dependencia FastAPI: crea una sesion de DB y la cierra al terminar."""
+    """Dependencia FastAPI: crea una sesión de DB y la cierra al terminar."""
     db = SessionLocal()
     try:
         yield db
@@ -29,3 +29,4 @@ def create_tables():
 
     Base.metadata.create_all(bind=engine)
     ensure_schema_compatibility(engine)
+

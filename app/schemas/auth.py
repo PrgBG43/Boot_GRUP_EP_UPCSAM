@@ -1,4 +1,4 @@
-import re
+﻿import re
 from typing import Optional
 
 from pydantic import BaseModel, field_validator
@@ -40,3 +40,4 @@ class UserMeResponse(BaseModel):
 
     class Config:
         from_attributes = True
+

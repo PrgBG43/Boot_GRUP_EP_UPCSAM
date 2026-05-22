@@ -1,4 +1,4 @@
-"""Configuracion de Telegram por negocio."""
+﻿"""Configuración de Telegram por negocio."""
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
@@ -21,6 +21,8 @@ class TelegramConfig(Base):
     bot_description = Column(String, nullable=True)
     bot_short_description = Column(String, nullable=True)
     bot_commands = Column(Text, nullable=True)
+    internal_logo_path = Column(String, nullable=True)
+    internal_logo_updated_at = Column(DateTime(timezone=True), nullable=True)
 
     is_connected = Column(Boolean, default=False)
     connection_status = Column(String, nullable=True, default="not_connected")
@@ -33,9 +35,9 @@ class TelegramConfig(Base):
     )
     services_message = Column(Text, nullable=True, default="Estos son nuestros servicios disponibles:")
     ask_name_message = Column(Text, nullable=True, default="Por favor, escribe tu nombre completo.")
-    ask_phone_message = Column(Text, nullable=True, default="Escribe tu numero de celular para confirmar la cita.")
+    ask_phone_message = Column(Text, nullable=True, default="Escribe tu número de celular para confirmar la cita.")
     ask_service_message = Column(Text, nullable=True, default="Selecciona el servicio que deseas agendar.")
-    ask_date_message = Column(Text, nullable=True, default="Para que fecha deseas tu cita? (YYYY-MM-DD)")
+    ask_date_message = Column(Text, nullable=True, default="¿Cuándo quieres agendar tu cita?")
     ask_time_message = Column(Text, nullable=True, default="Selecciona el horario disponible:")
     confirm_message = Column(
         Text,
@@ -49,8 +51,8 @@ class TelegramConfig(Base):
         Text,
         nullable=True,
         default=(
-            "En este momento el negocio no esta disponible para recibir nuevas citas por este medio. "
-            "Intenta mas tarde o comunicate directamente con el establecimiento."
+            "En este momento el negocio no está disponible para recibir nuevas citas por este medio. "
+            "Intenta más tarde o comunícate directamente con el establecimiento."
         ),
     )
     reminder_30_message = Column(
@@ -62,12 +64,13 @@ class TelegramConfig(Base):
         Text,
         nullable=True,
         default=(
-            "Tu cita en {business_name} sera en 15 minutos. "
+            "Tu cita en {business_name} será en 15 minutos. "
             "Gracias por usar nuestro sistema de agendamiento."
         ),
     )
 
     allow_cancellation = Column(Boolean, default=True)
+    auto_start_on_greeting = Column(Boolean, default=False)
     show_prices = Column(Boolean, default=True)
     show_duration = Column(Boolean, default=True)
     collect_phone = Column(Boolean, default=True)

@@ -1,4 +1,4 @@
-"""Proteccion de tokens de bots de Telegram por tenant."""
+﻿"""Protección de tokens de bots de Telegram por negocio."""
 import base64
 import hashlib
 import logging
@@ -23,7 +23,7 @@ def _fernet() -> Fernet:
     raw_key = (settings.TELEGRAM_TOKEN_ENCRYPTION_KEY or "").strip()
     if _is_placeholder(raw_key):
         logger.warning(
-            "TELEGRAM_TOKEN_ENCRYPTION_KEY no esta configurada; se usara una clave de desarrollo derivada."
+            "TELEGRAM_TOKEN_ENCRYPTION_KEY no está configurada; se usará una clave de desarrollo derivada."
         )
         raw_key = settings.SECRET_KEY
 
@@ -48,10 +48,12 @@ def decrypt_token(encrypted_token: Optional[str]) -> Optional[str]:
 
 
 def mask_token(token: Optional[str]) -> Optional[str]:
-    """Devuelve una version segura para UI, por ejemplo 857813****QSA1Xc."""
+    """Devuelve una versión segura para UI, por ejemplo 857813****QSA1Xc."""
     if not token:
         return None
     compact = token.strip()
     if len(compact) <= 10:
         return f"{compact[:2]}****{compact[-2:]}"
     return f"{compact[:6]}****{compact[-6:]}"
+
+

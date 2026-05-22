@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """
 33 departamentos y territorios de Colombia – fuente DANE 2023.
 Ordenados por código DANE (ascendente).
@@ -40,3 +40,4 @@ STATES = [
     {"id": 32, "code": "97", "description": "VAUPÉS"},
     {"id": 33, "code": "99", "description": "VICHADA"},
 ]
+

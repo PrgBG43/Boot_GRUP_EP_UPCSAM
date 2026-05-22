@@ -1,4 +1,4 @@
-"""Revision ID: 39bb4b55ee62
+﻿"""Revision ID: 39bb4b55ee62
 Revises: 
 Create Date: 2026-03-18 21:05:22.262955
 """
@@ -20,3 +20,4 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     pass
+

@@ -1,4 +1,4 @@
-from typing import Optional
+﻿from typing import Optional
 
 from pydantic import BaseModel
 
@@ -22,3 +22,4 @@ class PermissionResponse(PermissionBase):
 
     class Config:
         from_attributes = True
+

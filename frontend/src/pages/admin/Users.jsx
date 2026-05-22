@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 import api from '../../api.js'
 
@@ -181,7 +181,7 @@ export default function AdminUsers() {
         <div className="filter-group">
             <input
               className="search-input users-search"
-              placeholder="Buscar por nombre o correo…"
+              placeholder="Buscar por nombre o correo..."
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -200,7 +200,7 @@ export default function AdminUsers() {
         <div className="pagination-bar">
           <span>Total: {pagination.total} registros</span>
           <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</button>
-          <span>Pagina {pagination.page} de {pagination.pages}</span>
+          <span>Página {pagination.page} de {pagination.pages}</span>
           <button className="btn btn-outline btn-sm" disabled={page >= pagination.pages} onClick={() => setPage(p => p + 1)}>Siguiente</button>
         </div>
       )}
@@ -264,7 +264,7 @@ export default function AdminUsers() {
           <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Nuevo usuario</h3>
-              <button className="modal-close" onClick={() => setModal(null)}>✕</button>
+              <button className="modal-close" onClick={() => setModal(null)}>×</button>
             </div>
             <form onSubmit={handleCreate} className="modal-form" noValidate>
               <div className="modal-body">
@@ -319,7 +319,7 @@ export default function AdminUsers() {
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>Cancelar</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Guardando…' : 'Crear usuario'}
+                  {saving ? 'Guardando...' : 'Crear usuario'}
                 </button>
               </div>
             </form>
@@ -333,7 +333,7 @@ export default function AdminUsers() {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Editar usuario</h3>
-              <button className="modal-close" onClick={() => setModal(null)}>✕</button>
+              <button className="modal-close" onClick={() => setModal(null)}>×</button>
             </div>
             <form onSubmit={handleEdit} className="modal-form" noValidate>
               <div className="modal-body">
@@ -359,7 +359,7 @@ export default function AdminUsers() {
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>Cancelar</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Guardando…' : 'Guardar cambios'}
+                  {saving ? 'Guardando...' : 'Guardar cambios'}
                 </button>
               </div>
             </form>
@@ -373,7 +373,7 @@ export default function AdminUsers() {
           <div className="modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Restablecer contraseña</h3>
-              <button className="modal-close" onClick={() => setModal(null)}>✕</button>
+              <button className="modal-close" onClick={() => setModal(null)}>×</button>
             </div>
             <form onSubmit={handleResetPassword} noValidate>
               <div className="modal-body">
@@ -407,7 +407,7 @@ export default function AdminUsers() {
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => setModal(null)}>Cancelar</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Guardando…' : 'Cambiar contraseña'}
+                  {saving ? 'Guardando...' : 'Cambiar contraseña'}
                 </button>
               </div>
             </form>

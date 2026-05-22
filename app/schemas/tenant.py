@@ -1,5 +1,5 @@
-from datetime import datetime
-from typing import Optional
+﻿from datetime import datetime
+from typing import Any, Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
@@ -37,10 +37,17 @@ class TenantBase(BaseModel):
     slug: Optional[str] = None
     opening_time: Optional[str] = "08:00"
     closing_time: Optional[str] = "20:00"
+    weekly_schedule: Optional[dict[str, Any]] = None
+    base_slot_minutes: Optional[int] = 30
+    min_booking_notice_minutes: Optional[int] = 30
+    max_booking_days: Optional[int] = 30
+    blocked_dates: Optional[list[dict[str, Any]]] = None
+    blocked_time_ranges: Optional[list[dict[str, Any]]] = None
     booking_url: Optional[str] = None
     plan_id: Optional[int] = None
     owner_user_id: Optional[int] = None
     is_active: bool = True
+    is_test_environment: bool = False
     status: Optional[str] = "active"
 
 
@@ -74,10 +81,17 @@ class TenantUpdate(BaseModel):
     slug: Optional[str] = None
     opening_time: Optional[str] = None
     closing_time: Optional[str] = None
+    weekly_schedule: Optional[dict[str, Any]] = None
+    base_slot_minutes: Optional[int] = None
+    min_booking_notice_minutes: Optional[int] = None
+    max_booking_days: Optional[int] = None
+    blocked_dates: Optional[list[dict[str, Any]]] = None
+    blocked_time_ranges: Optional[list[dict[str, Any]]] = None
     booking_url: Optional[str] = None
     plan_id: Optional[int] = None
     owner_user_id: Optional[int] = None
     is_active: Optional[bool] = None
+    is_test_environment: Optional[bool] = None
     status: Optional[str] = None
 
     @field_validator("name")
@@ -111,8 +125,15 @@ class TenantWithAdminCreate(BaseModel):
         city_id: int
         opening_time: str = "08:00"
         closing_time: str = "20:00"
+        weekly_schedule: Optional[dict[str, Any]] = None
+        base_slot_minutes: int = 30
+        min_booking_notice_minutes: int = 30
+        max_booking_days: Optional[int] = 30
+        blocked_dates: Optional[list[dict[str, Any]]] = None
+        blocked_time_ranges: Optional[list[dict[str, Any]]] = None
         plan_id: int
         is_active: bool = True
+        is_test_environment: bool = False
 
         @field_validator("name")
         @classmethod
@@ -207,3 +228,4 @@ class TenantResponse(TenantBase):
 
     class Config:
         from_attributes = True
+

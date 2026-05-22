@@ -1,4 +1,4 @@
-from typing import Optional
+﻿from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.models.client import Client
@@ -49,3 +49,4 @@ def delete_client(db: Session, client_id: int):
     db.delete(client)
     db.commit()
     return client
+

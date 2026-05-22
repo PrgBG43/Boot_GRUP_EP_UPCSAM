@@ -1,4 +1,4 @@
-from typing import Optional
+﻿from typing import Optional
 
 from pydantic import BaseModel
 
@@ -18,3 +18,4 @@ class RoleResponse(RoleBase):
 
     class Config:
         from_attributes = True
+

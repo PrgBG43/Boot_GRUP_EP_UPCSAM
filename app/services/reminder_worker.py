@@ -1,4 +1,4 @@
-"""Local worker for Premium Telegram appointment reminders.
+﻿"""Local worker for Premium Telegram appointment reminders.
 
 Usage:
   python -m app.services.reminder_worker
@@ -155,7 +155,7 @@ def _process_once() -> int:
                     "reminder_15_sent_at",
                     15,
                     config.reminder_15_message
-                    or "Tu cita en {business_name} sera en 15 minutos. Gracias por usar nuestro sistema de agendamiento.",
+                    or "Tu cita en {business_name} será en 15 minutos. Gracias por usar nuestro sistema de agendamiento.",
                 ),
             ]
             for field_name, target_minutes, template in reminders:
@@ -184,7 +184,7 @@ async def run_forever() -> None:
     print("Iniciando worker de recordatorios Premium...")
     if RUN_ONCE:
         sent = _process_once()
-        print(f"Revision de recordatorios completada. Recordatorios preparados/enviados: {sent}")
+        print(f"Revisión de recordatorios completada. Recordatorios preparados/enviados: {sent}")
         return
     while True:
         sent = _process_once()
@@ -202,3 +202,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

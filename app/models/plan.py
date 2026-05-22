@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean
+﻿from sqlalchemy import Column, Integer, String, Boolean
 from app.core.database import Base
 
 
@@ -14,3 +14,4 @@ class Plan(Base):
     allows_advanced_reminders = Column(Boolean, default=False)
     allows_analytics = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
+

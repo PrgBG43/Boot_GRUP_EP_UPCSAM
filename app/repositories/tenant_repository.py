@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+﻿from sqlalchemy.orm import Session
 
 from app.models.tenant import Tenant
 from app.schemas.tenant import TenantCreate, TenantUpdate
@@ -39,3 +39,4 @@ def delete_tenant(db: Session, tenant_id: int):
     db.delete(tenant)
     db.commit()
     return tenant
+

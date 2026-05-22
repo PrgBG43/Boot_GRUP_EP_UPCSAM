@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+﻿from sqlalchemy.orm import Session
 
 from app.models.person import Person
 from app.schemas.person import PersonCreate, PersonUpdate
@@ -39,3 +39,4 @@ def delete_person(db: Session, person_id: int):
     db.delete(person)
     db.commit()
     return person
+

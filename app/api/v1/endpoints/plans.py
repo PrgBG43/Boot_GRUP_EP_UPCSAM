@@ -1,4 +1,4 @@
-"""Endpoints de planes freemium."""
+﻿"""Endpoints de planes freemium."""
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -45,3 +45,4 @@ def get_plan(plan_id: int, db: Session = Depends(get_db)):
     if not plan:
         raise HTTPException(status_code=404, detail="Plan no encontrado")
     return plan
+

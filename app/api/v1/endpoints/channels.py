@@ -1,4 +1,4 @@
-from typing import List
+﻿from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -41,3 +41,4 @@ def delete_channel(channel_id: int, db: Session = Depends(get_db)):
     deleted = channel_repository.delete_channel(db, channel_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Channel not found")
+

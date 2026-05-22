@@ -1,4 +1,4 @@
-"""Migraciones ligeras para desarrollo local con SQLite/create_all."""
+﻿"""Migraciones ligeras para desarrollo local con SQLite/create_all."""
 from sqlalchemy import inspect, text
 
 
@@ -26,6 +26,8 @@ def ensure_schema_compatibility(engine) -> None:
             "bot_token_encrypted": "TEXT",
             "bot_id": "VARCHAR",
             "bot_commands": "TEXT",
+            "internal_logo_path": "VARCHAR",
+            "internal_logo_updated_at": "DATETIME",
             "is_connected": "BOOLEAN DEFAULT 0",
             "connection_status": "VARCHAR DEFAULT 'not_connected'",
             "ask_name_message": "TEXT",
@@ -37,6 +39,7 @@ def ensure_schema_compatibility(engine) -> None:
             "reminder_15_message": "TEXT",
             "collect_phone": "BOOLEAN DEFAULT 1",
             "require_confirmation": "BOOLEAN DEFAULT 1",
+            "auto_start_on_greeting": "BOOLEAN DEFAULT 0",
         },
     )
     _add_columns_if_missing(
@@ -46,6 +49,13 @@ def ensure_schema_compatibility(engine) -> None:
             "status": "VARCHAR DEFAULT 'active'",
             "archived_at": "DATETIME",
             "deleted_at": "DATETIME",
+            "weekly_schedule": "JSON",
+            "base_slot_minutes": "INTEGER DEFAULT 30",
+            "min_booking_notice_minutes": "INTEGER DEFAULT 30",
+            "max_booking_days": "INTEGER DEFAULT 30",
+            "blocked_dates": "JSON",
+            "blocked_time_ranges": "JSON",
+            "is_test_environment": "BOOLEAN DEFAULT 0",
         },
     )
     _add_columns_if_missing(
@@ -73,3 +83,4 @@ def ensure_schema_compatibility(engine) -> None:
             "bot_token_masked": "VARCHAR",
         },
     )
+

@@ -1,4 +1,4 @@
-"""Router principal de la API v1 – registra todos los sub-routers."""
+﻿"""Router principal de la API v1 – registra todos los sub-routers."""
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
@@ -69,3 +69,4 @@ api_router.include_router(
 api_router.include_router(
     conversations.router, prefix="/conversations", tags=["Conversations"]
 )
+

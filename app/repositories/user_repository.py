@@ -1,4 +1,4 @@
-from typing import List, Optional
+﻿from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
@@ -58,3 +58,4 @@ def delete_user(db: Session, user_id: int):
     db.delete(user)
     db.commit()
     return user
+

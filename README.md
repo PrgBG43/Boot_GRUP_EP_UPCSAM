@@ -1,4 +1,4 @@
-# Sistema de gestión de citas para negocios del sector de belleza
+﻿# Sistema de gestión de citas para negocios del sector de belleza
 
 **Turnix** es un proyecto académico desarrollado para la asignatura **Electiva de profundización: Programación en Python**, de la **Universidad Piloto de Colombia – Seccional Alto Magdalena**, orientado a la construcción de una herramienta digital para apoyar la gestión de citas, servicios, clientes y conversaciones en negocios del sector de belleza y cuidado personal.
 
@@ -70,32 +70,32 @@ El proyecto sigue una estructura organizada por capas, separando responsabilidad
 
 ```text
 Boot_GRUP_EP_UPCSAM/
-├── app/
-│   ├── main.py
-│   ├── core/
-│   │   ├── config.py
-│   │   └── database.py
-│   ├── models/
-│   ├── schemas/
-│   ├── repositories/
-│   ├── services/
-│   │   └── availability_service.py
-│   ├── api/
-│   │   └── v1/
-│   │       └── endpoints/
-│   ├── database/
-│   │   └── seed.py
-│   └── bot/
-│       └── telegram_bot.py
-├── frontend/
-│   ├── src/
-│   │   ├── api.js
-│   │   └── pages/
-│   └── .env.example
-├── alembic/
-├── requirements.txt
-├── .env.example
-└── README.md
+|-- app/
+|   |-- main.py
+|   |-- core/
+|   |   |-- config.py
+|   |   `-- database.py
+|   |-- models/
+|   |-- schemas/
+|   |-- repositories/
+|   |-- services/
+|   |   `-- availability_service.py
+|   |-- api/
+|   |   `-- v1/
+|   |       `-- endpoints/
+|   |-- database/
+|   |   `-- seed.py
+|   `-- bot/
+|       `-- telegram_bot.py
+|-- frontend/
+|   |-- src/
+|   |   |-- api.js
+|   |   `-- pages/
+|   `-- .env.example
+|-- alembic/
+|-- requirements.txt
+|-- .env.example
+`-- README.md
 ```
 
 ---

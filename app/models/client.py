@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
@@ -28,3 +28,4 @@ class Client(Base):
     tenant = relationship("Tenant", back_populates="clients")
     appointments = relationship("Appointment", back_populates="client")
     conversations = relationship("Conversation", back_populates="client")
+

@@ -1,4 +1,4 @@
-"""Endpoints de autenticación: login y perfil del usuario actual."""
+﻿"""Endpoints de autenticación: login y perfil del usuario actual."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -36,7 +36,7 @@ def login(credentials: LoginRequest, db: Session = Depends(get_db)):
     if not user or not verify_password(credentials.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email o contraseña incorrectos",
+            detail="Correo electrónico o contraseña incorrectos",
         )
     if not user.is_active:
         raise HTTPException(

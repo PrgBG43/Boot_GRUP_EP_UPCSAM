@@ -1,4 +1,4 @@
-"""Small helpers for server-side pagination responses."""
+﻿"""Small helpers for server-side pagination responses."""
 from __future__ import annotations
 
 import math
@@ -28,3 +28,4 @@ def paginate_query(query, page: int, page_size: int) -> dict:
 
 def serialize_page(page_data: dict, items: Iterable[dict]) -> dict:
     return {**page_data, "items": list(items)}
+

@@ -1,4 +1,4 @@
-"""Revision ID: e881f41c3409
+﻿"""Revision ID: e881f41c3409
 Revises: 39bb4b55ee62
 Create Date: 2026-03-18 21:13:52.887560
 """
@@ -167,3 +167,4 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_permissions_id'), table_name='permissions')
     op.drop_table('permissions')
     # ### end Alembic commands ###
+

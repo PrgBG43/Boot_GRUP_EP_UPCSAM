@@ -1,4 +1,4 @@
-export function FieldError({ msg }) {
+﻿export function FieldError({ msg }) {
   if (!msg) return null
   return <span className="field-error">{msg}</span>
 }
@@ -12,3 +12,4 @@ export function AlertMessage({ type = 'info', children }) {
   if (!children) return null
   return <div className={`alert alert-${type}`}>{children}</div>
 }
+

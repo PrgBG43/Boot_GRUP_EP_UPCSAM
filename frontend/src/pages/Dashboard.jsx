@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
@@ -41,12 +41,12 @@ function StatusBadge({ status }) {
     confirmed: { label: 'Confirmada', cls: 'badge-success' },
     cancelled: { label: 'Cancelada',  cls: 'badge-danger' },
     completed: { label: 'Completada', cls: 'badge-neutral' },
+    no_show: { label: 'No asistió', cls: 'badge-neutral' },
   }
   const s = map[status] || { label: status, cls: '' }
   return <span className={`badge ${s.cls}`}>{s.label}</span>
 }
 
-// ── Dashboard Superadmin ───────────────────────────────────
 function SuperadminDashboard() {
   const [data, setData]     = useState(null)
   const [loading, setLoading] = useState(true)
@@ -138,7 +138,7 @@ function SuperadminDashboard() {
               ))}
             </div>
           ) : (
-            <div className="empty-state-sm">Sin negocios cercanos al limite</div>
+            <div className="empty-state-sm">Sin negocios cercanos al límite</div>
           )}
         </div>
       </div>
@@ -146,7 +146,6 @@ function SuperadminDashboard() {
   )
 }
 
-// ── Dashboard Tenant Admin / Staff ────────────────────────
 function TenantDashboard() {
   const { user, isSuperadmin, activeTenantId } = useAuth()
   const [data, setData]       = useState(null)
@@ -227,7 +226,7 @@ function TenantDashboard() {
           </ResponsiveContainer>
         </div>
 
-        {/* Plan y limites */}
+        {/* Plan y límites */}
         {data.plan_usage && (
           <div className="card">
             <h2 className="card-title">Uso del plan</h2>
@@ -296,8 +295,8 @@ function TenantDashboard() {
 
 export default function Dashboard() {
   const { isSuperadmin, activeTenantId } = useAuth()
-  // Superadmin sin tenant activo → Panel de plataforma global
-  // Superadmin con tenant activo → Dashboard del tenant seleccionado
+  // Superadmin sin negocio activo -> panel de plataforma global
+  // Superadmin con negocio activo -> dashboard del negocio seleccionado
   if (isSuperadmin && !activeTenantId) return <SuperadminDashboard />
   if (isSuperadmin && activeTenantId)  return <TenantDashboard />
   return <TenantDashboard />

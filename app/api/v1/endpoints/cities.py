@@ -1,4 +1,4 @@
-from typing import List, Optional
+﻿from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -52,3 +52,4 @@ def delete_city(city_id: int, db: Session = Depends(get_db), _: User = Depends(r
     deleted = city_repository.delete_city(db, city_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="City not found")
+

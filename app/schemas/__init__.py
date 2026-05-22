@@ -1,2 +1,3 @@
-"""Esquemas Pydantic de entrada y salida."""
+﻿"""Esquemas Pydantic de entrada y salida."""
+
 

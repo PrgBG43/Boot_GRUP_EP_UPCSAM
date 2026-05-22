@@ -245,6 +245,19 @@
   flex-wrap: wrap;
 }
 
+.availability-panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  background: var(--bg-muted);
+}
+
+.stack-sm {
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+}
+
 /* ── Page Toolbar (Filtros y Acciones) ───────── */
 .page-toolbar {
   display: flex;
@@ -724,6 +737,68 @@
   border-radius: 6px;
   padding: .55rem .75rem;
   word-break: break-all;
+}
+
+.telegram-logo-preview {
+  width: 112px;
+  height: 112px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: .82rem;
+  font-weight: 700;
+}
+
+.telegram-logo-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.telegram-note {
+  margin-top: 1rem;
+  line-height: 1.45;
+}
+
+.telegram-command-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.telegram-command-row {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  background: var(--surface-soft);
+}
+
+.telegram-command-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+
+.toggle-row-inline {
+  border-bottom: 0;
+  padding: 0;
+}
+
+.telegram-sticky-actions {
+  position: sticky;
+  bottom: 0;
+  background: rgba(243, 244, 246, .94);
+  border-top: 1px solid var(--border);
+  padding: 1rem 0;
+  backdrop-filter: blur(8px);
 }
 
 .toggle-row {

@@ -1,4 +1,4 @@
-from app.core.database import Base
+﻿from app.core.database import Base
 
 from .location import City, State
 from .person import Person
@@ -12,3 +12,4 @@ from .service import Service
 from .conversation import Conversation
 from .appointment import Appointment
 from .message import Message
+

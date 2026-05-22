@@ -1,4 +1,4 @@
-"""Utilidades de seguridad: hash de contraseñas y tokens JWT."""
+﻿"""Utilidades de seguridad: hash de contraseñas y tokens JWT."""
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -32,3 +32,4 @@ def decode_token(token: str) -> Optional[dict]:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except JWTError:
         return None
+

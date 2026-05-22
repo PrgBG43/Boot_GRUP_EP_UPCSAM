@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
 
-const STATUS_LABELS = { pending: 'Pendiente', confirmed: 'Confirmada', cancelled: 'Cancelada', completed: 'Completada' }
+const STATUS_LABELS = { pending: 'Pendiente', confirmed: 'Confirmada', cancelled: 'Cancelada', completed: 'Completada', no_show: 'No asistió' }
 const asItems = data => data?.items || data || []
 
 export default function Appointments() {
@@ -105,6 +105,9 @@ export default function Appointments() {
   const handleComplete = async id => {
     try { await api.completeAppointment(id); load() } catch (e) { setFeedback({ type: 'error', msg: e.message }) }
   }
+  const handleNoShow = async id => {
+    try { await api.markNoShowAppointment(id); load() } catch (e) { setFeedback({ type: 'error', msg: e.message }) }
+  }
 
   if (loading) return <div className="spinner" />
   if (error)   return <div className="alert alert-error">Error: {error}</div>
@@ -161,6 +164,7 @@ export default function Appointments() {
             <option value="confirmed">Confirmada</option>
             <option value="cancelled">Cancelada</option>
             <option value="completed">Completada</option>
+            <option value="no_show">No asistió</option>
           </select>
           {isSuperadmin && (
             <select
@@ -186,7 +190,7 @@ export default function Appointments() {
         <div className="pagination-bar">
           <span>Total: {pagination.total} registros</span>
           <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</button>
-          <span>Pagina {pagination.page} de {pagination.pages}</span>
+          <span>Página {pagination.page} de {pagination.pages}</span>
           <button className="btn btn-outline btn-sm" disabled={page >= pagination.pages} onClick={() => setPage(p => p + 1)}>Siguiente</button>
         </div>
       )}
@@ -234,6 +238,11 @@ export default function Appointments() {
                       {!isStaff && !['cancelled', 'completed'].includes(a.status) && (
                         <button className="btn btn-danger btn-sm" onClick={() => handleCancel(a.id)}>
                           Cancelar
+                        </button>
+                      )}
+                      {!isStaff && ['pending', 'confirmed'].includes(a.status) && (
+                        <button className="btn btn-outline btn-sm" onClick={() => handleNoShow(a.id)}>
+                          No asistió
                         </button>
                       )}
                       {isStaff && a.status === 'confirmed' && (
@@ -309,7 +318,7 @@ export default function Appointments() {
               <div className="modal-footer">
                 <button type="button" className="btn btn-outline" onClick={() => setModal(false)}>Cancelar</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Guardando…' : 'Crear cita'}
+                  {saving ? 'Guardando...' : 'Crear cita'}
                 </button>
               </div>
             </form>

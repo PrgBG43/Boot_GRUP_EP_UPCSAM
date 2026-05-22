@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, String
 from sqlalchemy.orm import relationship
 
 from app.core.database import Base
@@ -20,12 +20,19 @@ class Tenant(Base):
     slug = Column(String, nullable=True, unique=True, index=True)
     opening_time = Column(String, nullable=True, default="08:00")
     closing_time = Column(String, nullable=True, default="20:00")
+    weekly_schedule = Column(JSON, nullable=True)
+    base_slot_minutes = Column(Integer, nullable=False, default=30)
+    min_booking_notice_minutes = Column(Integer, nullable=False, default=30)
+    max_booking_days = Column(Integer, nullable=True, default=30)
+    blocked_dates = Column(JSON, nullable=True)
+    blocked_time_ranges = Column(JSON, nullable=True)
     booking_url = Column(String, nullable=True, index=True)
     plan_id = Column(Integer, ForeignKey("plans.id", ondelete="SET NULL"), nullable=True)
     owner_user_id = Column(
         Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     is_active = Column(Boolean, default=True)
+    is_test_environment = Column(Boolean, default=False)
     status = Column(String, nullable=False, default="active", index=True)
     archived_at = Column(DateTime(timezone=True), nullable=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
@@ -67,3 +74,4 @@ class Tenant(Base):
     @property
     def city_name(self):
         return self.city_rel.description if self.city_rel else None
+

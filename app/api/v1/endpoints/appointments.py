@@ -1,4 +1,4 @@
-from datetime import date
+﻿from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -152,3 +152,18 @@ def complete_appointment(
     if current_user.primary_role != "superadmin" and appt.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
     return appointment_repository.complete_appointment(db, appointment_id)
+
+
+@router.patch("/{appointment_id}/no-show", response_model=AppointmentResponse)
+def mark_no_show(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_staff_or_above),
+):
+    appt = appointment_repository.get_appointment(db, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cita no encontrada")
+    if current_user.primary_role != "superadmin" and appt.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    return appointment_repository.mark_no_show(db, appointment_id)
+

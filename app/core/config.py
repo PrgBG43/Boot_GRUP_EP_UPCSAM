@@ -1,4 +1,4 @@
-"""Configuración de la aplicación cargada desde variables de entorno."""
+﻿"""Configuración de la aplicación cargada desde variables de entorno."""
 from typing import Optional
 
 from pydantic_settings import BaseSettings
@@ -64,3 +64,4 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+

@@ -1,4 +1,4 @@
-import { Navigate, useLocation } from 'react-router-dom'
+﻿import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 
 export default function ProtectedRoute({ children, roles }) {
@@ -15,3 +15,4 @@ export default function ProtectedRoute({ children, roles }) {
 
   return children
 }
+

@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
@@ -33,3 +33,4 @@ class ServiceResponse(ServiceBase):
 
     class Config:
         from_attributes = True
+

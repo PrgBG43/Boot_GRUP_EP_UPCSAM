@@ -1,4 +1,4 @@
-from typing import Optional
+﻿from typing import Optional
 
 from pydantic import BaseModel, field_validator
 
@@ -27,3 +27,4 @@ class StateResponse(StateBase):
 
     class Config:
         from_attributes = True
+

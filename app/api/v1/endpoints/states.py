@@ -1,4 +1,4 @@
-from typing import List
+﻿from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -43,3 +43,4 @@ def delete_state(state_id: int, db: Session = Depends(get_db), _: User = Depends
     deleted = state_repository.delete_state(db, state_id)
     if not deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="State not found")
+

@@ -1,5 +1,6 @@
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
+﻿const BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api/v1'
 const HEALTH_URL = BASE_URL.replace('/api/v1', '')
+const ASSET_BASE_URL = HEALTH_URL.replace(/\/$/, '')
 
 export class ApiError extends Error {
   constructor(message, { status, details } = {}) {
@@ -91,13 +92,13 @@ async function requestForm(path, formData, options = {}) {
   try {
     res = await fetch(`${BASE_URL}${path}`, { ...options, method: options.method || 'POST', headers, body: formData })
   } catch {
-    throw new ApiError('No se pudo establecer conexion con el servidor.', { status: 0 })
+    throw new ApiError('No se pudo establecer conexión con el servidor.', { status: 0 })
   }
 
   if (res.status === 401) {
     clearSession()
     window.dispatchEvent(new Event('turnix:unauthorized'))
-    throw new ApiError('La sesion expiro. Inicia sesion nuevamente.', { status: 401 })
+    throw new ApiError('La sesión expiró. Inicia sesión nuevamente.', { status: 401 })
   }
 
   if (!res.ok) throw await parseErrorResponse(res)
@@ -106,6 +107,11 @@ async function requestForm(path, formData, options = {}) {
 }
 
 export const api = {
+  assetUrl: (path) => {
+    if (!path) return ''
+    if (/^https?:\/\//i.test(path)) return path
+    return `${ASSET_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`
+  },
   health: () => fetch(`${HEALTH_URL}/health`).then(r => r.json()),
 
   login: (email, password) => request('/auth/login', {
@@ -148,8 +154,10 @@ export const api = {
   updateAppointment: (id, data) => request(`/appointments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   cancelAppointment: (id) => request(`/appointments/${id}/cancel`, { method: 'PATCH' }),
   completeAppointment: (id) => request(`/appointments/${id}/complete`, { method: 'PATCH' }),
+  markNoShowAppointment: (id) => request(`/appointments/${id}/no-show`, { method: 'PATCH' }),
 
   getAvailability: (params) => request(`/availability/?${new URLSearchParams(params)}`),
+  getAvailableDates: (params) => request(`/availability/dates?${new URLSearchParams(params)}`),
 
   getConversations: (params) => request(`/conversations/?${new URLSearchParams(params || {})}`),
   getConversation: (id) => request(`/conversations/${id}`),
@@ -208,6 +216,16 @@ export const api = {
     return request(`/telegram-config/validate${qs}`, {
       method: 'POST',
     })
+  },
+  uploadTelegramInternalLogo: (file, tenantId) => {
+    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
+    const form = new FormData()
+    form.append('logo', file)
+    return requestForm(`/telegram-config/internal-logo${qs}`, form)
+  },
+  removeTelegramInternalLogo: (tenantId) => {
+    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
+    return request(`/telegram-config/internal-logo${qs}`, { method: 'DELETE' })
   },
   uploadTelegramProfilePhoto: (file, tenantId) => {
     const qs = tenantId ? `?tenant_id=${tenantId}` : ''

@@ -1,4 +1,4 @@
-"""Endpoints de métricas y dashboard para superadmin, tenant_admin y staff."""
+﻿"""Endpoints de métricas y dashboard para superadmin, tenant_admin y staff."""
 from datetime import date, timedelta
 from typing import Optional
 
@@ -376,3 +376,4 @@ def staff_dashboard(
             for a in upcoming
         ],
     }
+

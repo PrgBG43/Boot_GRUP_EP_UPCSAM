@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+﻿import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
 
@@ -120,7 +120,7 @@ export default function Clients() {
       <div className="page-toolbar">
         <div className="filter-group">
           <input
-            placeholder="Buscar por nombre, usuario o teléfono…"
+            placeholder="Buscar por nombre, usuario o teléfono..."
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="search-input"
@@ -149,7 +149,7 @@ export default function Clients() {
         <div className="pagination-bar">
           <span>Total: {pagination.total} registros</span>
           <button className="btn btn-outline btn-sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Anterior</button>
-          <span>Pagina {pagination.page} de {pagination.pages}</span>
+          <span>Página {pagination.page} de {pagination.pages}</span>
           <button className="btn btn-outline btn-sm" disabled={page >= pagination.pages} onClick={() => setPage(p => p + 1)}>Siguiente</button>
         </div>
       )}
@@ -235,7 +235,7 @@ export default function Clients() {
                   className="btn btn-primary"
                   disabled={saving || (isSuperadmin && !editing && !filterTenant)}
                 >
-                  {saving ? 'Guardando…' : 'Guardar'}
+                  {saving ? 'Guardando...' : 'Guardar'}
                 </button>
               </div>
             </form>
