@@ -70,6 +70,11 @@ class TelegramConfigResponse(BaseModel):
     internal_logo_url: Optional[str] = None
     internal_logo_updated_at: Optional[datetime] = None
     last_validated_at: Optional[datetime] = None
+    listener_active: bool = False
+    listener_status: Optional[str] = "inactive"
+    listener_started_at: Optional[datetime] = None
+    last_message_received_at: Optional[datetime] = None
+    last_bot_error: Optional[str] = None
     welcome_message: Optional[str] = None
     services_message: Optional[str] = None
     ask_name_message: Optional[str] = None
@@ -109,6 +114,8 @@ class TelegramConnectionResponse(BaseModel):
     public_link: Optional[str] = None
     bot_token_masked: Optional[str] = None
     last_validated_at: Optional[datetime] = None
+    listener_active: bool = False
+    listener_status: Optional[str] = "inactive"
     connection_status: str
     message: str
 

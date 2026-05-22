@@ -71,6 +71,7 @@ const BOT_STEP_LABELS = {
   SCHEDULE_SHOWN: 'Horarios mostrados',
   HELP_SHOWN: 'Ayuda mostrada',
   UNKNOWN_COMMAND: 'Comando no reconocido',
+  UNKNOWN_CALLBACK: 'Acción no reconocida',
   CUSTOM_COMMAND: 'Respuesta personalizada',
   NO_AVAILABILITY: 'Sin disponibilidad',
   PLAN_LIMIT_REACHED: 'Agenda no disponible',

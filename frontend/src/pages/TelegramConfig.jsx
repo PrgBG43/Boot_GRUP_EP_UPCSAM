@@ -9,6 +9,13 @@ const STATUS_MAP = {
   error: { label: 'Error', cls: 'badge-danger' },
 }
 
+const LISTENER_STATUS_MAP = {
+  active: { label: 'Activo', cls: 'badge-success' },
+  inactive: { label: 'Inactivo', cls: 'badge-neutral' },
+  conflict: { label: 'En conflicto', cls: 'badge-danger' },
+  error: { label: 'Error', cls: 'badge-danger' },
+}
+
 const MESSAGE_FIELDS = [
   { key: 'welcome_message', label: 'Mensaje de bienvenida' },
   { key: 'services_message', label: 'Mensaje para mostrar servicios' },
@@ -171,6 +178,10 @@ function logoUrl(config) {
   return `${api.assetUrl(config.internal_logo_url)}?v=${encodeURIComponent(version)}`
 }
 
+function formatDateTime(value) {
+  return value ? new Date(value).toLocaleString('es-CO') : 'Sin registro'
+}
+
 export default function TelegramConfig() {
   const { isSuperadmin } = useAuth()
   const [config, setConfig] = useState(null)
@@ -290,7 +301,10 @@ export default function TelegramConfig() {
     setRemoveLogo(true)
   }
 
-  const refreshAfterConnection = async (message) => {
+  const refreshAfterConnection = async (message, waitForListener = false) => {
+    if (waitForListener) {
+      await new Promise(resolve => setTimeout(resolve, 1200))
+    }
     const data = await api.getTelegramConfig(tenantParam)
     setConfig(data)
     setForm(toForm(data))
@@ -307,8 +321,8 @@ export default function TelegramConfig() {
     setConnecting(true)
     setFeedback(null)
     try {
-      await api.connectTelegramBot(botToken.trim(), tenantParam)
-      await refreshAfterConnection('Bot conectado correctamente.')
+      const result = await api.connectTelegramBot(botToken.trim(), tenantParam)
+      await refreshAfterConnection(result?.message || 'Bot conectado correctamente. El servicio de Telegram está activo.', true)
     } catch (err) {
       setFeedback({ type: 'error', msg: err.message })
     } finally {
@@ -320,8 +334,8 @@ export default function TelegramConfig() {
     setConnecting(true)
     setFeedback(null)
     try {
-      await api.validateTelegramBot(tenantParam)
-      await refreshAfterConnection('Conexión validada correctamente.')
+      const result = await api.validateTelegramBot(tenantParam)
+      await refreshAfterConnection(result?.message || 'Conexión validada correctamente.', true)
     } catch (err) {
       setFeedback({ type: 'error', msg: err.message })
     } finally {
@@ -379,6 +393,7 @@ export default function TelegramConfig() {
   }
 
   const statusInfo = STATUS_MAP[config?.connection_status] || STATUS_MAP.not_connected
+  const listenerInfo = LISTENER_STATUS_MAP[config?.listener_status] || LISTENER_STATUS_MAP.inactive
   const previewLogo = removeLogo ? '' : (logoPreview || logoUrl(config))
 
   if (loading && !config && !isSuperadmin) return <div className="spinner" />
@@ -420,15 +435,27 @@ export default function TelegramConfig() {
           <div className="card section-spacing">
             <h3 className="panel-heading">Estado del bot</h3>
             <div className="inline-meta">
-              <span className={`badge ${statusInfo.cls}`}>{config.is_connected ? 'Conectado' : statusInfo.label}</span>
+              <span>Bot conectado: <span className={`badge ${statusInfo.cls}`}>{config.is_connected ? 'Sí' : 'No'}</span></span>
+              <span>Servicio de escucha: <span className={`badge ${listenerInfo.cls}`}>{config.listener_active ? 'Activo' : listenerInfo.label}</span></span>
               {selectedBusiness && <span>Negocio: <strong>{selectedBusiness.name}</strong></span>}
               {config.bot_name && <span>Nombre: <strong>{config.bot_name}</strong></span>}
               {config.bot_username && <span>Usuario: <strong>@{config.bot_username}</strong></span>}
               {config.bot_token_masked && <span>Token: <code>{config.bot_token_masked}</code></span>}
-              {config.last_validated_at && (
-                <span>Última validación: {new Date(config.last_validated_at).toLocaleString('es-CO')}</span>
-              )}
+              <span>Última validación: {formatDateTime(config.last_validated_at)}</span>
+              <span>Último mensaje recibido: {formatDateTime(config.last_message_received_at)}</span>
             </div>
+            {config.is_connected && (
+              <div className={`alert alert-compact telegram-note ${config.listener_active ? 'alert-success' : 'alert-warning'}`}>
+                {config.listener_active
+                  ? 'El bot está conectado y escuchando mensajes.'
+                  : 'El bot está conectado, pero el servicio de Telegram no está escuchando mensajes.'}
+              </div>
+            )}
+            {config.last_bot_error && (
+              <div className="alert alert-error alert-compact telegram-note">
+                Último error del bot: {config.last_bot_error}
+              </div>
+            )}
             {config.public_link && (
               <div className="telegram-link-row">
                 <code>{config.public_link}</code>

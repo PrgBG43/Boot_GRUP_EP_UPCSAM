@@ -368,7 +368,7 @@ export default function AdminUsers() {
               <h3>Restablecer contraseña</h3>
               <button className="modal-close" onClick={() => setModal(null)}>×</button>
             </div>
-            <form onSubmit={handleResetPassword} noValidate>
+            <form onSubmit={handleResetPassword} className="modal-form" noValidate>
               <div className="modal-body">
                 <p className="modal-helper-text">
                   Cambiando contraseña de <strong>{selected.email}</strong>

@@ -7,12 +7,15 @@ Cada tenant conecta su propio bot desde el panel. Este runtime local usa polling
 para iniciar una instancia de Telegram por cada configuración conectada.
 """
 import asyncio
+import contextlib
+import hashlib
 import json
 import logging
 import os
 import re
 import sys
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -21,9 +24,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from fastapi import HTTPException
 from sqlalchemy.orm import joinedload
 from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove, Update
-from telegram.error import InvalidToken, TelegramError
+from telegram.error import Conflict, InvalidToken, TelegramError
 from telegram.ext import (
     Application,
+    CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
     ConversationHandler,
@@ -107,6 +111,12 @@ ALLOWED_COMMAND_ACTIONS = {
     "respuesta_personalizada",
 }
 GREETING_WORDS = {"hola", "buenas", "buenos días", "buenas tardes", "buenas noches", "hey"}
+GREETING_RESPONSE = (
+    "Hola. Bienvenido a {business_name}. Puedes usar /start para agendar una cita "
+    "o /servicios para ver nuestros servicios."
+)
+UNKNOWN_MESSAGE = "No entendí tu mensaje. Puedes usar /start para agendar una cita o /ayuda para ver las opciones disponibles."
+CONFLICT_MESSAGE = "Este bot ya está siendo escuchado por otro proceso. Cierra el proceso anterior o reinicia el backend."
 
 
 class SafeDict(defaultdict):
@@ -201,6 +211,50 @@ def _find_command(config: TelegramConfig, command: str) -> Optional[dict[str, An
 def _is_greeting(text: str) -> bool:
     clean = re.sub(r"\s+", " ", (text or "").strip().lower())
     return clean in GREETING_WORDS
+
+
+def _safe_error_message(exc: BaseException | str) -> str:
+    message = str(exc)
+    return re.sub(r"\b\d{6,}:[A-Za-z0-9_-]{20,}\b", "[token oculto]", message)
+
+
+def _token_fingerprint(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _set_config_runtime_status(
+    tenant_id: int,
+    *,
+    listener_status: Optional[str] = None,
+    listener_started_at: Optional[datetime] = None,
+    last_message_received_at: Optional[datetime] = None,
+    last_bot_error: Optional[str] = None,
+    clear_error: bool = False,
+    connection_status: Optional[str] = None,
+) -> None:
+    db = SessionLocal()
+    try:
+        config = db.query(TelegramConfig).filter(TelegramConfig.tenant_id == tenant_id).first()
+        if not config:
+            return
+        if listener_status is not None:
+            config.listener_status = listener_status
+        if listener_started_at is not None:
+            config.listener_started_at = listener_started_at
+        if last_message_received_at is not None:
+            config.last_message_received_at = last_message_received_at
+        if clear_error:
+            config.last_bot_error = None
+        elif last_bot_error is not None:
+            config.last_bot_error = last_bot_error[:1000]
+        if connection_status is not None:
+            config.connection_status = connection_status
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("[Telegram] No se pudo actualizar el diagnóstico del bot para tenant %s", tenant_id)
+    finally:
+        db.close()
 
 
 def _tenant_info(context: ContextTypes.DEFAULT_TYPE) -> dict[str, Any]:
@@ -329,6 +383,10 @@ def _save_message(conversation_id: Optional[int], direction: str, content: str) 
         conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
         if conversation:
             conversation.last_interaction_at = datetime.now(timezone.utc)
+            if direction == "incoming":
+                config = db.query(TelegramConfig).filter(TelegramConfig.tenant_id == conversation.tenant_id).first()
+                if config:
+                    config.last_message_received_at = datetime.now(timezone.utc)
         db.add(Message(conversation_id=conversation_id, direction=direction, content=content))
         db.commit()
     except Exception:
@@ -354,8 +412,21 @@ def _set_conversation_step(conversation_id: Optional[int], step: str, data: Opti
 
 
 async def _reply(update: Update, context: ContextTypes.DEFAULT_TYPE, text: str, **kwargs) -> None:
-    await update.effective_message.reply_text(text, **kwargs)
-    _save_message(context.user_data.get("conversation_id"), "outgoing", text)
+    try:
+        await update.effective_message.reply_text(text, **kwargs)
+        _save_message(context.user_data.get("conversation_id"), "outgoing", text)
+        logger.info(
+            "[Telegram] Respuesta enviada a chat %s para tenant %s",
+            update.effective_chat.id if update.effective_chat else "desconocido",
+            context.user_data.get("tenant_id") or context.application.bot_data.get("tenant_id"),
+        )
+    except TelegramError as exc:
+        tenant_id = context.user_data.get("tenant_id") or context.application.bot_data.get("tenant_id")
+        message = _safe_error_message(exc)
+        if tenant_id:
+            _set_config_runtime_status(tenant_id, listener_status="error", last_bot_error=message)
+        logger.error("[Telegram] Error enviando respuesta para tenant %s: %s", tenant_id, message)
+        raise
 
 
 def _bootstrap(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -375,6 +446,8 @@ def _bootstrap(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.commit()
     db.refresh(client)
     db.refresh(conversation)
+    username = update.effective_user.username if update.effective_user else None
+    logger.info("[Telegram] Mensaje recibido de @%s para tenant %s", username or client.telegram_user_id or "usuario", tenant.id)
     context.user_data.update(
         {
             "tenant_id": tenant.id,
@@ -595,7 +668,7 @@ async def service_selected(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         date_map = {item["label"]: item["date"] for item in dates}
         date_map.update({str(i + 1): item["date"] for i, item in enumerate(dates)})
         context.user_data["dates_map"] = date_map
-        lines = [_format_message(config.ask_date_message or "Cuando quieres agendar tu cita?", _variables(tenant, config, service=service))]
+        lines = [_format_message(config.ask_date_message or "¿Cuándo quieres agendar tu cita?", _variables(tenant, config, service=service))]
         lines.extend(f"{i + 1}. {item['label']}" for i, item in enumerate(dates))
         await _reply(update, context, "\n".join(lines), reply_markup=_keyboard(date_labels, columns=2))
         _set_conversation_step(context.user_data.get("conversation_id"), "SELECT_DATE", {"service_id": service.id, "dates": date_map})
@@ -915,7 +988,7 @@ async def dynamic_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         _save_message(conversation.id, "incoming", update.effective_message.text or command)
         command_config = _find_command(config, command)
         if not command_config:
-            await _reply(update, context, "No reconozco ese comando. Escribe /ayuda para ver las opciones disponibles.")
+            await _reply(update, context, UNKNOWN_MESSAGE)
             _set_conversation_step(conversation.id, "UNKNOWN_COMMAND", {"command": command})
             return ConversationHandler.END
 
@@ -962,17 +1035,11 @@ async def text_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.effective_message.text or ""
     try:
         _save_message(conversation.id, "incoming", text)
-        if bool(config.auto_start_on_greeting) and _is_greeting(text):
-            welcome = _format_message(config.welcome_message, _variables(tenant, config, client))
-            await _reply(update, context, welcome or f"Hola. Bienvenido a {tenant.name}.")
+        if _is_greeting(text):
+            await _reply(update, context, _format_message(GREETING_RESPONSE, _variables(tenant, config, client)))
             return await _show_services(update, context, db, tenant, config)
 
-        message = (
-            f"Hola. Bienvenido a {tenant.name}. "
-            "Puedes usar /start para agendar una cita, /servicios para ver nuestros servicios "
-            "o /ayuda para revisar las opciones disponibles."
-        )
-        await _reply(update, context, message, reply_markup=ReplyKeyboardRemove())
+        await _reply(update, context, UNKNOWN_MESSAGE, reply_markup=ReplyKeyboardRemove())
         _set_conversation_step(conversation.id, "ORIENTATION")
         return ConversationHandler.END
     finally:
@@ -1006,10 +1073,80 @@ def build_conversation_handler() -> ConversationHandler:
     )
 
 
-class BotManager:
-    def __init__(self):
-        self.apps: list[Application] = []
-        self.started_keys: set[str] = set()
+async def callback_entry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    boot = _bootstrap(update, context)
+    if not boot:
+        return ConversationHandler.END
+    db, tenant, config, client, conversation = boot
+    query = update.callback_query
+    try:
+        if query:
+            await query.answer()
+            _save_message(conversation.id, "incoming", f"callback:{query.data or ''}")
+        await _reply(update, context, UNKNOWN_MESSAGE, reply_markup=ReplyKeyboardRemove())
+        _set_conversation_step(conversation.id, "UNKNOWN_CALLBACK", {"callback_data": query.data if query else None})
+        return ConversationHandler.END
+    finally:
+        db.close()
+
+
+async def telegram_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    tenant_id = context.application.bot_data.get("tenant_id")
+    message = _safe_error_message(context.error or "Error desconocido")
+    status = "conflict" if isinstance(context.error, Conflict) else "error"
+    if tenant_id:
+        _set_config_runtime_status(tenant_id, listener_status=status, last_bot_error=message)
+    logger.error("[Telegram] Error procesando mensaje para tenant %s: %s", tenant_id, message)
+
+
+def configure_application_handlers(application: Application) -> None:
+    application.add_handler(build_conversation_handler())
+    application.add_handler(CommandHandler("servicios", services_command))
+    application.add_handler(CommandHandler("horarios", schedules_command))
+    application.add_handler(CommandHandler("citas", my_appointments))
+    application.add_handler(CommandHandler("cancelar", cancel_start))
+    application.add_handler(CommandHandler("ayuda", help_command))
+    application.add_handler(CallbackQueryHandler(callback_entry))
+    application.add_handler(MessageHandler(filters.COMMAND, dynamic_command))
+    application.add_error_handler(telegram_error_handler)
+
+
+@dataclass
+class BotRuntime:
+    tenant_id: int
+    tenant_name: str
+    bot_id: Optional[str]
+    bot_username: Optional[str]
+    token_fingerprint: str
+    application: Application
+
+
+class TelegramBotManager:
+    def __init__(self, *, reload_interval_seconds: int = 30, console_output: bool = True):
+        self.reload_interval_seconds = reload_interval_seconds
+        self.console_output = console_output
+        self.runtimes: dict[int, BotRuntime] = {}
+        self._reload_lock = asyncio.Lock()
+        self._reload_task: Optional[asyncio.Task] = None
+        self._stop_event: Optional[asyncio.Event] = None
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._started = False
+        self._empty_reported = False
+
+    @property
+    def active_count(self) -> int:
+        return len(self.runtimes)
+
+    @property
+    def is_started(self) -> bool:
+        return self._started
+
+    def is_running_for_tenant(self, tenant_id: int) -> bool:
+        return tenant_id in self.runtimes
+
+    def _print(self, message: str) -> None:
+        if self.console_output:
+            print(message)
 
     def load_bots(self) -> list[dict[str, Any]]:
         db = SessionLocal()
@@ -1027,82 +1164,272 @@ class BotManager:
             )
             bots = []
             for config in configs:
-                token = decrypt_token(config.bot_token_encrypted)
+                try:
+                    token = decrypt_token(config.bot_token_encrypted)
+                except Exception as exc:
+                    message = _safe_error_message(exc)
+                    logger.error("[Telegram] No se pudo descifrar el token de tenant %s: %s", config.tenant_id, message)
+                    config.listener_status = "error"
+                    config.last_bot_error = "No se pudo descifrar el token protegido del bot."
+                    db.commit()
+                    continue
                 if not token:
-                    logger.error("No se pudo iniciar @%s porque su token no se pudo descifrar.", config.bot_username or "sin_usuario")
+                    logger.error(
+                        "[Telegram] No se pudo iniciar @%s para tenant %s porque su token no se pudo descifrar.",
+                        config.bot_username or "sin_usuario",
+                        config.tenant_id,
+                    )
+                    config.listener_status = "error"
+                    config.last_bot_error = "No se pudo descifrar el token protegido del bot."
+                    db.commit()
                     continue
                 bots.append(
                     {
                         "tenant_id": config.tenant_id,
-                        "tenant_name": config.tenant.name,
+                        "tenant_name": config.tenant.name if config.tenant else f"Tenant {config.tenant_id}",
                         "bot_id": config.bot_id,
                         "bot_username": config.bot_username,
                         "token": token,
+                        "token_fingerprint": _token_fingerprint(token),
                     }
                 )
             return bots
         finally:
             db.close()
 
-    async def start_bot(self, bot: dict[str, Any]) -> None:
-        bot_key = str(bot["tenant_id"])
-        if bot_key in self.started_keys:
+    async def start(self) -> None:
+        if self._started:
             return
+        self._loop = asyncio.get_running_loop()
+        self._stop_event = asyncio.Event()
+        self._started = True
+        self._print("Servicio Telegram: cargando bots conectados...")
+        await self.reload()
+        self._reload_task = asyncio.create_task(self._periodic_reload(), name="telegram-bot-reloader")
+
+    async def stop(self) -> None:
+        if not self._started and not self.runtimes:
+            return
+        self._started = False
+        if self._stop_event:
+            self._stop_event.set()
+        if self._reload_task:
+            self._reload_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._reload_task
+            self._reload_task = None
+        for tenant_id in list(self.runtimes):
+            await self.stop_bot_for_tenant(tenant_id)
+
+    async def wait_until_stopped(self) -> None:
+        if not self._stop_event:
+            self._stop_event = asyncio.Event()
+        await self._stop_event.wait()
+
+    def request_reload(self) -> bool:
+        if not self._started or not self._loop or self._loop.is_closed():
+            return False
+        try:
+            running_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            running_loop = None
+        if running_loop is self._loop:
+            self._loop.create_task(self.reload())
+        else:
+            asyncio.run_coroutine_threadsafe(self.reload(), self._loop)
+        return True
+
+    async def reload(self) -> None:
+        async with self._reload_lock:
+            bots = self.load_bots()
+            desired_by_tenant = {int(bot["tenant_id"]): bot for bot in bots}
+
+            for tenant_id, runtime in list(self.runtimes.items()):
+                desired = desired_by_tenant.get(tenant_id)
+                if not desired or desired["token_fingerprint"] != runtime.token_fingerprint:
+                    await self.stop_bot_for_tenant(tenant_id)
+
+            if not desired_by_tenant:
+                if not self._empty_reported:
+                    self._print("Servicio Telegram: no hay bots conectados. Configura un bot desde el panel del negocio.")
+                    self._empty_reported = True
+                return
+
+            self._empty_reported = False
+            for bot in desired_by_tenant.values():
+                try:
+                    await self.start_bot_for_config(bot)
+                except Exception as exc:
+                    message = _safe_error_message(exc)
+                    tenant_id = int(bot["tenant_id"])
+                    _set_config_runtime_status(tenant_id, listener_status="error", last_bot_error=message)
+                    logger.error("[Telegram] No se pudo iniciar @%s para tenant %s: %s", bot.get("bot_username") or "sin_usuario", tenant_id, message)
+
+            self._print(f"Bots de Telegram activos: {self.active_count}")
+
+    async def start_bot_for_config(self, bot: dict[str, Any]) -> None:
+        tenant_id = int(bot["tenant_id"])
+        runtime = self.runtimes.get(tenant_id)
+        if runtime and runtime.token_fingerprint == bot["token_fingerprint"]:
+            return
+        if runtime:
+            await self.stop_bot_for_tenant(tenant_id)
+
+        username = bot.get("bot_username") or "sin_usuario"
+        logger.info("[Telegram] Iniciando bot @%s para tenant %s", username, tenant_id)
         application = Application.builder().token(bot["token"]).build()
         application.bot_data.update(
             {
-                "tenant_id": bot["tenant_id"],
+                "tenant_id": tenant_id,
                 "tenant_name": bot["tenant_name"],
                 "bot_id": bot["bot_id"],
             }
         )
-        application.add_handler(build_conversation_handler())
-        application.add_handler(CommandHandler("servicios", services_command))
-        application.add_handler(CommandHandler("horarios", schedules_command))
-        application.add_handler(CommandHandler("citas", my_appointments))
-        application.add_handler(CommandHandler("cancelar", cancel_start))
-        application.add_handler(CommandHandler("ayuda", help_command))
-        application.add_handler(MessageHandler(filters.COMMAND, dynamic_command))
-        await application.initialize()
-        await application.start()
-        await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
-        self.apps.append(application)
-        self.started_keys.add(bot_key)
-        logger.info("Bot conectado: @%s para negocio %s", bot["bot_username"], bot["tenant_name"])
+        configure_application_handlers(application)
+
+        try:
+            await application.initialize()
+            await application.bot.delete_webhook(drop_pending_updates=False)
+            await application.start()
+            if not application.updater:
+                raise RuntimeError("La instancia de Telegram no tiene updater para polling.")
+            await application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
+        except Conflict:
+            await self._stop_application(application)
+            _set_config_runtime_status(tenant_id, listener_status="conflict", last_bot_error=CONFLICT_MESSAGE)
+            logger.error("[Telegram] %s Tenant %s, bot @%s", CONFLICT_MESSAGE, tenant_id, username)
+            self._print(CONFLICT_MESSAGE)
+            return
+        except InvalidToken:
+            await self._stop_application(application)
+            message = "Telegram rechazó el token guardado para este bot."
+            _set_config_runtime_status(
+                tenant_id,
+                listener_status="error",
+                last_bot_error=message,
+                connection_status="token_invalid",
+            )
+            logger.error("[Telegram] %s Tenant %s, bot @%s", message, tenant_id, username)
+            return
+        except TelegramError as exc:
+            await self._stop_application(application)
+            message = _safe_error_message(exc)
+            status = "conflict" if isinstance(exc, Conflict) else "error"
+            if isinstance(exc, Conflict):
+                message = CONFLICT_MESSAGE
+            _set_config_runtime_status(tenant_id, listener_status=status, last_bot_error=message)
+            logger.error("[Telegram] Error iniciando bot @%s para tenant %s: %s", username, tenant_id, message)
+            return
+        except Exception as exc:
+            await self._stop_application(application)
+            message = _safe_error_message(exc)
+            _set_config_runtime_status(tenant_id, listener_status="error", last_bot_error=message)
+            logger.error("[Telegram] Error iniciando bot @%s para tenant %s: %s", username, tenant_id, message)
+            return
+
+        self.runtimes[tenant_id] = BotRuntime(
+            tenant_id=tenant_id,
+            tenant_name=bot["tenant_name"],
+            bot_id=bot.get("bot_id"),
+            bot_username=bot.get("bot_username"),
+            token_fingerprint=bot["token_fingerprint"],
+            application=application,
+        )
+        _set_config_runtime_status(
+            tenant_id,
+            listener_status="active",
+            listener_started_at=datetime.now(timezone.utc),
+            clear_error=True,
+            connection_status="connected",
+        )
+        logger.info("[Telegram] Bot @%s conectado para negocio %s", username, bot["tenant_name"])
+        self._print(f"Bot conectado: @{username} para negocio {bot['tenant_name']}")
+
+    async def stop_bot_for_tenant(self, tenant_id: int) -> None:
+        runtime = self.runtimes.pop(int(tenant_id), None)
+        if not runtime:
+            return
+        await self._stop_application(runtime.application)
+        _set_config_runtime_status(int(tenant_id), listener_status="inactive")
+        logger.info("[Telegram] Bot @%s detenido para tenant %s", runtime.bot_username or "sin_usuario", tenant_id)
+
+    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE, tenant_id: int) -> int:
+        context.application.bot_data["tenant_id"] = tenant_id
+        return await text_entry(update, context)
+
+    async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE, tenant_id: int) -> int:
+        context.application.bot_data["tenant_id"] = tenant_id
+        return await callback_entry(update, context)
+
+    async def _periodic_reload(self) -> None:
+        while self._started:
+            try:
+                if self._stop_event:
+                    await asyncio.wait_for(self._stop_event.wait(), timeout=self.reload_interval_seconds)
+                    return
+                await asyncio.sleep(self.reload_interval_seconds)
+                await self.reload()
+            except asyncio.TimeoutError:
+                await self.reload()
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.error("[Telegram] Error recargando bots: %s", _safe_error_message(exc))
+
+    async def _stop_application(self, application: Application) -> None:
+        with contextlib.suppress(Exception):
+            if application.updater and application.updater.running:
+                await application.updater.stop()
+        with contextlib.suppress(Exception):
+            if application.running:
+                await application.stop()
+        with contextlib.suppress(Exception):
+            await application.shutdown()
 
     async def run(self) -> None:
         create_tables()
         print("Iniciando bots de Telegram configurados...")
         try:
-            warned_empty = False
-            while True:
-                bots = self.load_bots()
-                if not bots and not warned_empty:
-                    print("No hay bots de Telegram conectados. Configura un token desde el panel de Turnix.")
-                    warned_empty = True
-                for bot in bots:
-                    try:
-                        await self.start_bot(bot)
-                    except InvalidToken:
-                        logger.error("Telegram rechazó el token guardado para @%s.", bot.get("bot_username") or "sin_usuario")
-                    except TelegramError as exc:
-                        logger.error("No se pudo iniciar @%s: %s", bot.get("bot_username") or "sin_usuario", type(exc).__name__)
-                await asyncio.sleep(30)
+            await self.start()
+            if self.active_count == 0:
+                print("No hay bots de Telegram conectados. Configura un bot desde el panel de Turnix.")
+            else:
+                print(f"Bots activos: {self.active_count}")
+            print("Escuchando mensajes de Telegram...")
+            await self.wait_until_stopped()
         finally:
-            await self.shutdown()
+            await self.stop()
 
-    async def shutdown(self) -> None:
-        for application in self.apps:
-            if application.updater:
-                await application.updater.stop()
-            await application.stop()
-            await application.shutdown()
+
+_telegram_bot_manager: Optional[TelegramBotManager] = None
+
+
+def set_telegram_bot_manager(manager: Optional[TelegramBotManager]) -> None:
+    global _telegram_bot_manager
+    _telegram_bot_manager = manager
+
+
+def get_telegram_bot_manager() -> Optional[TelegramBotManager]:
+    return _telegram_bot_manager
+
+
+def is_tenant_bot_running(tenant_id: int) -> bool:
+    return bool(_telegram_bot_manager and _telegram_bot_manager.is_running_for_tenant(tenant_id))
+
+
+def request_telegram_reload() -> bool:
+    return bool(_telegram_bot_manager and _telegram_bot_manager.request_reload())
 
 
 def main():
     try:
-        asyncio.run(BotManager().run())
+        manager = TelegramBotManager()
+        set_telegram_bot_manager(manager)
+        asyncio.run(manager.run())
     except KeyboardInterrupt:
+        pass
+    finally:
+        set_telegram_bot_manager(None)
         print("Bots de Telegram detenidos.")
 
 

@@ -10,6 +10,7 @@ import httpx
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.bot.telegram_bot import is_tenant_bot_running, request_telegram_reload
 from app.core.auth import require_tenant_admin_or_above
 from app.core.database import get_db
 from app.models.telegram_config import TelegramConfig
@@ -241,22 +242,67 @@ def _internal_logo_url(config: TelegramConfig) -> Optional[str]:
     return f"/static/{config.internal_logo_path.lstrip('/')}"
 
 
-def _sync_bot_profile(token: str, config: TelegramConfig) -> None:
+def _listener_status(config: TelegramConfig) -> str:
+    if config.is_connected and is_tenant_bot_running(config.tenant_id):
+        return "active"
+    return config.listener_status or "inactive"
+
+
+def _listener_active(config: TelegramConfig) -> bool:
+    return config.is_connected and is_tenant_bot_running(config.tenant_id)
+
+
+def _request_runtime_reload() -> bool:
+    return request_telegram_reload()
+
+
+def _connection_message(config: TelegramConfig, base: str = "Bot conectado correctamente.") -> str:
+    if _listener_active(config):
+        return f"{base} El servicio de Telegram está activo."
+    if _request_runtime_reload():
+        return f"{base} El servicio de Telegram está activo."
+    return f"{base} El servicio de Telegram no está escuchando. Reinicia el backend o inicia el servicio."
+
+
+def _telegram_error_text(result: dict[str, Any], fallback: str) -> Optional[str]:
+    if result.get("ok"):
+        return None
+    return result.get("description") or fallback
+
+
+def _sync_bot_profile(token: str, config: TelegramConfig) -> list[str]:
+    errors: list[str] = []
     if config.bot_name:
-        _telegram_request(token, "setMyName", {"name": config.bot_name[:64]})
+        result = _telegram_request(token, "setMyName", {"name": config.bot_name[:64]})
+        error = _telegram_error_text(result, "Telegram no aceptó el nombre del bot.")
+        if error:
+            errors.append(error)
     if config.bot_description is not None:
-        _telegram_request(token, "setMyDescription", {"description": config.bot_description[:512]})
+        result = _telegram_request(token, "setMyDescription", {"description": config.bot_description[:512]})
+        error = _telegram_error_text(result, "Telegram no aceptó la descripción del bot.")
+        if error:
+            errors.append(error)
     if config.bot_short_description is not None:
-        _telegram_request(
+        result = _telegram_request(
             token,
             "setMyShortDescription",
             {"short_description": config.bot_short_description[:120]},
         )
+        error = _telegram_error_text(result, "Telegram no aceptó la descripción corta del bot.")
+        if error:
+            errors.append(error)
     commands = _telegram_commands(config)
     if commands:
-        _telegram_request(token, "setMyCommands", {"commands": commands})
+        result = _telegram_request(token, "setMyCommands", {"commands": commands})
+        error = _telegram_error_text(result, "Telegram no aceptó los comandos del bot.")
+        if error:
+            errors.append(error)
     else:
-        _telegram_request(token, "deleteMyCommands")
+        result = _telegram_request(token, "deleteMyCommands")
+        error = _telegram_error_text(result, "Telegram no pudo eliminar los comandos del bot.")
+        if error:
+            errors.append(error)
+    return errors
 
 
 def _telegram_upload_profile_photo(token: str, content: bytes, filename: str, content_type: str) -> None:
@@ -308,6 +354,11 @@ def _serialize(config: TelegramConfig) -> TelegramConfigResponse:
         internal_logo_url=_internal_logo_url(config),
         internal_logo_updated_at=config.internal_logo_updated_at,
         last_validated_at=config.last_validated_at,
+        listener_active=_listener_active(config),
+        listener_status=_listener_status(config),
+        listener_started_at=config.listener_started_at,
+        last_message_received_at=config.last_message_received_at,
+        last_bot_error=config.last_bot_error,
         welcome_message=config.welcome_message,
         services_message=config.services_message,
         ask_name_message=config.ask_name_message,
@@ -362,11 +413,19 @@ def update_telegram_config(
 
     token = decrypt_token(config.bot_token_encrypted) if config.is_connected else None
     if token:
-        _sync_bot_profile(token, config)
+        try:
+            sync_errors = _sync_bot_profile(token, config)
+        except HTTPException as exc:
+            sync_errors = [str(exc.detail)]
+        if sync_errors:
+            config.last_bot_error = " ".join(sync_errors)[:1000]
+        else:
+            config.last_bot_error = None
         config.connection_status = "connected"
 
     db.commit()
     db.refresh(config)
+    _request_runtime_reload()
     return _serialize(config)
 
 
@@ -403,12 +462,20 @@ def connect_telegram_bot(
     config.bot_commands = config.bot_commands or _store_commands(DEFAULT_COMMANDS)
     config.is_connected = True
     config.connection_status = "connected"
+    config.listener_status = "inactive"
+    config.last_bot_error = None
     config.last_validated_at = datetime.now(timezone.utc)
 
-    _sync_bot_profile(token, config)
+    try:
+        sync_errors = _sync_bot_profile(token, config)
+    except HTTPException as exc:
+        sync_errors = [str(exc.detail)]
+    if sync_errors:
+        config.last_bot_error = " ".join(sync_errors)[:1000]
 
     db.commit()
     db.refresh(config)
+    _request_runtime_reload()
     return TelegramConnectionResponse(
         is_connected=True,
         bot_username=config.bot_username,
@@ -416,8 +483,10 @@ def connect_telegram_bot(
         public_link=_public_link(config),
         bot_token_masked=config.bot_token_masked,
         last_validated_at=config.last_validated_at,
+        listener_active=_listener_active(config),
+        listener_status=_listener_status(config),
         connection_status=config.connection_status,
-        message="Bot conectado correctamente.",
+        message=_connection_message(config),
     )
 
 
@@ -436,9 +505,13 @@ def disconnect_telegram_bot(
     config.bot_name = None
     config.is_connected = False
     config.connection_status = "not_connected"
+    config.listener_status = "inactive"
+    config.listener_started_at = None
+    config.last_bot_error = None
     config.last_validated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(config)
+    _request_runtime_reload()
     return _serialize(config)
 
 
@@ -454,6 +527,7 @@ def validate_saved_telegram_bot(
     if not token:
         config.is_connected = False
         config.connection_status = "not_connected"
+        config.listener_status = "inactive"
         db.commit()
         raise HTTPException(status_code=400, detail="No hay un bot conectado para este negocio.")
 
@@ -464,9 +538,17 @@ def validate_saved_telegram_bot(
     config.is_connected = True
     config.connection_status = "connected"
     config.last_validated_at = datetime.now(timezone.utc)
-    _sync_bot_profile(token, config)
+    try:
+        sync_errors = _sync_bot_profile(token, config)
+    except HTTPException as exc:
+        sync_errors = [str(exc.detail)]
+    if sync_errors:
+        config.last_bot_error = " ".join(sync_errors)[:1000]
+    else:
+        config.last_bot_error = None
     db.commit()
     db.refresh(config)
+    _request_runtime_reload()
 
     return TelegramConnectionResponse(
         is_connected=True,
@@ -475,8 +557,10 @@ def validate_saved_telegram_bot(
         public_link=_public_link(config),
         bot_token_masked=config.bot_token_masked,
         last_validated_at=config.last_validated_at,
+        listener_active=_listener_active(config),
+        listener_status=_listener_status(config),
         connection_status=config.connection_status,
-        message="Bot validado correctamente.",
+        message=_connection_message(config, "Bot validado correctamente."),
     )
 
 

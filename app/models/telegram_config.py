@@ -27,6 +27,10 @@ class TelegramConfig(Base):
     is_connected = Column(Boolean, default=False)
     connection_status = Column(String, nullable=True, default="not_connected")
     last_validated_at = Column(DateTime(timezone=True), nullable=True)
+    listener_status = Column(String, nullable=True, default="inactive")
+    listener_started_at = Column(DateTime(timezone=True), nullable=True)
+    last_message_received_at = Column(DateTime(timezone=True), nullable=True)
+    last_bot_error = Column(Text, nullable=True)
 
     welcome_message = Column(
         Text,
