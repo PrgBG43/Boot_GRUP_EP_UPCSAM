@@ -80,6 +80,15 @@ function AnalyticsFilters({ children, onClear }) {
   )
 }
 
+function DateFilterField({ id, label, value, onChange }) {
+  return (
+    <label className="filter-field filter-field--date" htmlFor={id}>
+      <span className="filter-label">{label}</span>
+      <input id={id} className="filter-select" type="date" value={value} onChange={event => onChange(event.target.value)} />
+    </label>
+  )
+}
+
 function SuperadminDashboard() {
   const { activeTenantId } = useAuth()
   const [data, setData] = useState(null)
@@ -149,8 +158,8 @@ function SuperadminDashboard() {
       </div>
 
       <AnalyticsFilters onClear={clearFilters}>
-        <input className="filter-select" type="date" value={filters.date_from} onChange={event => setFilter('date_from', event.target.value)} />
-        <input className="filter-select" type="date" value={filters.date_to} onChange={event => setFilter('date_to', event.target.value)} />
+        <DateFilterField id="dashboard-global-date-from" label="Desde" value={filters.date_from} onChange={value => setFilter('date_from', value)} />
+        <DateFilterField id="dashboard-global-date-to" label="Hasta" value={filters.date_to} onChange={value => setFilter('date_to', value)} />
         <select className="filter-select" value={filters.plan} onChange={event => setFilter('plan', event.target.value)}>
           <option value="">Todos los planes</option>
           <option value="free">Gratuito</option>
@@ -360,8 +369,8 @@ function TenantDashboard() {
       </div>
 
       <AnalyticsFilters onClear={clearFilters}>
-        <input className="filter-select" type="date" value={filters.date_from} onChange={event => setFilter('date_from', event.target.value)} />
-        <input className="filter-select" type="date" value={filters.date_to} onChange={event => setFilter('date_to', event.target.value)} />
+        <DateFilterField id="dashboard-tenant-date-from" label="Desde" value={filters.date_from} onChange={value => setFilter('date_from', value)} />
+        <DateFilterField id="dashboard-tenant-date-to" label="Hasta" value={filters.date_to} onChange={value => setFilter('date_to', value)} />
         <select className="filter-select" value={filters.status} onChange={event => setFilter('status', event.target.value)}>
           <option value="">Todos los estados</option>
           <option value="pending">Pendiente</option>

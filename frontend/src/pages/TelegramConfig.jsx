@@ -17,20 +17,76 @@ const LISTENER_STATUS_MAP = {
 }
 
 const MESSAGE_FIELDS = [
-  { key: 'welcome_message', label: 'Mensaje de bienvenida' },
-  { key: 'services_message', label: 'Mensaje para mostrar servicios' },
-  { key: 'ask_name_message', label: 'Mensaje para solicitar nombre' },
-  { key: 'ask_phone_message', label: 'Mensaje para solicitar teléfono' },
-  { key: 'ask_service_message', label: 'Mensaje para solicitar servicio' },
-  { key: 'ask_date_message', label: 'Mensaje para solicitar fecha' },
-  { key: 'ask_time_message', label: 'Mensaje para solicitar hora' },
-  { key: 'confirm_message', label: 'Mensaje de confirmación' },
-  { key: 'unavailable_message', label: 'Mensaje de horario no disponible' },
-  { key: 'plan_limit_public_message', label: 'Mensaje público por agenda no disponible' },
-  { key: 'reminder_30_message', label: 'Recordatorio Premium 30 minutos antes' },
-  { key: 'reminder_15_message', label: 'Recordatorio Premium 15 minutos antes' },
-  { key: 'cancel_message', label: 'Mensaje de cancelación' },
-  { key: 'goodbye_message', label: 'Mensaje de despedida' },
+  {
+    key: 'welcome_message',
+    label: 'Mensaje de bienvenida',
+    placeholder: 'Bienvenido a {business_name}. Soy tu asistente virtual para agendar citas.',
+  },
+  {
+    key: 'services_message',
+    label: 'Mensaje para mostrar servicios',
+    placeholder: 'Estos son los servicios disponibles en {business_name}:',
+  },
+  {
+    key: 'ask_name_message',
+    label: 'Mensaje para solicitar nombre',
+    placeholder: 'Para continuar, escribe tu nombre completo.',
+  },
+  {
+    key: 'ask_phone_message',
+    label: 'Mensaje para solicitar teléfono',
+    placeholder: 'Escribe tu teléfono para confirmar la cita.',
+  },
+  {
+    key: 'ask_service_message',
+    label: 'Mensaje para solicitar servicio',
+    placeholder: 'Elige el servicio que quieres agendar en {business_name}.',
+  },
+  {
+    key: 'ask_date_message',
+    label: 'Mensaje para solicitar fecha',
+    placeholder: '¿Qué día quieres agendar tu cita para {service_name}?',
+  },
+  {
+    key: 'ask_time_message',
+    label: 'Mensaje para solicitar hora',
+    placeholder: 'Selecciona un horario disponible para {service_name}.',
+  },
+  {
+    key: 'confirm_message',
+    label: 'Mensaje de confirmación',
+    placeholder: 'Hola {client_name}, tu cita para {service_name} quedó programada para el {date} a las {time}.',
+  },
+  {
+    key: 'unavailable_message',
+    label: 'Mensaje de horario no disponible',
+    placeholder: 'Lo sentimos, ese horario no está disponible. Puedes elegir otro horario para {service_name}.',
+  },
+  {
+    key: 'plan_limit_public_message',
+    label: 'Mensaje público por agenda no disponible',
+    placeholder: 'En este momento {business_name} no puede recibir nuevas citas por este medio.',
+  },
+  {
+    key: 'reminder_30_message',
+    label: 'Recordatorio Premium 30 minutos antes',
+    placeholder: 'Te recordamos tu cita en {business_name} a las {time}. Te esperamos.',
+  },
+  {
+    key: 'reminder_15_message',
+    label: 'Recordatorio Premium 15 minutos antes',
+    placeholder: 'Tu cita para {service_name} será a las {time}. Te esperamos.',
+  },
+  {
+    key: 'cancel_message',
+    label: 'Mensaje de cancelación',
+    placeholder: 'Tu cita en {business_name} fue cancelada correctamente.',
+  },
+  {
+    key: 'goodbye_message',
+    label: 'Mensaje de despedida',
+    placeholder: 'Gracias por contactarnos. Te esperamos en {business_name}.',
+  },
 ]
 
 const OPTION_FIELDS = [
@@ -55,45 +111,99 @@ const ACTION_OPTIONS = [
 const DEFAULT_COMMANDS = [
   {
     command: '/start',
-    description: 'Iniciar reservas',
+    description: 'Inicia el proceso de agendamiento.',
     action_type: 'iniciar_agendamiento',
     message: 'Hola. Bienvenido a {business_name}. Vamos a agendar tu cita.',
     is_active: true,
   },
   {
     command: '/servicios',
-    description: 'Ver servicios',
+    description: 'Muestra los servicios activos del negocio.',
     action_type: 'mostrar_servicios',
     message: 'Estos son nuestros servicios disponibles:',
     is_active: true,
   },
   {
     command: '/horarios',
-    description: 'Ver horarios disponibles',
+    description: 'Muestra fechas u horarios disponibles.',
     action_type: 'mostrar_horarios',
     message: 'Estos son los próximos horarios disponibles:',
     is_active: true,
   },
   {
     command: '/citas',
-    description: 'Ver mis citas',
+    description: 'Permite consultar citas del cliente.',
     action_type: 'mostrar_citas_cliente',
     message: '',
     is_active: true,
   },
   {
     command: '/cancelar',
-    description: 'Cancelar una cita',
+    description: 'Permite cancelar una cita si el negocio lo permite.',
     action_type: 'cancelar_cita',
     message: 'Vamos a revisar tus citas activas para cancelar la que elijas.',
     is_active: true,
   },
   {
     command: '/ayuda',
-    description: 'Obtener ayuda',
+    description: 'Muestra instrucciones de uso del bot.',
     action_type: 'mostrar_ayuda',
     message: 'Puedes escribir /servicios para ver nuestros servicios o /start para agendar una cita.',
     is_active: true,
+  },
+]
+
+const BOT_VARIABLES = [
+  { variable: '{business_name}', meaning: 'Nombre del negocio', example: 'Barbería Centro Turnix' },
+  { variable: '{client_name}', meaning: 'Nombre del cliente', example: 'Juan Pérez' },
+  { variable: '{service_name}', meaning: 'Servicio seleccionado', example: 'Corte de cabello' },
+  { variable: '{date}', meaning: 'Fecha de la cita', example: '25/05/2026' },
+  { variable: '{time}', meaning: 'Hora de la cita', example: '4:30 p. m.' },
+  { variable: '{phone}', meaning: 'Teléfono del cliente', example: '300 123 4567' },
+  { variable: '{price}', meaning: 'Precio del servicio', example: '$18.000' },
+  { variable: '{duration}', meaning: 'Duración del servicio', example: '30 minutos' },
+  { variable: '{bot_name}', meaning: 'Nombre del bot', example: 'Turnix Barbería' },
+  { variable: '{business_phone}', meaning: 'Teléfono del negocio', example: '601 555 1234' },
+  { variable: '{business_address}', meaning: 'Dirección del negocio', example: 'Calle 10 # 8-20' },
+  { variable: '{appointment_status}', meaning: 'Estado de la cita', example: 'Confirmada' },
+]
+
+const COMMAND_GUIDE = [
+  {
+    command: '/start',
+    description: 'Inicia el proceso de agendamiento.',
+    action: 'Iniciar agendamiento',
+    message: 'Mensaje de bienvenida o mensaje asociado.',
+  },
+  {
+    command: '/servicios',
+    description: 'Muestra los servicios activos del negocio.',
+    action: 'Mostrar servicios',
+    message: 'Texto antes de listar los servicios.',
+  },
+  {
+    command: '/horarios',
+    description: 'Muestra fechas u horarios disponibles.',
+    action: 'Mostrar horarios',
+    message: 'Texto antes de listar los horarios.',
+  },
+  {
+    command: '/citas',
+    description: 'Permite consultar citas del cliente si está disponible.',
+    action: 'Mostrar citas del cliente',
+    message: 'Mensaje opcional para explicar la consulta.',
+  },
+  {
+    command: '/cancelar',
+    description: 'Permite cancelar una cita si el negocio lo permite.',
+    action: 'Cancelar cita',
+    message: 'Texto antes de mostrar las citas cancelables.',
+  },
+  {
+    command: '/ayuda',
+    description: 'Muestra instrucciones de uso del bot.',
+    action: 'Mostrar ayuda',
+    message: 'Mensaje con instrucciones rápidas.',
   },
 ]
 
@@ -161,13 +271,17 @@ function toForm(config) {
 function renderTemplate(text, fallback) {
   const values = {
     business_name: 'Barbería Centro Turnix',
+    bot_name: 'Bot Turnix',
     service_name: 'Corte de cabello',
-    date: '2026-06-01',
-    time: '10:00',
-    client_name: 'Cliente Prueba',
-    phone: '3001234567',
+    date: '25/05/2026',
+    time: '4:30 p. m.',
+    client_name: 'Juan Pérez',
+    phone: '300 123 4567',
     price: '$18.000',
-    duration: '30 min',
+    duration: '30 minutos',
+    business_phone: '601 555 1234',
+    business_address: 'Calle 10 # 8-20',
+    appointment_status: 'Confirmada',
   }
   return (text || '').replace(/\{(\w+)\}/g, (_, key) => values[key] ?? `{${key}}`) || fallback
 }
@@ -412,6 +526,27 @@ export default function TelegramConfig() {
     }
   }
 
+  const copyText = async (text, successMessage = 'Texto copiado.') => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        const textArea = document.createElement('textarea')
+        textArea.value = text
+        textArea.setAttribute('readonly', '')
+        textArea.style.position = 'fixed'
+        textArea.style.opacity = '0'
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+      }
+      setFeedback({ type: 'success', msg: successMessage })
+    } catch {
+      setFeedback({ type: 'error', msg: 'No fue posible copiar el texto.' })
+    }
+  }
+
   const statusInfo = STATUS_MAP[config?.connection_status] || STATUS_MAP.not_connected
   const listenerInfo = LISTENER_STATUS_MAP[config?.listener_status] || LISTENER_STATUS_MAP.inactive
   const previewLogo = removeLogo ? '' : (logoPreview || logoUrl(config))
@@ -586,6 +721,34 @@ export default function TelegramConfig() {
                 <h3>Comandos del bot</h3>
                 <button type="button" className="btn btn-outline btn-sm" onClick={addCommand}>Agregar comando</button>
               </div>
+              <div className="bot-guide-panel bot-guide-panel--compact">
+                <div>
+                  <h4>Guía rápida de comandos</h4>
+                  <p>Estos comandos ayudan al cliente a navegar el bot sin escribir mensajes largos.</p>
+                </div>
+                <div className="table-responsive bot-guide-table-wrap">
+                  <table className="bot-guide-table">
+                    <thead>
+                      <tr>
+                        <th>Comando</th>
+                        <th>Descripción</th>
+                        <th>Acción</th>
+                        <th>Mensaje asociado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {COMMAND_GUIDE.map(item => (
+                        <tr key={item.command}>
+                          <td><code>{item.command}</code></td>
+                          <td>{item.description}</td>
+                          <td>{item.action}</td>
+                          <td>{item.message}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
               <div className="telegram-command-list">
                 {form.bot_commands.map((command, index) => (
                   <div className="telegram-command-row" key={`${command.command}-${index}`}>
@@ -652,11 +815,56 @@ export default function TelegramConfig() {
             <div className="section-spacing surface-grid surface-grid--split">
               <div className="card">
                 <h3 className="panel-heading">Mensajes del bot</h3>
+                <details className="bot-variable-guide" open>
+                  <summary>Variables disponibles para mensajes</summary>
+                  <p>
+                    Puedes usar estas variables dentro de los mensajes. Turnix las reemplazará automáticamente
+                    con la información real de la cita, el cliente o el negocio.
+                  </p>
+                  <div className="table-responsive bot-guide-table-wrap">
+                    <table className="bot-guide-table">
+                      <thead>
+                        <tr>
+                          <th>Variable</th>
+                          <th>Se reemplaza por</th>
+                          <th>Ejemplo</th>
+                          <th>Copiar</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {BOT_VARIABLES.map(item => (
+                          <tr key={item.variable}>
+                            <td><code>{item.variable}</code></td>
+                            <td>{item.meaning}</td>
+                            <td>{item.example}</td>
+                            <td>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-sm"
+                                onClick={() => copyText(item.variable, `${item.variable} copiada.`)}
+                              >
+                                Copiar
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </details>
                 <div className="surface-grid surface-grid--split">
-                  {MESSAGE_FIELDS.map(({ key, label }) => (
+                  {MESSAGE_FIELDS.map(({ key, label, placeholder }) => (
                     <div className="form-group form-group-spaced" key={key}>
                       <label>{label}</label>
-                      <textarea className="form-textarea" name={key} value={form[key] || ''} onChange={handleChange} rows={2} />
+                      <textarea
+                        className="form-textarea"
+                        name={key}
+                        value={form[key] || ''}
+                        onChange={handleChange}
+                        rows={2}
+                        placeholder={placeholder}
+                      />
+                      <small className="form-help">Puedes incluir variables como <code>{'{business_name}'}</code> o <code>{'{service_name}'}</code>.</small>
                     </div>
                   ))}
                 </div>

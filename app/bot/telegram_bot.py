@@ -14,7 +14,6 @@ import logging
 import os
 import re
 import sys
-from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -46,6 +45,7 @@ from app.models.tenant import Tenant
 from app.repositories import appointment_repository
 from app.schemas.appointment import AppointmentCreate
 from app.services.availability_service import format_date_label, format_time_label, get_available_dates, get_available_slots
+from app.services.bot_message_renderer import build_bot_message_context, render_bot_message
 from app.services.plan_usage_service import INTERNAL_LIMIT_MESSAGE, can_create_appointment
 from app.services.telegram_token_service import decrypt_token
 
@@ -60,42 +60,42 @@ NO_SERVICES_MESSAGE = "Este negocio aún no tiene servicios disponibles para age
 DEFAULT_COMMANDS: list[dict[str, Any]] = [
     {
         "command": "/start",
-        "description": "Iniciar reservas",
+        "description": "Inicia el proceso de agendamiento.",
         "action_type": "iniciar_agendamiento",
         "message": "Hola. Bienvenido a {business_name}. Vamos a agendar tu cita.",
         "is_active": True,
     },
     {
         "command": "/servicios",
-        "description": "Ver servicios",
+        "description": "Muestra los servicios activos del negocio.",
         "action_type": "mostrar_servicios",
         "message": "Estos son nuestros servicios disponibles:",
         "is_active": True,
     },
     {
         "command": "/horarios",
-        "description": "Ver horarios disponibles",
+        "description": "Muestra fechas u horarios disponibles.",
         "action_type": "mostrar_horarios",
         "message": "Estos son los próximos horarios disponibles:",
         "is_active": True,
     },
     {
         "command": "/citas",
-        "description": "Ver mis citas",
+        "description": "Permite consultar citas del cliente.",
         "action_type": "mostrar_citas_cliente",
         "message": None,
         "is_active": True,
     },
     {
         "command": "/cancelar",
-        "description": "Cancelar una cita",
+        "description": "Permite cancelar una cita si el negocio lo permite.",
         "action_type": "cancelar_cita",
         "message": "Vamos a revisar tus citas activas para cancelar la que elijas.",
         "is_active": True,
     },
     {
         "command": "/ayuda",
-        "description": "Obtener ayuda",
+        "description": "Muestra instrucciones de uso del bot.",
         "action_type": "mostrar_ayuda",
         "message": "Puedes escribir /servicios para ver nuestros servicios o /start para agendar una cita.",
         "is_active": True,
@@ -119,16 +119,8 @@ UNKNOWN_MESSAGE = "No entendí tu mensaje. Puedes usar /start para agendar una c
 CONFLICT_MESSAGE = "Este bot ya está siendo escuchado por otro proceso. Cierra el proceso anterior o reinicia el backend."
 
 
-class SafeDict(defaultdict):
-    def __missing__(self, key):
-        return "{" + key + "}"
-
-
 def _format_message(template: Optional[str], values: dict[str, Any]) -> str:
-    try:
-        return (template or "").format_map(SafeDict(str, {k: "" if v is None else v for k, v in values.items()}))
-    except Exception:
-        return template or ""
+    return render_bot_message(template, values)
 
 
 def _normalize_command_name(command: str) -> str:
@@ -308,18 +300,22 @@ def _client_needs_name(client: Client) -> bool:
     return not client.full_name or client.full_name.strip() in {"Cliente Telegram", "Telegram"}
 
 
-def _variables(tenant: Tenant, config: TelegramConfig, client: Optional[Client] = None, service: Optional[Service] = None, extra=None):
-    extra = extra or {}
-    return {
-        "business_name": tenant.name if tenant else "",
-        "service_name": service.name if service else extra.get("service_name", ""),
-        "date": extra.get("date", ""),
-        "time": extra.get("time", ""),
-        "client_name": client.full_name if client else extra.get("client_name", ""),
-        "phone": client.phone if client else extra.get("phone", ""),
-        "price": f"${int(service.price):,}" if service else extra.get("price", ""),
-        "duration": f"{service.duration_minutes} min" if service else extra.get("duration", ""),
-    }
+def _variables(
+    tenant: Tenant,
+    config: TelegramConfig,
+    client: Optional[Client] = None,
+    service: Optional[Service] = None,
+    extra=None,
+    appointment: Optional[Appointment] = None,
+):
+    return build_bot_message_context(
+        tenant=tenant,
+        config=config,
+        client=client,
+        service=service,
+        appointment=appointment,
+        extra=extra,
+    )
 
 
 def _get_or_create_client(db, update: Update, tenant_id: int) -> Client:
@@ -765,7 +761,8 @@ async def _create_appointment(update: Update, context: ContextTypes.DEFAULT_TYPE
         config,
         client,
         service,
-        {"date": context.user_data["selected_date"], "time": selected_time},
+        {"date": context.user_data["selected_date"], "time": selected_time, "appointment_status": appointment.status},
+        appointment=appointment,
     )
     await _reply(update, context, _format_message(config.confirm_message, values))
     if config.goodbye_message:

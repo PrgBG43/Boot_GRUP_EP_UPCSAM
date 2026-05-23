@@ -9,7 +9,6 @@ import asyncio
 import logging
 import os
 import sys
-from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -26,6 +25,7 @@ from app.models.message import Message
 from app.models.service import Service
 from app.models.telegram_config import TelegramConfig
 from app.models.tenant import Tenant
+from app.services.bot_message_renderer import build_bot_message_context, render_bot_message
 from app.services.telegram_token_service import decrypt_token
 
 logger = logging.getLogger(__name__)
@@ -37,29 +37,17 @@ DRY_RUN = os.getenv("TURNIX_REMINDER_DRY_RUN", "").strip().lower() in {"1", "tru
 RUN_ONCE = os.getenv("TURNIX_REMINDER_ONCE", "").strip().lower() in {"1", "true", "yes"}
 
 
-class SafeDict(defaultdict):
-    def __missing__(self, key):
-        return "{" + key + "}"
-
-
 def _format_message(template: Optional[str], values: dict[str, Any]) -> str:
-    try:
-        return (template or "").format_map(SafeDict(str, {k: "" if v is None else v for k, v in values.items()}))
-    except Exception:
-        return template or ""
+    return render_bot_message(template, values)
 
 
 def _values(tenant: Tenant, client: Client, service: Service, appointment: Appointment) -> dict[str, Any]:
-    return {
-        "business_name": tenant.name,
-        "service_name": service.name if service else "",
-        "date": str(appointment.appointment_date),
-        "time": appointment.start_time.strftime("%H:%M"),
-        "client_name": client.full_name if client else "",
-        "phone": client.phone if client else "",
-        "price": f"${int(service.price):,}" if service else "",
-        "duration": f"{service.duration_minutes} min" if service else "",
-    }
+    return build_bot_message_context(
+        tenant=tenant,
+        client=client,
+        service=service,
+        appointment=appointment,
+    )
 
 
 def _appointment_datetime(appointment: Appointment) -> datetime:

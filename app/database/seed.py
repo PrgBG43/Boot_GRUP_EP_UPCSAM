@@ -494,17 +494,17 @@ def _create_demo_data(db, plans, roles, locations):
             confirm_message="Tu cita ha sido confirmada. Te esperamos.",
             cancel_message="Tu cita ha sido cancelada.",
             bot_commands=(
-                '[{"command":"/start","description":"Iniciar reservas","action_type":"iniciar_agendamiento",'
+                '[{"command":"/start","description":"Inicia el proceso de agendamiento.","action_type":"iniciar_agendamiento",'
                 '"message":"Hola. Bienvenido a {business_name}. Vamos a agendar tu cita.","is_active":true},'
-                '{"command":"/servicios","description":"Ver servicios","action_type":"mostrar_servicios",'
+                '{"command":"/servicios","description":"Muestra los servicios activos del negocio.","action_type":"mostrar_servicios",'
                 '"message":"Estos son nuestros servicios disponibles:","is_active":true},'
-                '{"command":"/horarios","description":"Ver horarios disponibles","action_type":"mostrar_horarios",'
+                '{"command":"/horarios","description":"Muestra fechas u horarios disponibles.","action_type":"mostrar_horarios",'
                 '"message":"Estos son los próximos horarios disponibles:","is_active":true},'
-                '{"command":"/citas","description":"Ver mis citas","action_type":"mostrar_citas_cliente",'
+                '{"command":"/citas","description":"Permite consultar citas del cliente.","action_type":"mostrar_citas_cliente",'
                 '"message":null,"is_active":true},'
-                '{"command":"/cancelar","description":"Cancelar una cita","action_type":"cancelar_cita",'
+                '{"command":"/cancelar","description":"Permite cancelar una cita si el negocio lo permite.","action_type":"cancelar_cita",'
                 '"message":"Vamos a revisar tus citas activas para cancelar la que elijas.","is_active":true},'
-                '{"command":"/ayuda","description":"Obtener ayuda","action_type":"mostrar_ayuda",'
+                '{"command":"/ayuda","description":"Muestra instrucciones de uso del bot.","action_type":"mostrar_ayuda",'
                 '"message":"Puedes escribir /servicios para ver nuestros servicios o /start para agendar una cita.",'
                 '"is_active":true}]'
             ),
@@ -526,17 +526,17 @@ def _create_demo_data(db, plans, roles, locations):
         config.confirm_message = config.confirm_message or "Tu cita ha sido confirmada. Te esperamos."
         config.cancel_message = config.cancel_message or "Tu cita ha sido cancelada."
         config.bot_commands = config.bot_commands or (
-            '[{"command":"/start","description":"Iniciar reservas","action_type":"iniciar_agendamiento",'
+            '[{"command":"/start","description":"Inicia el proceso de agendamiento.","action_type":"iniciar_agendamiento",'
             '"message":"Hola. Bienvenido a {business_name}. Vamos a agendar tu cita.","is_active":true},'
-            '{"command":"/servicios","description":"Ver servicios","action_type":"mostrar_servicios",'
+            '{"command":"/servicios","description":"Muestra los servicios activos del negocio.","action_type":"mostrar_servicios",'
             '"message":"Estos son nuestros servicios disponibles:","is_active":true},'
-            '{"command":"/horarios","description":"Ver horarios disponibles","action_type":"mostrar_horarios",'
+            '{"command":"/horarios","description":"Muestra fechas u horarios disponibles.","action_type":"mostrar_horarios",'
             '"message":"Estos son los próximos horarios disponibles:","is_active":true},'
-            '{"command":"/citas","description":"Ver mis citas","action_type":"mostrar_citas_cliente",'
+            '{"command":"/citas","description":"Permite consultar citas del cliente.","action_type":"mostrar_citas_cliente",'
             '"message":null,"is_active":true},'
-            '{"command":"/cancelar","description":"Cancelar una cita","action_type":"cancelar_cita",'
+            '{"command":"/cancelar","description":"Permite cancelar una cita si el negocio lo permite.","action_type":"cancelar_cita",'
             '"message":"Vamos a revisar tus citas activas para cancelar la que elijas.","is_active":true},'
-            '{"command":"/ayuda","description":"Obtener ayuda","action_type":"mostrar_ayuda",'
+            '{"command":"/ayuda","description":"Muestra instrucciones de uso del bot.","action_type":"mostrar_ayuda",'
             '"message":"Puedes escribir /servicios para ver nuestros servicios o /start para agendar una cita.",'
             '"is_active":true}]'
         )
