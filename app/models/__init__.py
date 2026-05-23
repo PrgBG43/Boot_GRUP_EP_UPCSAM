@@ -12,4 +12,5 @@ from .service import Service
 from .conversation import Conversation
 from .appointment import Appointment
 from .message import Message
+from .support import SupportTicket, SupportTicketMessage
 

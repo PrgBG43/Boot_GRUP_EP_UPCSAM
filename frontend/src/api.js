@@ -162,11 +162,25 @@ export const api = {
   getConversations: (params) => request(`/conversations/?${new URLSearchParams(params || {})}`),
   getConversation: (id) => request(`/conversations/${id}`),
   getMessages: (id) => request(`/conversations/${id}/messages`),
+  sendConversationMessage: (id, content) => request(`/conversations/${id}/reply`, {
+    method: 'POST',
+    body: JSON.stringify({ content }),
+  }),
 
-  getSuperadminDashboard: () => request('/dashboard/superadmin'),
-  getTenantDashboard: (tenantId) => {
-    const qs = tenantId ? `?tenant_id=${tenantId}` : ''
-    return request(`/dashboard/tenant${qs}`)
+  getSupportTickets: (params) => request(`/support/tickets?${new URLSearchParams(params || {})}`),
+  getSupportTicket: (id) => request(`/support/tickets/${id}`),
+  createSupportTicket: (data) => request('/support/tickets', { method: 'POST', body: JSON.stringify(data) }),
+  updateSupportTicket: (id, data) => request(`/support/tickets/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  addSupportTicketMessage: (id, data) => request(`/support/tickets/${id}/messages`, { method: 'POST', body: JSON.stringify(data) }),
+  closeSupportTicket: (id) => request(`/support/tickets/${id}/close`, { method: 'POST' }),
+  reopenSupportTicket: (id) => request(`/support/tickets/${id}/reopen`, { method: 'POST' }),
+
+  getSuperadminDashboard: (params = {}) => request(`/dashboard/superadmin?${new URLSearchParams(params || {})}`),
+  getTenantDashboard: (tenantId, params = {}) => {
+    const query = new URLSearchParams(params || {})
+    if (tenantId) query.set('tenant_id', tenantId)
+    const qs = query.toString()
+    return request(`/dashboard/tenant${qs ? `?${qs}` : ''}`)
   },
   getStaffDashboard: () => request('/dashboard/staff'),
 

@@ -1,12 +1,14 @@
 ﻿import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
+import BusinessAccordion from '../components/BusinessAccordion.jsx'
+import { groupByBusiness } from '../utils/businessGroups.js'
 import { statusBadgeClass, statusLabel } from '../utils/labels.js'
 
 const asItems = data => data?.items || data || []
 
 export default function Appointments() {
-  const { user, isSuperadmin, isStaff } = useAuth()
+  const { user, isSuperadmin, isStaff, activeTenantId } = useAuth()
   const [appointments,  setAppointments]  = useState([])
   const [services,      setServices]      = useState([])
   const [clients,       setClients]       = useState([])
@@ -19,14 +21,13 @@ export default function Appointments() {
   const [feedback,      setFeedback]      = useState(null)
   const [filterDate,    setFilterDate]    = useState('')
   const [filterStatus,  setFilterStatus]  = useState('')
-  const [filterTenant,  setFilterTenant]  = useState('')
   const [search,        setSearch]        = useState('')
   const [page,          setPage]          = useState(1)
   const [pagination,    setPagination]    = useState({ total: 0, page: 1, page_size: 20, pages: 0 })
   const [lastUpdated,   setLastUpdated]   = useState(null)
 
   const emptyForm = () => ({
-    tenant_id:        isSuperadmin ? '' : (user?.tenant_id || ''),
+    tenant_id:        isSuperadmin ? (activeTenantId || '') : (user?.tenant_id || ''),
     service_id:       '',
     client_id:        '',
     appointment_date: '',
@@ -39,10 +40,11 @@ export default function Appointments() {
     const params = { page, page_size: 20 }
     if (filterDate)   params.date      = filterDate
     if (filterStatus) params.status    = filterStatus
-    if (isSuperadmin && filterTenant) params.tenant_id = filterTenant
+    if (isSuperadmin && activeTenantId) params.tenant_id = activeTenantId
     if (search.trim()) params.search = search.trim()
 
-    const calls = [api.getAppointments(params), api.getServices({ page_size: 100 }), api.getClients({ page_size: 100 })]
+    const relatedParams = activeTenantId ? { page_size: 100, tenant_id: activeTenantId } : { page_size: 100 }
+    const calls = [api.getAppointments(params), api.getServices(relatedParams), api.getClients(relatedParams)]
     if (isSuperadmin) calls.push(api.getBusinesses({ page_size: 100 }))
 
     Promise.all(calls)
@@ -65,11 +67,12 @@ export default function Appointments() {
     load()
     const timer = setInterval(load, 10000)
     return () => clearInterval(timer)
-  }, [filterDate, filterStatus, filterTenant, page])
+  }, [filterDate, filterStatus, activeTenantId, page])
   useEffect(() => {
     const timer = setTimeout(() => { setPage(1); load() }, 350)
     return () => clearTimeout(timer)
   }, [search])  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(1) }, [activeTenantId])
 
   const clientName   = id => clients.find(c => c.id === id)?.full_name || `#${id}`
   const serviceName  = id => services.find(s => s.id === id)?.name     || `#${id}`
@@ -109,6 +112,66 @@ export default function Appointments() {
     try { await api.markNoShowAppointment(id); load() } catch (e) { setFeedback({ type: 'error', msg: e.message }) }
   }
 
+  const groupedAppointments = isSuperadmin && !activeTenantId ? groupByBusiness(appointments, businesses) : []
+
+  const renderAppointmentsTable = (items, showBusinessColumn = isSuperadmin && !!activeTenantId) => (
+    <div className="table-responsive">
+      <table className="data-table appointments-table">
+        <thead>
+          <tr>
+            {showBusinessColumn && <th>Negocio</th>}
+            <th>Fecha</th>
+            <th>Hora</th>
+            <th>Cliente</th>
+            <th>Servicio</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map(a => (
+            <tr key={a.id}>
+              {showBusinessColumn && <td><span className="cell-main">{businessName(a.tenant_id)}</span></td>}
+              <td className="cell-nowrap">{a.appointment_date}</td>
+              <td className="cell-nowrap">{a.start_time?.slice(0, 5)}</td>
+              <td><span className="cell-main">{clientName(a.client_id)}</span></td>
+              <td className="cell-nowrap">{serviceName(a.service_id)}</td>
+              <td>
+                <span className={`badge ${statusBadgeClass(a.status)}`}>
+                  {statusLabel(a.status)}
+                </span>
+              </td>
+              <td className="cell-actions">
+                <div className="table-actions">
+                  {!isStaff && ['pending', 'confirmed'].includes(a.status) && (
+                    <button className="btn btn-success btn-sm" onClick={() => handleComplete(a.id)}>
+                      Completar
+                    </button>
+                  )}
+                  {!isStaff && !['cancelled', 'completed'].includes(a.status) && (
+                    <button className="btn btn-danger btn-sm" onClick={() => handleCancel(a.id)}>
+                      Cancelar
+                    </button>
+                  )}
+                  {!isStaff && ['pending', 'confirmed'].includes(a.status) && (
+                    <button className="btn btn-outline btn-sm" onClick={() => handleNoShow(a.id)}>
+                      No asistió
+                    </button>
+                  )}
+                  {isStaff && a.status === 'confirmed' && (
+                    <button className="btn btn-success btn-sm" onClick={() => handleComplete(a.id)}>
+                      Completar
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+
   if (loading) return <div className="spinner" />
   if (error)   return <div className="alert alert-error">Error: {error}</div>
 
@@ -128,7 +191,7 @@ export default function Appointments() {
           <h1>Citas</h1>
           <p>
             {isSuperadmin
-              ? 'Todas las citas de la plataforma'
+              ? activeTenantId ? 'Citas del negocio seleccionado' : 'Citas agrupadas por negocio'
               : `Citas de ${user?.tenant_name || 'tu negocio'}`}
           </p>
         </div>
@@ -166,20 +229,10 @@ export default function Appointments() {
             <option value="completed">Completada</option>
             <option value="no_show">No asistió</option>
           </select>
-          {isSuperadmin && (
-            <select
-              value={filterTenant}
-              onChange={e => { setPage(1); setFilterTenant(e.target.value) }}
-              className="filter-select"
-            >
-              <option value="">Todos los negocios</option>
-              {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          )}
         </div>
-        {(search || filterDate || filterStatus || filterTenant) && (
+        {(search || filterDate || filterStatus) && (
           <div className="action-group">
-            <button type="button" className="btn btn-outline" onClick={() => { setSearch(''); setFilterDate(''); setFilterStatus(''); setFilterTenant(''); setPage(1) }}>
+            <button type="button" className="btn btn-outline" onClick={() => { setSearch(''); setFilterDate(''); setFilterStatus(''); setPage(1) }}>
               Limpiar filtros
             </button>
           </div>
@@ -199,64 +252,18 @@ export default function Appointments() {
         {appointments.length === 0 ? (
           <div className="empty-state">
             <h2 className="empty-state-title">Sin citas para mostrar</h2>
-            <p className="empty-state-text">No hay citas{filterDate || filterStatus || filterTenant ? ' con los filtros aplicados.' : ' registradas.'}</p>
+            <p className="empty-state-text">No hay citas{filterDate || filterStatus || activeTenantId ? ' con los filtros aplicados.' : ' registradas.'}</p>
           </div>
+        ) : isSuperadmin && !activeTenantId ? (
+          <BusinessAccordion
+            groups={groupedAppointments}
+            itemLabel={{ singular: 'cita', plural: 'citas' }}
+            emptyTitle="Sin citas para mostrar"
+            emptyText="No hay citas registradas."
+            renderGroup={group => renderAppointmentsTable(group.items, false)}
+          />
         ) : (
-          <div className="table-responsive">
-            <table className="data-table appointments-table">
-            <thead>
-              <tr>
-                {isSuperadmin && <th>Negocio</th>}
-                <th>Fecha</th>
-                <th>Hora</th>
-                <th>Cliente</th>
-                <th>Servicio</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {appointments.map(a => (
-                <tr key={a.id}>
-                  {isSuperadmin && <td><span className="cell-main">{businessName(a.tenant_id)}</span></td>}
-                  <td className="cell-nowrap">{a.appointment_date}</td>
-                  <td className="cell-nowrap">{a.start_time?.slice(0, 5)}</td>
-                  <td><span className="cell-main">{clientName(a.client_id)}</span></td>
-                  <td className="cell-nowrap">{serviceName(a.service_id)}</td>
-                  <td>
-                    <span className={`badge ${statusBadgeClass(a.status)}`}>
-                      {statusLabel(a.status)}
-                    </span>
-                  </td>
-                  <td className="cell-actions">
-                    <div className="table-actions">
-                      {!isStaff && ['pending', 'confirmed'].includes(a.status) && (
-                        <button className="btn btn-success btn-sm" onClick={() => handleComplete(a.id)}>
-                          Completar
-                        </button>
-                      )}
-                      {!isStaff && !['cancelled', 'completed'].includes(a.status) && (
-                        <button className="btn btn-danger btn-sm" onClick={() => handleCancel(a.id)}>
-                          Cancelar
-                        </button>
-                      )}
-                      {!isStaff && ['pending', 'confirmed'].includes(a.status) && (
-                        <button className="btn btn-outline btn-sm" onClick={() => handleNoShow(a.id)}>
-                          No asistió
-                        </button>
-                      )}
-                      {isStaff && a.status === 'confirmed' && (
-                        <button className="btn btn-success btn-sm" onClick={() => handleComplete(a.id)}>
-                          Completar
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
+          renderAppointmentsTable(appointments, isSuperadmin)
         )}
       </div>
 
@@ -277,7 +284,7 @@ export default function Appointments() {
               {isSuperadmin && (
                 <div className="form-group">
                   <label>Negocio *</label>
-                  <select className="form-select" name="tenant_id" value={form.tenant_id} onChange={handleChange}>
+                  <select className="form-select" name="tenant_id" value={form.tenant_id} onChange={handleChange} disabled={!!activeTenantId}>
                     <option value="">Selecciona un negocio</option>
                     {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>

@@ -1,14 +1,15 @@
 ﻿import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
+import BusinessAccordion from '../components/BusinessAccordion.jsx'
+import { groupByBusiness } from '../utils/businessGroups.js'
 
 const asItems = data => data?.items || data || []
 
 export default function Clients() {
-  const { user, isSuperadmin } = useAuth()
+  const { user, isSuperadmin, activeTenantId } = useAuth()
   const [clients,    setClients]    = useState([])
   const [businesses, setBusinesses] = useState([])
-  const [filterTenant, setFilterTenant] = useState('')
   const [loading,    setLoading]    = useState(true)
   const [error,      setError]      = useState(null)
   const [modal,      setModal]      = useState(false)
@@ -25,7 +26,7 @@ export default function Clients() {
     setLoading(true)
     try {
       const params = { page, page_size: 20 }
-      if (isSuperadmin && filterTenant) params.tenant_id = filterTenant
+      if (isSuperadmin && activeTenantId) params.tenant_id = activeTenantId
       if (search.trim()) params.search = search.trim()
       const [c, b] = await Promise.all([
         api.getClients(params),
@@ -45,17 +46,18 @@ export default function Clients() {
     load()
     const timer = setInterval(load, 10000)
     return () => clearInterval(timer)
-  }, [filterTenant, page])
+  }, [activeTenantId, page])
   useEffect(() => {
     const timer = setTimeout(() => { setPage(1); load() }, 350)
     return () => clearTimeout(timer)
   }, [search])  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(1) }, [activeTenantId])
 
   const businessName = (tid) => businesses.find(b => b.id === tid)?.name || `Negocio #${tid}`
 
-  const filtered = clients
+  const groupedClients = isSuperadmin && !activeTenantId ? groupByBusiness(clients, businesses) : []
 
-  const emptyForm = () => ({ full_name: '', username: '', phone: '', telegram_user_id: '' })
+  const emptyForm = () => ({ tenant_id: activeTenantId || '', full_name: '', username: '', phone: '', telegram_user_id: '' })
 
   const openCreate = () => {
     setForm(emptyForm())
@@ -65,7 +67,7 @@ export default function Clients() {
   }
 
   const openEdit = c => {
-    setForm({ full_name: c.full_name, username: c.username || '', phone: c.phone || '', telegram_user_id: c.telegram_user_id || '' })
+    setForm({ tenant_id: c.tenant_id || '', full_name: c.full_name, username: c.username || '', phone: c.phone || '', telegram_user_id: c.telegram_user_id || '' })
     setEditing(c.id)
     setModal(true)
     setFeedback(null)
@@ -79,12 +81,11 @@ export default function Clients() {
     setFeedback(null)
     try {
       if (editing) {
-        await api.updateClient(editing, form)
+        const { tenant_id, ...payload } = form
+        await api.updateClient(editing, payload)
       } else {
-        // tenant_id: superadmin usa el filtro seleccionado o debe elegirlo,
-        // tenant_admin usa su propio tenant (el backend lo fuerza)
         const payload = { ...form }
-        if (isSuperadmin && filterTenant) payload.tenant_id = parseInt(filterTenant)
+        if (isSuperadmin) payload.tenant_id = parseInt(form.tenant_id)
         await api.createClient(payload)
       }
       setModal(false)
@@ -94,6 +95,41 @@ export default function Clients() {
     }
     setSaving(false)
   }
+
+  const renderClientsTable = (items, showBusinessColumn = isSuperadmin && !!activeTenantId) => (
+    <div className="table-responsive">
+      <table className="data-table clients-table">
+        <thead>
+          <tr>
+            {showBusinessColumn && <th>Negocio</th>}
+            <th>Nombre</th>
+            <th>Usuario Telegram</th>
+            <th>Teléfono</th>
+            <th>ID Telegram</th>
+            <th>Registrado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map(c => (
+            <tr key={c.id}>
+              {showBusinessColumn && <td><span className="cell-main">{businessName(c.tenant_id)}</span></td>}
+              <td><span className="cell-main">{c.full_name}</span></td>
+              <td className="cell-nowrap">{c.username ? `@${c.username}` : '-'}</td>
+              <td className="cell-nowrap">{c.phone || '-'}</td>
+              <td className="cell-nowrap">{c.telegram_user_id || '-'}</td>
+              <td className="cell-nowrap">{c.created_at ? new Date(c.created_at).toLocaleDateString('es-CO') : '-'}</td>
+              <td className="cell-actions">
+                <div className="table-actions">
+                  <button className="btn btn-outline btn-sm" onClick={() => openEdit(c)}>Editar</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 
   if (loading) return <div className="spinner" />
   if (error)   return <div className="alert alert-error">Error: {error}</div>
@@ -105,7 +141,7 @@ export default function Clients() {
           <h1>Clientes finales</h1>
           <p>
             {isSuperadmin
-              ? 'Clientes registrados en todos los negocios'
+              ? activeTenantId ? 'Clientes del negocio seleccionado' : 'Clientes agrupados por negocio'
               : `Clientes de ${user?.tenant_name || 'tu negocio'}`}
           </p>
         </div>
@@ -125,20 +161,10 @@ export default function Clients() {
             onChange={e => setSearch(e.target.value)}
             className="search-input"
           />
-          {isSuperadmin && (
-            <select
-              value={filterTenant}
-              onChange={e => { setPage(1); setFilterTenant(e.target.value) }}
-              className="filter-select"
-            >
-              <option value="">Todos los negocios</option>
-              {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
-          )}
         </div>
-        {(search || filterTenant) && (
+        {search && (
           <div className="action-group">
-            <button type="button" className="btn btn-outline" onClick={() => { setSearch(''); setFilterTenant(''); setPage(1) }}>
+            <button type="button" className="btn btn-outline" onClick={() => { setSearch(''); setPage(1) }}>
               Limpiar filtros
             </button>
           </div>
@@ -155,44 +181,21 @@ export default function Clients() {
       )}
 
       <div className="table-card">
-        {filtered.length === 0 ? (
+        {clients.length === 0 ? (
           <div className="empty-state">
             <h2 className="empty-state-title">Sin clientes para mostrar</h2>
-            <p className="empty-state-text">No hay clientes{search || filterTenant ? ' con los filtros aplicados.' : ' registrados.'}</p>
+            <p className="empty-state-text">No hay clientes{search || activeTenantId ? ' con los filtros aplicados.' : ' registrados.'}</p>
           </div>
+        ) : isSuperadmin && !activeTenantId ? (
+          <BusinessAccordion
+            groups={groupedClients}
+            itemLabel={{ singular: 'cliente', plural: 'clientes' }}
+            emptyTitle="Sin clientes para mostrar"
+            emptyText="No hay clientes registrados."
+            renderGroup={group => renderClientsTable(group.items, false)}
+          />
         ) : (
-          <div className="table-responsive">
-            <table className="data-table clients-table">
-              <thead>
-              <tr>
-                {isSuperadmin && <th>Negocio</th>}
-                <th>Nombre</th>
-                <th>Usuario Telegram</th>
-                <th>Teléfono</th>
-                <th>ID Telegram</th>
-                <th>Registrado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map(c => (
-                <tr key={c.id}>
-                  {isSuperadmin && <td><span className="cell-main">{businessName(c.tenant_id)}</span></td>}
-                  <td><span className="cell-main">{c.full_name}</span></td>
-                  <td className="cell-nowrap">{c.username ? `@${c.username}` : '—'}</td>
-                  <td className="cell-nowrap">{c.phone || '—'}</td>
-                  <td className="cell-nowrap">{c.telegram_user_id || '—'}</td>
-                  <td className="cell-nowrap">{c.created_at ? new Date(c.created_at).toLocaleDateString('es-CO') : '—'}</td>
-                  <td className="cell-actions">
-                    <div className="table-actions">
-                      <button className="btn btn-outline btn-sm" onClick={() => openEdit(c)}>Editar</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
+          renderClientsTable(clients, isSuperadmin)
         )}
       </div>
 
@@ -204,12 +207,16 @@ export default function Clients() {
               <button className="modal-close" onClick={() => setModal(false)}>×</button>
             </div>
             {feedback && <div className={`alert alert-${feedback.type}`}>{feedback.msg}</div>}
-            {isSuperadmin && !editing && !filterTenant && (
-              <div className="alert alert-error modal-alert">
-                Selecciona un negocio en el filtro antes de crear un cliente.
-              </div>
-            )}
             <form onSubmit={handleSubmit} className="modal-form" noValidate>
+              {isSuperadmin && !editing && (
+                <div className="form-group">
+                  <label>Negocio *</label>
+                  <select className="form-select" name="tenant_id" value={form.tenant_id} onChange={handleChange} disabled={!!activeTenantId}>
+                    <option value="">Selecciona un negocio</option>
+                    {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="form-group">
                 <label>Nombre completo *</label>
                 <input className="form-input" name="full_name" value={form.full_name} onChange={handleChange} />
@@ -233,7 +240,7 @@ export default function Clients() {
                 <button
                   type="submit"
                   className="btn btn-primary"
-                  disabled={saving || (isSuperadmin && !editing && !filterTenant)}
+                  disabled={saving || (isSuperadmin && !editing && !form.tenant_id)}
                 >
                   {saving ? 'Guardando...' : 'Guardar'}
                 </button>

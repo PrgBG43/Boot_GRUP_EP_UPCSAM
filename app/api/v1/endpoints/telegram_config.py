@@ -614,9 +614,9 @@ async def update_internal_logo(
     tid = _get_tenant_id(current_user, tenant_id)
     config = _get_or_create_config(db, tid)
 
-    allowed_types = {"image/jpeg", "image/jpg"}
+    allowed_types = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
     if logo.content_type not in allowed_types:
-        raise HTTPException(status_code=400, detail="Usa una imagen JPG para actualizar la foto del bot.")
+        raise HTTPException(status_code=400, detail="Usa una imagen JPG, PNG o WebP para actualizar la foto del bot.")
 
     content = await logo.read()
     if len(content) > 5 * 1024 * 1024:

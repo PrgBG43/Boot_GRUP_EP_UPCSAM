@@ -1,11 +1,13 @@
 ﻿import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
+import BusinessAccordion from '../components/BusinessAccordion.jsx'
+import { groupByBusiness } from '../utils/businessGroups.js'
 
 const asItems = data => data?.items || data || []
 
 export default function Services() {
-  const { user, isSuperadmin } = useAuth()
+  const { user, isSuperadmin, activeTenantId } = useAuth()
   const [services, setServices]   = useState([])
   const [businesses, setBusinesses] = useState([])
   const [loading, setLoading]     = useState(true)
@@ -21,7 +23,7 @@ export default function Services() {
   const [pagination, setPagination] = useState({ total: 0, page: 1, page_size: 20, pages: 0 })
 
   const emptyForm = () => ({
-    tenant_id: isSuperadmin ? '' : user?.tenant_id,
+    tenant_id: isSuperadmin ? (activeTenantId || '') : user?.tenant_id,
     name: '', description: '', duration_minutes: 30, price: '', is_active: true,
   })
 
@@ -30,6 +32,7 @@ export default function Services() {
     const params = { page, page_size: 20 }
     if (search.trim()) params.search = search.trim()
     if (status) params.status = status
+    if (isSuperadmin && activeTenantId) params.tenant_id = activeTenantId
     const calls = [api.getServices(params)]
     if (isSuperadmin) calls.push(api.getBusinesses({ page_size: 100 }))
     Promise.all(calls)
@@ -42,11 +45,12 @@ export default function Services() {
       .catch(e => { setError(e.message); setLoading(false) })
   }
 
-  useEffect(load, [status, page])
+  useEffect(load, [status, page, activeTenantId])
   useEffect(() => {
     const timer = setTimeout(() => { setPage(1); load() }, 350)
     return () => clearTimeout(timer)
   }, [search])  // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setPage(1) }, [activeTenantId])
 
   const openCreate = () => { setForm(emptyForm()); setEditing(null); setModal(true); setFeedback(null) }
   const openEdit   = (s) => {
@@ -81,6 +85,53 @@ export default function Services() {
   }
 
   const businessName = (id) => businesses.find(b => b.id === id)?.name || `Negocio #${id}`
+  const groupedServices = isSuperadmin && !activeTenantId ? groupByBusiness(services, businesses) : []
+
+  const renderServicesTable = (items, showBusinessColumn = isSuperadmin && !!activeTenantId) => (
+    <div className="table-responsive">
+      <table className="data-table services-table">
+        <thead>
+          <tr>
+            {showBusinessColumn && <th>Negocio</th>}
+            <th>Nombre</th>
+            <th>Duración</th>
+            <th>Precio</th>
+            <th>Estado</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map(s => (
+            <tr key={s.id}>
+              {showBusinessColumn && <td><span className="cell-main">{businessName(s.tenant_id)}</span></td>}
+              <td>
+                <span className="cell-main">{s.name}</span>
+                {s.description && <span className="cell-muted">{s.description}</span>}
+              </td>
+              <td className="cell-nowrap">{s.duration_minutes} min</td>
+              <td className="cell-nowrap">${Number(s.price).toLocaleString('es-CO')}</td>
+              <td>
+                <span className={`badge ${s.is_active ? 'badge-success' : 'badge-neutral'}`}>
+                  {s.is_active ? 'Activo' : 'Inactivo'}
+                </span>
+              </td>
+              <td className="cell-actions">
+                <div className="table-actions">
+                  <button className="btn btn-outline btn-sm" onClick={() => openEdit(s)}>Editar</button>
+                  <button
+                    className={`btn btn-sm ${s.is_active ? 'btn-danger' : 'btn-success'}`}
+                    onClick={() => handleToggle(s)}
+                  >
+                    {s.is_active ? 'Desactivar' : 'Activar'}
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 
   if (loading) return <div className="spinner" />
   if (error)   return <div className="alert alert-error">Error: {error}</div>
@@ -90,7 +141,7 @@ export default function Services() {
       <div className="page-header">
         <div>
           <h1>Servicios</h1>
-          <p>Gestiona los servicios ofrecidos por el negocio</p>
+          <p>{isSuperadmin && !activeTenantId ? 'Servicios agrupados por negocio' : 'Gestiona los servicios ofrecidos por el negocio'}</p>
         </div>
         <button className="btn btn-primary" onClick={openCreate}>+ Nuevo servicio</button>
       </div>
@@ -113,50 +164,16 @@ export default function Services() {
             <p className="empty-state-text">Crea el primer servicio para habilitar la agenda del negocio.</p>
             <button className="btn btn-primary empty-state-action" onClick={openCreate}>Crear primer servicio</button>
           </div>
+        ) : isSuperadmin && !activeTenantId ? (
+          <BusinessAccordion
+            groups={groupedServices}
+            itemLabel={{ singular: 'servicio', plural: 'servicios' }}
+            emptyTitle="Sin servicios registrados"
+            emptyText="Crea el primer servicio para habilitar la agenda del negocio."
+            renderGroup={group => renderServicesTable(group.items, false)}
+          />
         ) : (
-          <div className="table-responsive">
-            <table className="data-table services-table">
-              <thead>
-              <tr>
-                {isSuperadmin && <th>Negocio</th>}
-                <th>Nombre</th>
-                <th>Duración</th>
-                <th>Precio</th>
-                <th>Estado</th>
-                <th>Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {services.map(s => (
-                <tr key={s.id}>
-                  {isSuperadmin && <td><span className="cell-main">{businessName(s.tenant_id)}</span></td>}
-                  <td>
-                    <span className="cell-main">{s.name}</span>
-                    {s.description && <span className="cell-muted">{s.description}</span>}
-                  </td>
-                  <td className="cell-nowrap">{s.duration_minutes} min</td>
-                  <td className="cell-nowrap">${Number(s.price).toLocaleString('es-CO')}</td>
-                  <td>
-                    <span className={`badge ${s.is_active ? 'badge-success' : 'badge-neutral'}`}>
-                      {s.is_active ? 'Activo' : 'Inactivo'}
-                    </span>
-                  </td>
-                  <td className="cell-actions">
-                    <div className="table-actions">
-                      <button className="btn btn-outline btn-sm" onClick={() => openEdit(s)}>Editar</button>
-                      <button
-                        className={`btn btn-sm ${s.is_active ? 'btn-danger' : 'btn-success'}`}
-                        onClick={() => handleToggle(s)}
-                      >
-                        {s.is_active ? 'Desactivar' : 'Activar'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
+          renderServicesTable(services, isSuperadmin)
         )}
       </div>
 
@@ -181,7 +198,7 @@ export default function Services() {
               {isSuperadmin && (
                 <div className="form-group">
                   <label>Negocio *</label>
-                  <select className="form-select" name="tenant_id" value={form.tenant_id} onChange={handleChange}>
+                  <select className="form-select" name="tenant_id" value={form.tenant_id} onChange={handleChange} disabled={!!activeTenantId}>
                     <option value="">Selecciona un negocio</option>
                     {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
@@ -212,7 +229,7 @@ export default function Services() {
             </form>
             <div className="modal-footer">
               <button type="button" className="btn btn-outline" onClick={() => setModal(false)}>Cancelar</button>
-              <button type="button" className="btn btn-primary" disabled={saving} onClick={handleSubmit}>
+              <button type="button" className="btn btn-primary" disabled={saving || (isSuperadmin && !form.tenant_id)} onClick={handleSubmit}>
                 {saving ? 'Guardando...' : 'Guardar'}
               </button>
             </div>

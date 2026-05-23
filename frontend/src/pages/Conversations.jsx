@@ -1,10 +1,15 @@
 ﻿import { useEffect, useState } from 'react'
 import api from '../api.js'
+import { useAuth } from '../context/AuthContext.jsx'
+import BusinessAccordion from '../components/BusinessAccordion.jsx'
+import { groupByBusiness } from '../utils/businessGroups.js'
 import { botStepLabel, channelLabel, statusBadgeClass, statusLabel } from '../utils/labels.js'
+import { useRef } from 'react'
 
 const asItems = data => data?.items || data || []
 
 export default function Conversations() {
+  const { isSuperadmin, activeTenantId } = useAuth()
   const [conversations, setConversations] = useState([])
   const [loading,       setLoading]       = useState(true)
   const [error,         setError]         = useState(null)
@@ -16,11 +21,16 @@ export default function Conversations() {
   const [page,          setPage]          = useState(1)
   const [pagination,    setPagination]    = useState({ total: 0, page: 1, page_size: 20, pages: 0 })
   const [lastUpdated,   setLastUpdated]   = useState(null)
+  const [replyText,     setReplyText]     = useState('')
+  const [sending,       setSending]       = useState(false)
+  const [messageError,  setMessageError]  = useState(null)
+  const messagesEndRef = useRef(null)
 
   const load = () => {
     const params = { page, page_size: 20 }
     if (search.trim()) params.search = search.trim()
     if (status) params.status = status
+    if (isSuperadmin && activeTenantId) params.tenant_id = activeTenantId
     api.getConversations(params)
       .then(c => {
         setConversations(asItems(c))
@@ -35,24 +45,107 @@ export default function Conversations() {
     load()
     const timer = setInterval(load, 10000)
     return () => clearInterval(timer)
-  }, [status, page])
+  }, [status, page, activeTenantId])
   useEffect(() => {
     const timer = setTimeout(() => { setPage(1); load() }, 350)
     return () => clearTimeout(timer)
   }, [search])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const openConversation = async (conv) => {
-    setSelected(conv)
-    setLoadingMsgs(true)
+  useEffect(() => {
+    setPage(1)
+    setSelected(null)
+    setMessages([])
+    setReplyText('')
+    setMessageError(null)
+  }, [activeTenantId])
+
+  const loadMessages = async (conv, { silent = false } = {}) => {
+    if (!conv) return
+    if (!silent) setLoadingMsgs(true)
     try {
       const msgs = await api.getMessages(conv.id)
       setMessages(msgs || [])
     } catch(e) {
-      setMessages([])
-      setError(e.message || 'No fue posible cargar los mensajes de la conversación.')
+      if (!silent) {
+        setMessages([])
+        setMessageError(e.message || 'No fue posible cargar los mensajes de la conversación.')
+      }
     }
-    setLoadingMsgs(false)
+    if (!silent) setLoadingMsgs(false)
   }
+
+  const openConversation = async (conv) => {
+    setSelected(conv)
+    setReplyText('')
+    setMessageError(null)
+    await loadMessages(conv)
+  }
+
+  useEffect(() => {
+    if (!selected) return undefined
+    const timer = setInterval(() => loadMessages(selected, { silent: true }), 3000)
+    return () => clearInterval(timer)
+  }, [selected]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [messages])
+
+  const handleSendMessage = async (event) => {
+    event.preventDefault()
+    const content = replyText.trim()
+    if (!selected || !content) return
+    setSending(true)
+    setMessageError(null)
+    try {
+      const sent = await api.sendConversationMessage(selected.id, content)
+      setMessages(prev => [...prev, sent])
+      setReplyText('')
+      load()
+    } catch (e) {
+      setMessageError(e.message || 'No fue posible enviar el mensaje.')
+    }
+    setSending(false)
+  }
+
+  const groupedConversations = isSuperadmin && !activeTenantId ? groupByBusiness(conversations) : []
+
+  const renderConversationsTable = (items, showBusinessColumn = isSuperadmin && !!activeTenantId) => (
+    <div className="table-responsive">
+      <table className="data-table conversations-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            {showBusinessColumn && <th>Negocio</th>}
+            <th>Cliente</th>
+            <th>Canal</th>
+            <th>Estado</th>
+            <th>Paso</th>
+            <th>Última interacción</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map(c => (
+            <tr key={c.id} className="clickable-row" onClick={() => openConversation(c)}>
+              <td className="cell-nowrap">#{c.id}</td>
+              {showBusinessColumn && <td className="cell-nowrap">{c.tenant_name || `#${c.tenant_id}`}</td>}
+              <td className="cell-nowrap">{c.client_name || `Chat ${c.chat_id}`}</td>
+              <td className="cell-nowrap">{channelLabel(c.channel)}</td>
+              <td><span className={`badge ${statusBadgeClass(c.status)}`}>{statusLabel(c.status)}</span></td>
+              <td className="cell-nowrap">{botStepLabel(c.current_step)}</td>
+              <td className="cell-nowrap">{c.last_interaction_at ? new Date(c.last_interaction_at).toLocaleString('es-CO') : '-'}</td>
+              <td className="cell-actions">
+                <div className="table-actions">
+                  <button className="btn btn-outline btn-sm" onClick={(e) => { e.stopPropagation(); openConversation(c) }}>Ver mensajes</button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
 
   if (loading) return <div className="spinner" />
   if (error)   return <div className="alert alert-error">Error: {error}</div>
@@ -62,7 +155,7 @@ export default function Conversations() {
       <div className="page-header">
         <div>
           <h1>Conversaciones</h1>
-          <p>Historial bidireccional de conversaciones de Telegram</p>
+          <p>{isSuperadmin && !activeTenantId ? 'Conversaciones agrupadas por negocio' : 'Historial bidireccional de conversaciones de Telegram'}</p>
         </div>
         <div className="header-actions">
           {lastUpdated && <span className="refresh-label">Actualizado hace unos segundos</span>}
@@ -88,50 +181,29 @@ export default function Conversations() {
               <h2 className="empty-state-title">Sin conversaciones registradas</h2>
               <p className="empty-state-text">Las conversaciones aparecerán aquí cuando los clientes interactúen por Telegram.</p>
             </div>
+          ) : isSuperadmin && !activeTenantId ? (
+            <BusinessAccordion
+              groups={groupedConversations}
+              itemLabel={{ singular: 'conversación', plural: 'conversaciones' }}
+              emptyTitle="Sin conversaciones registradas"
+              emptyText="Las conversaciones aparecerán aquí cuando los clientes interactúen por Telegram."
+              renderGroup={group => renderConversationsTable(group.items, false)}
+            />
           ) : (
-            <div className="table-responsive">
-            <table className="data-table conversations-table">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Negocio</th>
-                  <th>Cliente</th>
-                  <th>Canal</th>
-                  <th>Estado</th>
-                  <th>Paso</th>
-                  <th>Última interacción</th>
-                  <th>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {conversations.map(c => (
-                  <tr key={c.id} className="clickable-row" onClick={() => openConversation(c)}>
-                    <td className="cell-nowrap">#{c.id}</td>
-                    <td className="cell-nowrap">{c.tenant_name || `#${c.tenant_id}`}</td>
-                    <td className="cell-nowrap">{c.client_name || `Chat ${c.chat_id}`}</td>
-                    <td className="cell-nowrap">{channelLabel(c.channel)}</td>
-                    <td><span className={`badge ${statusBadgeClass(c.status)}`}>{statusLabel(c.status)}</span></td>
-                    <td className="cell-nowrap">{botStepLabel(c.current_step)}</td>
-                    <td className="cell-nowrap">{c.last_interaction_at ? new Date(c.last_interaction_at).toLocaleString('es-CO') : '-'}</td>
-                    <td className="cell-actions">
-                      <div className="table-actions">
-                        <button className="btn btn-outline btn-sm">Ver mensajes</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
+            renderConversationsTable(conversations, isSuperadmin)
           )}
         </div>
 
         {selected && (
           <div className="card">
             <div className="card-header-row">
-              <h3>Mensajes - Conversación #{selected.id}</h3>
+              <div>
+                <h3>Mensajes - Conversación #{selected.id}</h3>
+                <span className="chat-subtitle">{selected.client_name || `Chat ${selected.chat_id}`}</span>
+              </div>
               <button className="btn btn-outline btn-sm" onClick={() => setSelected(null)}>Cerrar</button>
             </div>
+            {messageError && <div className="alert alert-error alert-compact">{messageError}</div>}
             {loadingMsgs ? <div className="spinner" /> : (
               messages.length === 0 ? (
                 <div className="empty-state">
@@ -144,13 +216,29 @@ export default function Conversations() {
                     <div key={m.id} className={`message-bubble message-${m.direction}`}>
                       <div className="message-content">{m.content}</div>
                       <div className="message-meta">
-                        {m.direction === 'incoming' ? 'Cliente' : 'Bot'} - {m.created_at ? new Date(m.created_at).toLocaleTimeString('es-CO') : ''}
+                        {m.direction === 'incoming' ? 'Cliente' : 'Negocio'} - {m.created_at ? new Date(m.created_at).toLocaleTimeString('es-CO') : ''}
                       </div>
                     </div>
                   ))}
+                  <div ref={messagesEndRef} />
                 </div>
               )
             )}
+            <form className="reply-form" onSubmit={handleSendMessage}>
+              <textarea
+                className="form-textarea reply-input"
+                value={replyText}
+                onChange={e => setReplyText(e.target.value)}
+                rows={3}
+                placeholder="Escribe una respuesta para el cliente..."
+              />
+              <div className="reply-actions">
+                <span className="reply-hint">Se enviará por el bot de Telegram conectado al negocio.</span>
+                <button className="btn btn-primary" type="submit" disabled={sending || !replyText.trim()}>
+                  {sending ? 'Enviando...' : 'Enviar'}
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </div>

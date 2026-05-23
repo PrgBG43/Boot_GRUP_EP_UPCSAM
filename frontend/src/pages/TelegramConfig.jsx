@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
 import api from '../api.js'
 
@@ -196,6 +196,8 @@ export default function TelegramConfig() {
   const [logoFile, setLogoFile] = useState(null)
   const [logoPreview, setLogoPreview] = useState('')
   const [removeLogo, setRemoveLogo] = useState(false)
+  const [logoError, setLogoError] = useState(null)
+  const fileInputRef = useRef(null)
 
   const selectedBusiness = useMemo(
     () => businesses.find(item => item.id === Number(selectedTenant)),
@@ -220,6 +222,7 @@ export default function TelegramConfig() {
       setLogoFile(null)
       setLogoPreview('')
       setRemoveLogo(false)
+      setLogoError(null)
     } catch (err) {
       setFeedback({ type: 'error', msg: err.message })
     } finally {
@@ -251,6 +254,7 @@ export default function TelegramConfig() {
     setLogoFile(null)
     setLogoPreview('')
     setRemoveLogo(false)
+    setLogoError(null)
     if (tenantId) loadConfig(Number(tenantId))
   }
 
@@ -288,10 +292,22 @@ export default function TelegramConfig() {
   const handleLogoChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      setLogoError('Selecciona una imagen en formato JPG, PNG o WebP.')
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setLogoError('La imagen debe pesar máximo 5 MB.')
+      if (fileInputRef.current) fileInputRef.current.value = ''
+      return
+    }
     if (logoPreview) URL.revokeObjectURL(logoPreview)
     setLogoFile(file)
     setLogoPreview(URL.createObjectURL(file))
     setRemoveLogo(false)
+    setLogoError(null)
   }
 
   const handleRemoveLogo = () => {
@@ -299,6 +315,8 @@ export default function TelegramConfig() {
     setLogoFile(null)
     setLogoPreview('')
     setRemoveLogo(true)
+    setLogoError(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const refreshAfterConnection = async (message, waitForListener = false) => {
@@ -374,6 +392,8 @@ export default function TelegramConfig() {
       setLogoFile(null)
       setLogoPreview('')
       setRemoveLogo(false)
+      setLogoError(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
       setFeedback({ type: 'success', msg: 'Cambios guardados correctamente.' })
     } catch (err) {
       setFeedback({ type: 'error', msg: err.message })
@@ -527,23 +547,36 @@ export default function TelegramConfig() {
                     <span>Sin logo</span>
                   )}
                 </div>
-                <div className="form-group form-group-spaced">
-                  <label>Foto del bot (JPG)</label>
+                <div className="file-upload-panel">
                   <input
-                    className="form-input"
+                    ref={fileInputRef}
+                    className="file-upload-native"
                     type="file"
-                    accept="image/jpeg"
+                    accept="image/jpeg,image/png,image/webp"
                     onChange={handleLogoChange}
                   />
+                  <div className="file-upload-actions">
+                    <button
+                      type="button"
+                      className="btn btn-outline"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {previewLogo ? 'Cambiar imagen' : 'Seleccionar imagen'}
+                    </button>
+                    {(config.internal_logo_url || logoPreview) && (
+                      <button type="button" className="btn btn-ghost" onClick={handleRemoveLogo}>
+                        Quitar imagen
+                      </button>
+                    )}
+                  </div>
+                  <span className="file-upload-name">
+                    {logoFile?.name || (previewLogo ? 'Imagen actual del bot' : 'Sin imagen seleccionada')}
+                  </span>
+                  <small className="form-help">Usa una imagen cuadrada en formato JPG, PNG o WebP.</small>
+                  {logoError && <span className="field-error">{logoError}</span>}
                 </div>
-                {(config.internal_logo_url || logoPreview) && (
-                  <button type="button" className="btn btn-outline btn-sm" onClick={handleRemoveLogo}>
-                    Quitar logo interno
-                  </button>
-                )}
                 <div className="alert alert-info alert-compact telegram-note">
-                  Al guardar una imagen JPG, Turnix actualiza la foto real del bot mediante Telegram Bot API
-                  y guarda una copia interna para identificarlo dentro del panel.
+                  Al guardar la imagen, Turnix actualiza la foto del bot y guarda una copia interna para identificarlo dentro del panel.
                 </div>
               </div>
             </div>

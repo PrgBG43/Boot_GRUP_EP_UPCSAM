@@ -66,6 +66,9 @@ class Tenant(Base):
     telegram_config = relationship(
         "TelegramConfig", back_populates="tenant", uselist=False, cascade="all, delete-orphan"
     )
+    support_tickets = relationship(
+        "SupportTicket", back_populates="tenant", cascade="all, delete-orphan"
+    )
 
     @property
     def state_name(self):

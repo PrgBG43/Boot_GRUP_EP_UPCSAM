@@ -1,5 +1,8 @@
 ﻿from typing import List, Optional
 
+from datetime import datetime, timezone
+
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -8,14 +11,17 @@ from app.core.auth import require_staff_or_above
 from app.core.database import get_db
 from app.models.client import Client
 from app.models.conversation import Conversation
+from app.models.telegram_config import TelegramConfig
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.repositories import conversation_repository, message_repository
 from app.schemas.conversation import ConversationCreate, ConversationResponse, ConversationUpdate
-from app.schemas.message import MessageCreate, MessageResponse
+from app.schemas.message import MessageCreate, MessageResponse, MessageSendRequest
 from app.services.pagination import paginate_query
+from app.services.telegram_token_service import decrypt_token
 
 router = APIRouter()
+TELEGRAM_API = "https://api.telegram.org/bot{token}/{method}"
 
 
 def _assert_conversation_access(current_user: User, conversation) -> None:
@@ -23,6 +29,27 @@ def _assert_conversation_access(current_user: User, conversation) -> None:
         return
     if conversation.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado.")
+
+
+def _send_telegram_message(token: str, chat_id: str, content: str) -> None:
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            response = client.post(
+                TELEGRAM_API.format(token=token, method="sendMessage"),
+                json={"chat_id": chat_id, "text": content},
+            )
+        result = response.json()
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="No fue posible enviar el mensaje por Telegram. Intenta nuevamente.",
+        )
+
+    if not result.get("ok"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result.get("description") or "Telegram no acepto el mensaje.",
+        )
 
 
 @router.get("/")
@@ -134,6 +161,50 @@ def list_messages(
     return message_repository.list_messages_by_conversation(db, conversation_id)
 
 
+@router.post("/{conversation_id}/reply", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
+def reply_to_conversation(
+    conversation_id: int,
+    payload: MessageSendRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_staff_or_above),
+):
+    conversation = conversation_repository.get_conversation(db, conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversación no encontrada.")
+    _assert_conversation_access(current_user, conversation)
+
+    if conversation.channel != "telegram":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Solo se pueden responder conversaciones de Telegram.")
+
+    config = (
+        db.query(TelegramConfig)
+        .filter(
+            TelegramConfig.tenant_id == conversation.tenant_id,
+            TelegramConfig.is_connected == True,
+            TelegramConfig.bot_token_encrypted.isnot(None),
+        )
+        .first()
+    )
+    if not config:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Este negocio no tiene un bot de Telegram conectado.")
+    if conversation.bot_id and config.bot_id and conversation.bot_id != config.bot_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Esta conversación pertenece a otro bot de Telegram. Inicia una conversación nueva con el bot conectado.",
+        )
+
+    token = decrypt_token(config.bot_token_encrypted)
+    if not token:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No fue posible leer el token del bot conectado.")
+
+    _send_telegram_message(token, conversation.chat_id, payload.content)
+    conversation.last_interaction_at = datetime.now(timezone.utc)
+    return message_repository.create_message(
+        db,
+        MessageCreate(conversation_id=conversation.id, direction="outgoing", content=payload.content),
+    )
+
+
 @router.post("/{conversation_id}/messages", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
 def add_message(
     conversation_id: int,
@@ -145,5 +216,6 @@ def add_message(
     if not conversation:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversación no encontrada.")
     _assert_conversation_access(current_user, conversation)
+    if message.conversation_id != conversation_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El mensaje no pertenece a esta conversación.")
     return message_repository.create_message(db, message)
-

@@ -11,11 +11,18 @@ const STATUS_LABELS = {
   no_show: 'No asistió',
   scheduled: 'Programada',
   open: 'Abierta',
+  in_progress: 'En proceso',
+  waiting_user: 'Esperando respuesta',
+  resolved: 'Resuelto',
   closed: 'Cerrada',
   connected: 'Conectado',
   not_connected: 'No conectado',
   token_invalid: 'Token inválido',
   error: 'Error',
+  low: 'Baja',
+  normal: 'Normal',
+  high: 'Alta',
+  urgent: 'Urgente',
 }
 
 const STATUS_BADGES = {
@@ -34,8 +41,15 @@ const STATUS_BADGES = {
   pending: 'badge-warning',
   scheduled: 'badge-warning',
   open: 'badge-success',
+  in_progress: 'badge-warning',
+  waiting_user: 'badge-warning',
+  resolved: 'badge-success',
   not_connected: 'badge-warning',
   no_show: 'badge-neutral',
+  low: 'badge-neutral',
+  normal: 'badge-neutral',
+  high: 'badge-warning',
+  urgent: 'badge-danger',
 }
 
 const ROLE_LABELS = {

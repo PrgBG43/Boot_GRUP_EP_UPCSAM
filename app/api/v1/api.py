@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     roles,
     services,
     states,
+    support,
     tenants,
     users,
     clients,
@@ -70,3 +71,7 @@ api_router.include_router(
     conversations.router, prefix="/conversations", tags=["Conversations"]
 )
 
+# Soporte y tickets
+api_router.include_router(
+    support.router, prefix="/support", tags=["Support"]
+)
