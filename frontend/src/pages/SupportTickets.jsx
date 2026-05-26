@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import api from '../api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import { planLabel, statusBadgeClass, statusLabel } from '../utils/labels.js'
@@ -48,8 +48,21 @@ function ticketStatusLabel(value) {
   return STATUSES.find(item => item.value === value)?.label || statusLabel(value)
 }
 
+function supportSenderLabel(message, isOwnMessage) {
+  if (isOwnMessage) return 'Tú'
+  if (message.sender_role === 'superadmin' || message.sender_role === 'support') return 'Soporte Turnix'
+  if (message.sender_role === 'tenant_admin') return message.sender_name || 'Negocio'
+  if (message.sender_role === 'staff') return message.sender_name || 'Personal'
+  return message.sender_name || 'Usuario'
+}
+
+function isNearBottom(element) {
+  if (!element) return true
+  return element.scrollHeight - element.scrollTop - element.clientHeight < 80
+}
+
 export default function SupportTickets() {
-  const { isSuperadmin } = useAuth()
+  const { isSuperadmin, user } = useAuth()
   const [tickets, setTickets] = useState([])
   const [businesses, setBusinesses] = useState([])
   const [loading, setLoading] = useState(true)
@@ -69,6 +82,8 @@ export default function SupportTickets() {
   const [filterTenant, setFilterTenant] = useState('')
   const [page, setPage] = useState(1)
   const [pagination, setPagination] = useState({ total: 0, page: 1, page_size: 20, pages: 0 })
+  const messagesListRef = useRef(null)
+  const keepMessagesAtBottomRef = useRef(false)
 
   const load = async () => {
     setLoading(true)
@@ -109,12 +124,30 @@ export default function SupportTickets() {
     if (!selected) return undefined
     const timer = setInterval(() => refreshTicket(selected.id, true), 10000)
     return () => clearInterval(timer)
-  }, [selected]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selected?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!keepMessagesAtBottomRef.current || !messagesListRef.current) return
+    messagesListRef.current.scrollTop = messagesListRef.current.scrollHeight
+    keepMessagesAtBottomRef.current = false
+  }, [selected?.messages])
 
   const refreshTicket = async (id, silent = false) => {
+    const messagesElement = messagesListRef.current
+    const shouldStayAtBottom = isNearBottom(messagesElement)
+    const previousScrollTop = messagesElement?.scrollTop ?? 0
     try {
       const ticket = await api.getSupportTicket(id)
       setSelected(ticket)
+      requestAnimationFrame(() => {
+        const currentElement = messagesListRef.current
+        if (!currentElement) return
+        if (!silent || shouldStayAtBottom) {
+          currentElement.scrollTop = currentElement.scrollHeight
+        } else {
+          currentElement.scrollTop = previousScrollTop
+        }
+      })
       if (!silent) setFeedback(null)
     } catch (err) {
       if (!silent) setFeedback({ type: 'error', msg: err.message })
@@ -123,6 +156,7 @@ export default function SupportTickets() {
 
   const openTicket = async (ticket) => {
     setReply('')
+    keepMessagesAtBottomRef.current = true
     await refreshTicket(ticket.id)
   }
 
@@ -164,10 +198,24 @@ export default function SupportTickets() {
     setSending(true)
     setFeedback(null)
     try {
-      await api.addSupportTicketMessage(selected.id, { message })
+      const shouldStayAtBottom = isNearBottom(messagesListRef.current)
+      const created = await api.addSupportTicketMessage(selected.id, { message })
+      const localMessage = {
+        ...created,
+        sender_user_id: created.sender_user_id ?? user?.id,
+        sender_name: created.sender_name || user?.email,
+        sender_role: created.sender_role || user?.role,
+      }
+      setSelected(current => {
+        if (!current || current.id !== selected.id) return current
+        const exists = (current.messages || []).some(item => item.id === localMessage.id)
+        const messages = exists ? current.messages : [...(current.messages || []), localMessage]
+        return { ...current, messages }
+      })
+      keepMessagesAtBottomRef.current = shouldStayAtBottom
       setReply('')
-      await refreshTicket(selected.id, true)
       await load()
+      await refreshTicket(selected.id, true)
     } catch (err) {
       setFeedback({ type: 'error', msg: err.message })
     }
@@ -346,14 +394,16 @@ export default function SupportTickets() {
               </div>
             )}
 
-            <div className="messages-list support-messages">
+            <div className="messages-list support-messages" ref={messagesListRef}>
               {(selected.messages || []).map(message => {
-                const isSupport = ['superadmin'].includes(message.sender_role)
+                const isOwnMessage = Number(message.sender_user_id) === Number(user?.id)
+                const senderLabel = supportSenderLabel(message, isOwnMessage)
+                const createdAt = message.created_at ? new Date(message.created_at).toLocaleString('es-CO') : ''
                 return (
-                  <div key={message.id} className={`message-bubble ${isSupport ? 'message-outgoing' : 'message-incoming'}`}>
+                  <div key={message.id} className={`message-bubble support-message ${isOwnMessage ? 'message-own' : 'message-other'}`}>
                     <div className="message-content">{message.message}</div>
                     <div className="message-meta">
-                      {isSupport ? 'Soporte Turnix' : 'Negocio'} - {message.created_at ? new Date(message.created_at).toLocaleString('es-CO') : ''}
+                      {senderLabel}{createdAt ? ` - ${createdAt}` : ''}
                     </div>
                   </div>
                 )

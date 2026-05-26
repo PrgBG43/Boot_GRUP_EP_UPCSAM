@@ -1056,6 +1056,35 @@
   background: #ede9fe;
 }
 
+.support-message {
+  max-width: 70%;
+  border: 1px solid transparent;
+}
+
+.support-message.message-own {
+  align-self: flex-end;
+  background: #ede9fe;
+  border-color: #ddd6fe;
+  color: var(--text-primary);
+  border-bottom-right-radius: 4px;
+}
+
+.support-message.message-other {
+  align-self: flex-start;
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: var(--text-primary);
+  border-bottom-left-radius: 4px;
+}
+
+.support-message.message-own .message-meta {
+  text-align: right;
+}
+
+.support-message.message-other .message-meta {
+  text-align: left;
+}
+
 .message-content {
   font-size: .9rem;
   line-height: 1.45;
@@ -2019,5 +2048,9 @@
   .modal-footer .btn,
   .form-actions .btn {
     width: 100%;
+  }
+
+  .support-message {
+    max-width: 88%;
   }
 }

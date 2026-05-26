@@ -50,7 +50,16 @@ def _serialize(ticket: SupportTicket, *, include_messages: bool = False) -> dict
 
 
 def _serialize_message(message: SupportTicketMessage) -> dict:
-    return SupportTicketMessageResponse.model_validate(message).model_dump(mode="json")
+    return {
+        "id": message.id,
+        "ticket_id": message.ticket_id,
+        "sender_user_id": message.sender_user_id,
+        "sender_name": message.sender_name,
+        "sender_role": message.sender_role,
+        "message": message.message,
+        "created_at": message.created_at.isoformat() if message.created_at else None,
+        "is_internal_note": bool(message.is_internal_note),
+    }
 
 
 def _assert_support_access(user: User) -> None:
@@ -164,8 +173,16 @@ def create_ticket(
         )
     )
     db.commit()
-    db.refresh(ticket)
-    return ticket
+    created = (
+        db.query(SupportTicket)
+        .options(
+            joinedload(SupportTicket.tenant).joinedload(Tenant.plan),
+            joinedload(SupportTicket.messages).joinedload(SupportTicketMessage.sender),
+        )
+        .filter(SupportTicket.id == ticket.id)
+        .first()
+    )
+    return _serialize(created or ticket, include_messages=True)
 
 
 @router.get("/tickets/{ticket_id}", response_model=SupportTicketResponse)
@@ -187,7 +204,7 @@ def get_ticket(
     if not ticket:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ticket no encontrado.")
     _assert_ticket_access(current_user, ticket)
-    return ticket
+    return _serialize(ticket, include_messages=True)
 
 
 @router.put("/tickets/{ticket_id}", response_model=SupportTicketResponse)
@@ -250,8 +267,13 @@ def add_ticket_message(
     ticket.updated_at = datetime.now(timezone.utc)
     db.add(message)
     db.commit()
-    db.refresh(message)
-    return message
+    created = (
+        db.query(SupportTicketMessage)
+        .options(joinedload(SupportTicketMessage.sender))
+        .filter(SupportTicketMessage.id == message.id)
+        .first()
+    )
+    return _serialize_message(created or message)
 
 
 @router.post("/tickets/{ticket_id}/close", response_model=SupportTicketResponse)
