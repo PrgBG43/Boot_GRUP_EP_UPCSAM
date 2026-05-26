@@ -172,7 +172,7 @@ export default function Appointments() {
     </div>
   )
 
-  if (loading) return <div className="spinner" />
+  if (loading && !lastUpdated) return <div className="spinner" />
   if (error)   return <div className="alert alert-error">Error: {error}</div>
 
   // Filtrar servicios según el negocio seleccionado en el formulario

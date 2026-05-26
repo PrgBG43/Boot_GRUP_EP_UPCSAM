@@ -71,8 +71,8 @@ function Insights({ items = [] }) {
 
 function AnalyticsFilters({ children, onClear }) {
   return (
-    <div className="page-toolbar">
-      <div className="filter-group">{children}</div>
+    <div className="page-toolbar dashboard-filters">
+      <div className="dashboard-filter-controls">{children}</div>
       <div className="action-group">
         <button type="button" className="btn btn-outline" onClick={onClear}>Limpiar filtros</button>
       </div>
@@ -80,12 +80,121 @@ function AnalyticsFilters({ children, onClear }) {
   )
 }
 
+function DashboardFilterItem({ id, label, children, className = '' }) {
+  return (
+    <label className={`dashboard-filter-item ${className}`.trim()} htmlFor={id}>
+      <span className="filter-label">{label}</span>
+      {children}
+    </label>
+  )
+}
+
 function DateFilterField({ id, label, value, onChange }) {
   return (
-    <label className="filter-field filter-field--date" htmlFor={id}>
-      <span className="filter-label">{label}</span>
-      <input id={id} className="filter-select" type="date" value={value} onChange={event => onChange(event.target.value)} />
-    </label>
+    <DashboardFilterItem id={id} label={label} className="dashboard-filter-item--date">
+      <input id={id} className="filter-select filter-control" type="date" value={value} onChange={event => onChange(event.target.value)} />
+    </DashboardFilterItem>
+  )
+}
+
+function SelectFilterField({ id, label, value, onChange, children }) {
+  return (
+    <DashboardFilterItem id={id} label={label}>
+      <select id={id} className="filter-select filter-control" value={value} onChange={event => onChange(event.target.value)}>
+        {children}
+      </select>
+    </DashboardFilterItem>
+  )
+}
+
+function TextFilterField({ id, label, value, onChange, placeholder }) {
+  return (
+    <DashboardFilterItem id={id} label={label}>
+      <input id={id} className="search-input filter-control" placeholder={placeholder} value={value} onChange={event => onChange(event.target.value)} />
+    </DashboardFilterItem>
+  )
+}
+
+function FilterPlaceholder({ value, children }) {
+  return (
+    <option value={value}>{children}</option>
+  )
+}
+
+function PlanFilter({ value, onChange }) {
+  return (
+    <SelectFilterField id="dashboard-global-plan" label="Plan" value={value} onChange={onChange}>
+      <FilterPlaceholder value="">Todos los planes</FilterPlaceholder>
+      <option value="free">Gratuito</option>
+      <option value="premium">Premium</option>
+    </SelectFilterField>
+  )
+}
+
+function BusinessStatusFilter({ value, onChange }) {
+  return (
+    <SelectFilterField id="dashboard-global-status" label="Estado" value={value} onChange={onChange}>
+      <FilterPlaceholder value="">Todos los estados</FilterPlaceholder>
+      <option value="active">Activos</option>
+      <option value="inactive">Inactivos</option>
+      <option value="archived">Archivados</option>
+    </SelectFilterField>
+  )
+}
+
+function AppointmentStatusFilter({ id, value, onChange }) {
+  return (
+    <SelectFilterField id={id} label="Estado" value={value} onChange={onChange}>
+      <FilterPlaceholder value="">Todos los estados</FilterPlaceholder>
+      <option value="pending">Pendiente</option>
+      <option value="confirmed">Confirmada</option>
+      <option value="completed">Completada</option>
+      <option value="cancelled">Cancelada</option>
+    </SelectFilterField>
+  )
+}
+
+function TenantFilter({ value, onChange, businesses }) {
+  return (
+    <SelectFilterField id="dashboard-global-tenant" label="Negocio" value={value} onChange={onChange}>
+      <FilterPlaceholder value="">Todos los negocios</FilterPlaceholder>
+      {businesses.map(business => <option key={business.id} value={business.id}>{business.name}</option>)}
+    </SelectFilterField>
+  )
+}
+
+function CityFilter({ value, onChange }) {
+  return (
+    <TextFilterField
+      id="dashboard-global-city"
+      label="Ciudad"
+      placeholder="Filtrar por ciudad..."
+      value={value}
+      onChange={onChange}
+    />
+  )
+}
+
+function GlobalDashboardFilters({ filters, setFilter, businesses, clearFilters }) {
+  return (
+    <AnalyticsFilters onClear={clearFilters}>
+      <DateFilterField id="dashboard-global-date-from" label="Desde" value={filters.date_from} onChange={value => setFilter('date_from', value)} />
+      <DateFilterField id="dashboard-global-date-to" label="Hasta" value={filters.date_to} onChange={value => setFilter('date_to', value)} />
+      <PlanFilter value={filters.plan} onChange={value => setFilter('plan', value)} />
+      <BusinessStatusFilter value={filters.status} onChange={value => setFilter('status', value)} />
+      <CityFilter value={filters.city} onChange={value => setFilter('city', value)} />
+      <TenantFilter value={filters.tenant_id} onChange={value => setFilter('tenant_id', value)} businesses={businesses} />
+    </AnalyticsFilters>
+  )
+}
+
+function TenantDashboardFilters({ filters, setFilter, clearFilters }) {
+  return (
+    <AnalyticsFilters onClear={clearFilters}>
+      <DateFilterField id="dashboard-tenant-date-from" label="Desde" value={filters.date_from} onChange={value => setFilter('date_from', value)} />
+      <DateFilterField id="dashboard-tenant-date-to" label="Hasta" value={filters.date_to} onChange={value => setFilter('date_to', value)} />
+      <AppointmentStatusFilter id="dashboard-tenant-status" value={filters.status} onChange={value => setFilter('status', value)} />
+    </AnalyticsFilters>
   )
 }
 
@@ -157,26 +266,12 @@ function SuperadminDashboard() {
         </div>
       </div>
 
-      <AnalyticsFilters onClear={clearFilters}>
-        <DateFilterField id="dashboard-global-date-from" label="Desde" value={filters.date_from} onChange={value => setFilter('date_from', value)} />
-        <DateFilterField id="dashboard-global-date-to" label="Hasta" value={filters.date_to} onChange={value => setFilter('date_to', value)} />
-        <select className="filter-select" value={filters.plan} onChange={event => setFilter('plan', event.target.value)}>
-          <option value="">Todos los planes</option>
-          <option value="free">Gratuito</option>
-          <option value="premium">Premium</option>
-        </select>
-        <select className="filter-select" value={filters.status} onChange={event => setFilter('status', event.target.value)}>
-          <option value="">Todos los estados</option>
-          <option value="active">Activos</option>
-          <option value="inactive">Inactivos</option>
-          <option value="archived">Archivados</option>
-        </select>
-        <input className="search-input" placeholder="Filtrar por ciudad..." value={filters.city} onChange={event => setFilter('city', event.target.value)} />
-        <select className="filter-select" value={filters.tenant_id} onChange={event => setFilter('tenant_id', event.target.value)}>
-          <option value="">Todos los negocios</option>
-          {businesses.map(business => <option key={business.id} value={business.id}>{business.name}</option>)}
-        </select>
-      </AnalyticsFilters>
+      <GlobalDashboardFilters
+        filters={filters}
+        setFilter={setFilter}
+        businesses={businesses}
+        clearFilters={clearFilters}
+      />
 
       <div className="stats-grid">
         <StatCard label="Negocios totales" value={summary.total_businesses} />
@@ -368,17 +463,7 @@ function TenantDashboard() {
         </div>
       </div>
 
-      <AnalyticsFilters onClear={clearFilters}>
-        <DateFilterField id="dashboard-tenant-date-from" label="Desde" value={filters.date_from} onChange={value => setFilter('date_from', value)} />
-        <DateFilterField id="dashboard-tenant-date-to" label="Hasta" value={filters.date_to} onChange={value => setFilter('date_to', value)} />
-        <select className="filter-select" value={filters.status} onChange={event => setFilter('status', event.target.value)}>
-          <option value="">Todos los estados</option>
-          <option value="pending">Pendiente</option>
-          <option value="confirmed">Confirmada</option>
-          <option value="completed">Completada</option>
-          <option value="cancelled">Cancelada</option>
-        </select>
-      </AnalyticsFilters>
+      <TenantDashboardFilters filters={filters} setFilter={setFilter} clearFilters={clearFilters} />
 
       <div className="stats-grid">
         <StatCard label="Citas del mes" value={summary.appointments_in_range} />

@@ -33,6 +33,13 @@ class TelegramConfigUpdate(BaseModel):
     ask_time_message: Optional[str] = None
     confirm_message: Optional[str] = None
     cancel_message: Optional[str] = None
+    cancel_start_message: Optional[str] = None
+    cancel_no_appointments_message: Optional[str] = None
+    cancel_select_message: Optional[str] = None
+    cancel_confirm_message: Optional[str] = None
+    cancel_success_message: Optional[str] = None
+    cancel_rejected_message: Optional[str] = None
+    cancellation_disabled_message: Optional[str] = None
     unavailable_message: Optional[str] = None
     goodbye_message: Optional[str] = None
     plan_limit_public_message: Optional[str] = None
@@ -84,6 +91,13 @@ class TelegramConfigResponse(BaseModel):
     ask_time_message: Optional[str] = None
     confirm_message: Optional[str] = None
     cancel_message: Optional[str] = None
+    cancel_start_message: Optional[str] = None
+    cancel_no_appointments_message: Optional[str] = None
+    cancel_select_message: Optional[str] = None
+    cancel_confirm_message: Optional[str] = None
+    cancel_success_message: Optional[str] = None
+    cancel_rejected_message: Optional[str] = None
+    cancellation_disabled_message: Optional[str] = None
     unavailable_message: Optional[str] = None
     goodbye_message: Optional[str] = None
     plan_limit_public_message: Optional[str] = None

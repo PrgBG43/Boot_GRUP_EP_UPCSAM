@@ -1023,6 +1023,23 @@
   overflow-y: auto;
 }
 
+.new-messages-indicator {
+  position: sticky;
+  top: 0;
+  align-self: center;
+  z-index: 1;
+  min-height: 1.9rem;
+  padding: .35rem .75rem;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: .78rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 18px -16px rgb(15 23 42 / .45);
+}
+
 .message-bubble {
   max-width: 85%;
   padding: .6rem .9rem;
@@ -1823,6 +1840,42 @@
   min-width: 0;
 }
 
+.dashboard-filters {
+  align-items: end;
+  column-gap: 1rem;
+  row-gap: 1rem;
+}
+
+.dashboard-filter-controls {
+  display: grid;
+  flex: 1 1 720px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  align-items: end;
+  column-gap: 1rem;
+  row-gap: .9rem;
+  min-width: 0;
+}
+
+.dashboard-filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: .4rem;
+  min-width: 0;
+}
+
+.dashboard-filter-item--date {
+  min-width: 155px;
+}
+
+.dashboard-filter-item .filter-label {
+  margin: 0;
+}
+
+.dashboard-filter-item .filter-control {
+  width: 100%;
+  min-width: 0;
+}
+
 /* Empty states */
 .empty-state {
   display: flex;
@@ -1903,6 +1956,12 @@
   .plan-filters {
     width: 100%;
     justify-content: stretch;
+  }
+
+  .dashboard-filter-controls {
+    width: 100%;
+    flex-basis: 100%;
+    grid-template-columns: 1fr;
   }
 
   .filter-group > *,

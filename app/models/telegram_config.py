@@ -49,6 +49,35 @@ class TelegramConfig(Base):
         default="Tu cita para {service_name} fue registrada para el {date} a las {time}.",
     )
     cancel_message = Column(Text, nullable=True, default="Tu cita ha sido cancelada.")
+    cancel_start_message = Column(Text, nullable=True, default="Voy a ayudarte a cancelar una cita.")
+    cancel_no_appointments_message = Column(
+        Text,
+        nullable=True,
+        default=(
+            "No encontré citas activas para cancelar. "
+            "Si necesitas ayuda, comunícate directamente con el negocio."
+        ),
+    )
+    cancel_select_message = Column(
+        Text,
+        nullable=True,
+        default="Encontré varias citas activas. Selecciona cuál deseas cancelar.",
+    )
+    cancel_confirm_message = Column(
+        Text,
+        nullable=True,
+        default="¿Confirmas que deseas cancelar la cita de {service_name} del {date} a las {time}?",
+    )
+    cancel_success_message = Column(Text, nullable=True, default="Tu cita fue cancelada correctamente.")
+    cancel_rejected_message = Column(Text, nullable=True, default="Perfecto, tu cita se mantiene activa.")
+    cancellation_disabled_message = Column(
+        Text,
+        nullable=True,
+        default=(
+            "Este negocio no tiene habilitada la cancelación por Telegram. "
+            "Comunícate directamente con el establecimiento para recibir ayuda."
+        ),
+    )
     unavailable_message = Column(Text, nullable=True, default="No hay horarios disponibles para esa fecha. Elige otra.")
     goodbye_message = Column(Text, nullable=True, default="Gracias por contactarnos. Te esperamos.")
     plan_limit_public_message = Column(

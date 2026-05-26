@@ -54,9 +54,24 @@ logger = logging.getLogger(__name__)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("telegram").setLevel(logging.WARNING)
 
-ASK_NAME, ASK_PHONE, SELECT_SERVICE, SELECT_DATE, SELECT_TIME, CONFIRM_APPOINTMENT, CANCEL_APPOINTMENT = range(7)
+ASK_NAME, ASK_PHONE, SELECT_SERVICE, SELECT_DATE, SELECT_TIME, CONFIRM_APPOINTMENT, CANCEL_SELECT_APPOINTMENT, CANCEL_CONFIRM_APPOINTMENT = range(8)
 
 NO_SERVICES_MESSAGE = "Este negocio aún no tiene servicios disponibles para agendar."
+CANCEL_START_MESSAGE = "Voy a ayudarte a cancelar una cita."
+CANCEL_NO_APPOINTMENTS_MESSAGE = (
+    "No encontré citas activas para cancelar. "
+    "Si necesitas ayuda, comunícate directamente con el negocio."
+)
+CANCEL_SELECT_MESSAGE = "Encontré varias citas activas. Selecciona cuál deseas cancelar."
+CANCEL_CONFIRM_MESSAGE = "¿Confirmas que deseas cancelar la cita de {service_name} del {date} a las {time}?"
+CANCEL_SUCCESS_MESSAGE = "Tu cita fue cancelada correctamente."
+CANCEL_REJECTED_MESSAGE = "Perfecto, tu cita se mantiene activa."
+CANCELLATION_DISABLED_MESSAGE = (
+    "Este negocio no tiene habilitada la cancelación por Telegram. "
+    "Comunícate directamente con el establecimiento para recibir ayuda."
+)
+CANCEL_CONFIRM_YES = "Sí, cancelar cita"
+CANCEL_CONFIRM_NO = "No, conservar cita"
 DEFAULT_COMMANDS: list[dict[str, Any]] = [
     {
         "command": "/start",
@@ -316,6 +331,77 @@ def _variables(
         appointment=appointment,
         extra=extra,
     )
+
+
+def _config_message(config: TelegramConfig, key: str, default: str) -> str:
+    return getattr(config, key, None) or default
+
+
+def _cancel_appointment_extra(appointment: Appointment) -> dict[str, Any]:
+    return {
+        "date": format_date_label(appointment.appointment_date),
+        "time": format_time_label(appointment.start_time.strftime("%H:%M")),
+        "appointment_status": appointment.status,
+    }
+
+
+def _cancel_appointment_values(
+    tenant: Tenant,
+    config: TelegramConfig,
+    client: Client,
+    appointment: Appointment,
+):
+    service = appointment.service if getattr(appointment, "service", None) else None
+    return service, _variables(
+        tenant,
+        config,
+        client,
+        service,
+        extra=_cancel_appointment_extra(appointment),
+        appointment=appointment,
+    )
+
+
+def _cancel_appointment_label(appointment: Appointment) -> str:
+    return appointment_repository.format_appointment_for_client(appointment)
+
+
+def _build_cancel_options(appointments: list[Appointment]) -> tuple[list[str], dict[str, int]]:
+    labels: list[str] = []
+    label_counts: dict[str, int] = {}
+    options: dict[str, int] = {}
+    for appointment in appointments:
+        base_label = _cancel_appointment_label(appointment)
+        label_counts[base_label] = label_counts.get(base_label, 0) + 1
+        label = base_label if label_counts[base_label] == 1 else f"{base_label} ({label_counts[base_label]})"
+        labels.append(label)
+        options[label] = appointment.id
+    return labels, options
+
+
+def _cancel_confirm_keyboard() -> ReplyKeyboardMarkup:
+    return _keyboard([CANCEL_CONFIRM_YES, CANCEL_CONFIRM_NO], columns=1)
+
+
+def _is_cancel_confirmation(text: str) -> bool:
+    clean = (text or "").strip().lower()
+    return clean in {
+        "si",
+        "sí",
+        "yes",
+        "s",
+        "y",
+        CANCEL_CONFIRM_YES.lower(),
+    }
+
+
+def _is_cancel_rejection(text: str) -> bool:
+    clean = (text or "").strip().lower()
+    return clean in {
+        "no",
+        "n",
+        CANCEL_CONFIRM_NO.lower(),
+    }
 
 
 def _get_or_create_client(db, update: Update, tenant_id: int) -> Client:
@@ -821,24 +907,18 @@ async def my_appointments(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     db, tenant, config, client, conversation = boot
     try:
         _save_message(conversation.id, "incoming", update.effective_message.text or "/citas")
-        appointments = (
-            db.query(Appointment)
-            .filter(
-                Appointment.tenant_id == tenant.id,
-                Appointment.client_id == client.id,
-                Appointment.status.notin_(["cancelled", "completed"]),
-            )
-            .order_by(Appointment.appointment_date, Appointment.start_time)
-            .limit(10)
-            .all()
+        appointments = appointment_repository.get_active_appointments_for_client(
+            db,
+            tenant.id,
+            client.id,
+            limit=10,
         )
         if not appointments:
             await _reply(update, context, "No tienes citas activas en este momento.")
             return ConversationHandler.END
         lines = ["Tus próximas citas:"]
         for appointment in appointments:
-            service = db.query(Service).filter(Service.id == appointment.service_id).first()
-            lines.append(f"#{appointment.id} - {service.name if service else 'Servicio'} - {appointment.appointment_date} {appointment.start_time.strftime('%H:%M')}")
+            lines.append(_cancel_appointment_label(appointment))
         await _reply(update, context, "\n".join(lines))
         return ConversationHandler.END
     finally:
@@ -853,41 +933,80 @@ async def cancel_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     try:
         _save_message(conversation.id, "incoming", update.effective_message.text or "/cancelar")
         if not config.allow_cancellation:
-            await _reply(update, context, "La cancelación por Telegram no está habilitada para este negocio.")
-            return ConversationHandler.END
-        appointments = (
-            db.query(Appointment)
-            .filter(
-                Appointment.tenant_id == tenant.id,
-                Appointment.client_id == client.id,
-                Appointment.status.notin_(["cancelled", "completed"]),
+            await _reply(
+                update,
+                context,
+                _format_message(
+                    _config_message(config, "cancellation_disabled_message", CANCELLATION_DISABLED_MESSAGE),
+                    _variables(tenant, config, client),
+                ),
+                reply_markup=ReplyKeyboardRemove(),
             )
-            .order_by(Appointment.appointment_date, Appointment.start_time)
-            .limit(10)
-            .all()
+            return ConversationHandler.END
+        appointments = appointment_repository.get_active_appointments_for_client(
+            db,
+            tenant.id,
+            client.id,
+            limit=10,
         )
         if not appointments:
-            await _reply(update, context, "No tienes citas activas para cancelar.")
+            await _reply(
+                update,
+                context,
+                _format_message(
+                    _config_message(config, "cancel_no_appointments_message", CANCEL_NO_APPOINTMENTS_MESSAGE),
+                    _variables(tenant, config, client),
+                ),
+                reply_markup=ReplyKeyboardRemove(),
+            )
             return ConversationHandler.END
-        lines = ["Escribe el ID de la cita que deseas cancelar:"]
-        for appointment in appointments:
-            service = db.query(Service).filter(Service.id == appointment.service_id).first()
-            lines.append(f"#{appointment.id} - {service.name if service else 'Servicio'} - {appointment.appointment_date} {appointment.start_time.strftime('%H:%M')}")
-        await _reply(update, context, "\n".join(lines), reply_markup=ReplyKeyboardRemove())
-        _set_conversation_step(conversation.id, "CANCEL_APPOINTMENT")
-        return CANCEL_APPOINTMENT
+
+        start_message = _format_message(
+            _config_message(config, "cancel_start_message", CANCEL_START_MESSAGE),
+            _variables(tenant, config, client),
+        )
+        if len(appointments) == 1:
+            appointment = appointments[0]
+            service, values = _cancel_appointment_values(tenant, config, client, appointment)
+            context.user_data["cancel_appointment_id"] = appointment.id
+            context.user_data.pop("cancel_options", None)
+            confirm_text = _format_message(
+                "Tienes una cita para {service_name} el {date} a las {time}. ¿Deseas cancelarla?",
+                values,
+            )
+            message = "\n\n".join(part for part in [start_message, confirm_text] if part)
+            await _reply(update, context, message, reply_markup=_cancel_confirm_keyboard())
+            _set_conversation_step(
+                conversation.id,
+                "CANCEL_CONFIRM_APPOINTMENT",
+                {"appointment_id": appointment.id, "service_id": service.id if service else None},
+            )
+            return CANCEL_CONFIRM_APPOINTMENT
+
+        labels, options = _build_cancel_options(appointments)
+        context.user_data["cancel_options"] = options
+        context.user_data.pop("cancel_appointment_id", None)
+        select_message = _format_message(
+            _config_message(config, "cancel_select_message", CANCEL_SELECT_MESSAGE),
+            _variables(tenant, config, client),
+        )
+        message = "\n\n".join(part for part in [start_message, select_message] if part)
+        await _reply(update, context, message, reply_markup=_keyboard(labels, columns=1))
+        _set_conversation_step(conversation.id, "CANCEL_SELECT_APPOINTMENT", {"options": options})
+        return CANCEL_SELECT_APPOINTMENT
     finally:
         db.close()
 
 
-async def cancel_by_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def cancel_select_appointment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     text = update.effective_message.text.strip()
     _save_message(context.user_data.get("conversation_id"), "incoming", text)
-    try:
-        appointment_id = int(text.replace("#", ""))
-    except ValueError:
-        await _reply(update, context, "Escribe un ID numérico válido.")
-        return CANCEL_APPOINTMENT
+    cancel_options = context.user_data.get("cancel_options", {})
+    appointment_id = cancel_options.get(text)
+    if not appointment_id:
+        reply_markup = _keyboard(list(cancel_options.keys()), columns=1) if cancel_options else ReplyKeyboardRemove()
+        await _reply(update, context, "Selecciona una cita de la lista.", reply_markup=reply_markup)
+        return CANCEL_SELECT_APPOINTMENT
 
     db = SessionLocal()
     try:
@@ -901,13 +1020,115 @@ async def cancel_by_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             )
             .first()
         )
-        if not appointment:
-            await _reply(update, context, "No se encontró la cita o no pertenece a esta conversación.")
-            return CANCEL_APPOINTMENT
-        appointment.status = "cancelled"
-        db.commit()
-        await _reply(update, context, config.cancel_message or "Tu cita ha sido cancelada.")
+        if not appointment or not appointment_repository.can_cancel_appointment(appointment):
+            tenant = db.query(Tenant).filter(Tenant.id == context.user_data["tenant_id"]).first()
+            client = db.query(Client).filter(Client.id == context.user_data["client_id"]).first()
+            await _reply(
+                update,
+                context,
+                _format_message(
+                    _config_message(config, "cancel_no_appointments_message", CANCEL_NO_APPOINTMENTS_MESSAGE),
+                    _variables(tenant, config, client),
+                ),
+                reply_markup=ReplyKeyboardRemove(),
+            )
+            return ConversationHandler.END
+        service = db.query(Service).filter(Service.id == appointment.service_id).first()
+        context.user_data["cancel_appointment_id"] = appointment.id
+        values = _variables(
+            db.query(Tenant).filter(Tenant.id == context.user_data["tenant_id"]).first(),
+            config,
+            db.query(Client).filter(Client.id == context.user_data["client_id"]).first(),
+            service,
+            extra=_cancel_appointment_extra(appointment),
+            appointment=appointment,
+        )
+        await _reply(
+            update,
+            context,
+            _format_message(_config_message(config, "cancel_confirm_message", CANCEL_CONFIRM_MESSAGE), values),
+            reply_markup=_cancel_confirm_keyboard(),
+        )
+        _set_conversation_step(
+            context.user_data.get("conversation_id"),
+            "CANCEL_CONFIRM_APPOINTMENT",
+            {"appointment_id": appointment.id, "service_id": service.id if service else None},
+        )
+        return CANCEL_CONFIRM_APPOINTMENT
+    finally:
+        db.close()
+
+
+async def cancel_confirm_appointment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    text = update.effective_message.text.strip()
+    _save_message(context.user_data.get("conversation_id"), "incoming", text)
+    appointment_id = context.user_data.get("cancel_appointment_id")
+    db = SessionLocal()
+    try:
+        config = _get_config(db, context.user_data["tenant_id"])
+        tenant = db.query(Tenant).filter(Tenant.id == context.user_data["tenant_id"]).first()
+        client = db.query(Client).filter(Client.id == context.user_data["client_id"]).first()
+        if not _is_cancel_confirmation(text):
+            if not _is_cancel_rejection(text):
+                await _reply(update, context, "Responde Sí, cancelar cita o No, conservar cita.", reply_markup=_cancel_confirm_keyboard())
+                return CANCEL_CONFIRM_APPOINTMENT
+            await _reply(
+                update,
+                context,
+                _format_message(
+                    _config_message(config, "cancel_rejected_message", CANCEL_REJECTED_MESSAGE),
+                    _variables(tenant, config, client),
+                ),
+                reply_markup=ReplyKeyboardRemove(),
+            )
+            _set_conversation_step(context.user_data.get("conversation_id"), "CANCELLED")
+            context.user_data.pop("cancel_appointment_id", None)
+            context.user_data.pop("cancel_options", None)
+            return ConversationHandler.END
+
+        if not appointment_id:
+            await _reply(update, context, "No encontré la cita a cancelar. Escribe /cancelar para intentarlo de nuevo.", reply_markup=ReplyKeyboardRemove())
+            return ConversationHandler.END
+
+        appointment = (
+            db.query(Appointment)
+            .filter(
+                Appointment.id == appointment_id,
+                Appointment.tenant_id == context.user_data["tenant_id"],
+                Appointment.client_id == context.user_data["client_id"],
+            )
+            .first()
+        )
+        if not appointment or not appointment_repository.can_cancel_appointment(appointment):
+            await _reply(
+                update,
+                context,
+                _format_message(
+                    _config_message(config, "cancel_no_appointments_message", CANCEL_NO_APPOINTMENTS_MESSAGE),
+                    _variables(tenant, config, client),
+                ),
+                reply_markup=ReplyKeyboardRemove(),
+            )
+            return ConversationHandler.END
+
+        appointment_repository.cancel_appointment(
+            db,
+            appointment.id,
+            tenant_id=context.user_data["tenant_id"],
+            client_id=context.user_data["client_id"],
+            reason="Cancelada por cliente desde Telegram",
+        )
+        service = db.query(Service).filter(Service.id == appointment.service_id).first()
+        values = _variables(tenant, config, client, service, extra=_cancel_appointment_extra(appointment), appointment=appointment)
+        success_template = _config_message(
+            config,
+            "cancel_success_message",
+            (config.cancel_message if config else None) or CANCEL_SUCCESS_MESSAGE,
+        )
+        await _reply(update, context, _format_message(success_template, values), reply_markup=ReplyKeyboardRemove())
         _set_conversation_step(context.user_data.get("conversation_id"), "CANCELLED")
+        context.user_data.pop("cancel_appointment_id", None)
+        context.user_data.pop("cancel_options", None)
         return ConversationHandler.END
     finally:
         db.close()
@@ -1056,7 +1277,8 @@ def build_conversation_handler() -> ConversationHandler:
             SELECT_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, date_entered)],
             SELECT_TIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, time_selected)],
             CONFIRM_APPOINTMENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, confirm_appointment)],
-            CANCEL_APPOINTMENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, cancel_by_id)],
+            CANCEL_SELECT_APPOINTMENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, cancel_select_appointment)],
+            CANCEL_CONFIRM_APPOINTMENT: [MessageHandler(filters.TEXT & ~filters.COMMAND, cancel_confirm_appointment)],
         },
         fallbacks=[
             CommandHandler("start", start),

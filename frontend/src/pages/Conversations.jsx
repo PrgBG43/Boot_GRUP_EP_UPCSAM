@@ -8,6 +8,27 @@ import { useRef } from 'react'
 
 const asItems = data => data?.items || data || []
 
+function capturePageScroll() {
+  const container = document.querySelector('.main-content-wrapper')
+  return {
+    container,
+    top: container ? container.scrollTop : window.scrollY,
+    path: window.location.pathname,
+  }
+}
+
+function restorePageScroll(snapshot) {
+  if (!snapshot) return
+  requestAnimationFrame(() => {
+    if (window.location.pathname !== snapshot.path) return
+    if (snapshot.container && document.body.contains(snapshot.container)) {
+      snapshot.container.scrollTop = snapshot.top
+      return
+    }
+    window.scrollTo({ top: snapshot.top, left: window.scrollX, behavior: 'auto' })
+  })
+}
+
 export default function Conversations() {
   const { isSuperadmin, activeTenantId } = useAuth()
   const [conversations, setConversations] = useState([])
@@ -24,32 +45,60 @@ export default function Conversations() {
   const [replyText,     setReplyText]     = useState('')
   const [sending,       setSending]       = useState(false)
   const [messageError,  setMessageError]  = useState(null)
-  const messagesEndRef = useRef(null)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [hasNewMessages, setHasNewMessages] = useState(false)
+  const messagesListRef = useRef(null)
+  const messagesRef = useRef([])
+  const scrollMessagesToEndRef = useRef(false)
 
-  const load = () => {
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
+
+  const isMessagesNearBottom = () => {
+    const el = messagesListRef.current
+    if (!el) return true
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 80
+  }
+
+  const load = ({ preserveScroll = true } = {}) => {
+    const scrollSnapshot = preserveScroll ? capturePageScroll() : null
     const params = { page, page_size: 20 }
-    if (search.trim()) params.search = search.trim()
+    if (debouncedSearch) params.search = debouncedSearch
     if (status) params.status = status
     if (isSuperadmin && activeTenantId) params.tenant_id = activeTenantId
     api.getConversations(params)
       .then(c => {
-        setConversations(asItems(c))
+        const items = asItems(c)
+        setConversations(items)
+        setSelected(current => {
+          if (!current) return current
+          return items.find(item => item.id === current.id) || current
+        })
         setPagination(c?.items ? c : { total: (c || []).length, page: 1, page_size: (c || []).length, pages: 1 })
         setLastUpdated(new Date())
         setLoading(false)
+        restorePageScroll(scrollSnapshot)
       })
-      .catch(e => { setError(e.message); setLoading(false) })
+      .catch(e => {
+        setError(e.message)
+        setLoading(false)
+        restorePageScroll(scrollSnapshot)
+      })
   }
 
   useEffect(() => {
-    load()
+    load({ preserveScroll: false })
     const timer = setInterval(load, 10000)
     return () => clearInterval(timer)
-  }, [status, page, activeTenantId])
+  }, [status, page, activeTenantId, debouncedSearch])
   useEffect(() => {
-    const timer = setTimeout(() => { setPage(1); load() }, 350)
+    const timer = setTimeout(() => {
+      setPage(1)
+      setDebouncedSearch(search.trim())
+    }, 350)
     return () => clearTimeout(timer)
-  }, [search])  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [search])
 
   useEffect(() => {
     setPage(1)
@@ -57,13 +106,22 @@ export default function Conversations() {
     setMessages([])
     setReplyText('')
     setMessageError(null)
+    setHasNewMessages(false)
   }, [activeTenantId])
 
-  const loadMessages = async (conv, { silent = false } = {}) => {
+  const loadMessages = async (conv, { silent = false, scrollToEnd = false } = {}) => {
     if (!conv) return
     if (!silent) setLoadingMsgs(true)
     try {
+      const previousLastId = messagesRef.current[messagesRef.current.length - 1]?.id
+      const wasNearBottom = isMessagesNearBottom()
       const msgs = await api.getMessages(conv.id)
+      const nextLastId = (msgs || [])[(msgs || []).length - 1]?.id
+      if (scrollToEnd || !silent || (silent && wasNearBottom && previousLastId && nextLastId !== previousLastId)) {
+        scrollMessagesToEndRef.current = true
+      } else if (silent && previousLastId && nextLastId && nextLastId !== previousLastId) {
+        setHasNewMessages(true)
+      }
       setMessages(msgs || [])
     } catch(e) {
       if (!silent) {
@@ -78,7 +136,8 @@ export default function Conversations() {
     setSelected(conv)
     setReplyText('')
     setMessageError(null)
-    await loadMessages(conv)
+    setHasNewMessages(false)
+    await loadMessages(conv, { scrollToEnd: true })
   }
 
   useEffect(() => {
@@ -88,7 +147,10 @@ export default function Conversations() {
   }, [selected]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    if (!scrollMessagesToEndRef.current || !messagesListRef.current) return
+    messagesListRef.current.scrollTop = messagesListRef.current.scrollHeight
+    scrollMessagesToEndRef.current = false
+    setHasNewMessages(false)
   }, [messages])
 
   const handleSendMessage = async (event) => {
@@ -99,6 +161,7 @@ export default function Conversations() {
     setMessageError(null)
     try {
       const sent = await api.sendConversationMessage(selected.id, content)
+      scrollMessagesToEndRef.current = true
       setMessages(prev => [...prev, sent])
       setReplyText('')
       load()
@@ -211,7 +274,21 @@ export default function Conversations() {
                   <p className="empty-state-text">Esta conversación todavía no tiene mensajes guardados.</p>
                 </div>
               ) : (
-                <div className="messages-list">
+                <div className="messages-list" ref={messagesListRef}>
+                  {hasNewMessages && (
+                    <button
+                      type="button"
+                      className="new-messages-indicator"
+                      onClick={() => {
+                        if (messagesListRef.current) {
+                          messagesListRef.current.scrollTop = messagesListRef.current.scrollHeight
+                        }
+                        setHasNewMessages(false)
+                      }}
+                    >
+                      Nuevos mensajes
+                    </button>
+                  )}
                   {messages.map(m => (
                     <div key={m.id} className={`message-bubble message-${m.direction}`}>
                       <div className="message-content">{m.content}</div>
@@ -220,7 +297,6 @@ export default function Conversations() {
                       </div>
                     </div>
                   ))}
-                  <div ref={messagesEndRef} />
                 </div>
               )
             )}

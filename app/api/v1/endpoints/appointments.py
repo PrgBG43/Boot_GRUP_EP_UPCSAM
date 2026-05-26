@@ -137,7 +137,7 @@ def cancel_appointment(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cita no encontrada")
     if current_user.primary_role != "superadmin" and appt.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
-    return appointment_repository.cancel_appointment(db, appointment_id)
+    return appointment_repository.cancel_appointment(db, appointment_id, tenant_id=appt.tenant_id)
 
 
 @router.patch("/{appointment_id}/complete", response_model=AppointmentResponse)

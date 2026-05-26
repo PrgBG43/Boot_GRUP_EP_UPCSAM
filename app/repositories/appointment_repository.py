@@ -1,13 +1,24 @@
 ﻿from datetime import date, datetime, time, timedelta
 from typing import List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.appointment import Appointment
 from app.models.service import Service
 from app.schemas.appointment import AppointmentCreate, AppointmentUpdate
-from app.services.availability_service import is_slot_available
+from app.services.availability_service import format_date_label, format_time_label, is_slot_available
 from app.services.plan_usage_service import assert_can_create_appointment
+
+CANCELABLE_APPOINTMENT_STATUSES = {
+    "active",
+    "pending",
+    "scheduled",
+    "confirmed",
+    "pendiente",
+    "programada",
+    "confirmada",
+}
 
 
 def list_appointments(
@@ -29,6 +40,39 @@ def list_appointments(
     if status:
         query = query.filter(Appointment.status == status)
     return query.order_by(Appointment.appointment_date, Appointment.start_time).offset(skip).limit(limit).all()
+
+
+def can_cancel_appointment(appointment: Appointment) -> bool:
+    return (appointment.status or "").strip().lower() in CANCELABLE_APPOINTMENT_STATUSES
+
+
+def get_active_appointments_for_client(
+    db: Session,
+    tenant_id: int,
+    client_id: int,
+    *,
+    limit: int = 10,
+):
+    return (
+        db.query(Appointment)
+        .options(joinedload(Appointment.service))
+        .filter(
+            Appointment.tenant_id == tenant_id,
+            Appointment.client_id == client_id,
+            Appointment.appointment_date >= date.today(),
+            func.lower(Appointment.status).in_(CANCELABLE_APPOINTMENT_STATUSES),
+        )
+        .order_by(Appointment.appointment_date, Appointment.start_time)
+        .limit(limit)
+        .all()
+    )
+
+
+def format_appointment_for_client(appointment: Appointment) -> str:
+    service_name = appointment.service.name if appointment.service else "Servicio"
+    date_label = format_date_label(appointment.appointment_date)
+    time_label = format_time_label(appointment.start_time.strftime("%H:%M"))
+    return f"{service_name} - {date_label}, {time_label}"
 
 
 def create_appointment(db: Session, appt_in: AppointmentCreate):
@@ -95,11 +139,27 @@ def update_appointment(db: Session, appointment_id: int, appt_in: AppointmentUpd
     return appointment
 
 
-def cancel_appointment(db: Session, appointment_id: int):
-    appointment = get_appointment(db, appointment_id)
+def cancel_appointment(
+    db: Session,
+    appointment_id: int,
+    *,
+    tenant_id: Optional[int] = None,
+    client_id: Optional[int] = None,
+    reason: Optional[str] = None,
+):
+    query = db.query(Appointment).filter(Appointment.id == appointment_id)
+    if tenant_id is not None:
+        query = query.filter(Appointment.tenant_id == tenant_id)
+    if client_id is not None:
+        query = query.filter(Appointment.client_id == client_id)
+    appointment = query.first()
     if not appointment:
         return None
     appointment.status = "cancelled"
+    if hasattr(appointment, "cancelled_at"):
+        appointment.cancelled_at = datetime.now()
+    if reason and hasattr(appointment, "cancellation_reason"):
+        appointment.cancellation_reason = reason
     db.commit()
     db.refresh(appointment)
     return appointment
@@ -123,4 +183,3 @@ def mark_no_show(db: Session, appointment_id: int):
     db.commit()
     db.refresh(appointment)
     return appointment
-

@@ -38,6 +38,19 @@ def ensure_schema_compatibility(engine) -> None:
             "ask_phone_message": "TEXT",
             "ask_service_message": "TEXT",
             "goodbye_message": "TEXT",
+            "cancel_start_message": "TEXT DEFAULT 'Voy a ayudarte a cancelar una cita.'",
+            "cancel_no_appointments_message": (
+                "TEXT DEFAULT 'No encontré citas activas para cancelar. "
+                "Si necesitas ayuda, comunícate directamente con el negocio.'"
+            ),
+            "cancel_select_message": "TEXT DEFAULT 'Encontré varias citas activas. Selecciona cuál deseas cancelar.'",
+            "cancel_confirm_message": "TEXT DEFAULT '¿Confirmas que deseas cancelar la cita de {service_name} del {date} a las {time}?'",
+            "cancel_success_message": "TEXT DEFAULT 'Tu cita fue cancelada correctamente.'",
+            "cancel_rejected_message": "TEXT DEFAULT 'Perfecto, tu cita se mantiene activa.'",
+            "cancellation_disabled_message": (
+                "TEXT DEFAULT 'Este negocio no tiene habilitada la cancelación por Telegram. "
+                "Comunícate directamente con el establecimiento para recibir ayuda.'"
+            ),
             "plan_limit_public_message": "TEXT",
             "reminder_30_message": "TEXT",
             "reminder_15_message": "TEXT",
