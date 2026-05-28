@@ -1,18 +1,33 @@
-﻿from typing import Optional
+from datetime import datetime, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_current_user, require_staff_or_above, require_tenant_admin_or_above
 from app.core.database import get_db
-from app.core.auth import get_current_user, require_tenant_admin_or_above, require_staff_or_above
-from app.models.user import User
+from app.models.appointment import Appointment
 from app.models.client import Client
-from app.schemas.client import ClientCreate, ClientResponse, ClientUpdate
+from app.models.conversation import Conversation
+from app.models.user import User
 from app.repositories import client_repository
+from app.schemas.client import ClientCreate, ClientResponse, ClientUpdate
 from app.services.pagination import paginate_query
 
 router = APIRouter()
+
+CLIENT_HISTORY_MESSAGE = (
+    "Este cliente tiene historial asociado. "
+    "Puedes archivarlo, pero no eliminarlo definitivamente."
+)
+
+
+def _client_has_history(db: Session, client_id: int) -> bool:
+    return bool(
+        db.query(Appointment.id).filter(Appointment.client_id == client_id).first()
+        or db.query(Conversation.id).filter(Conversation.client_id == client_id).first()
+    )
 
 
 @router.get("/")
@@ -23,6 +38,7 @@ def list_clients(
     limit: int = 100,
     tenant_id: Optional[int] = None,
     search: Optional[str] = None,
+    status_filter: Optional[str] = Query(None, alias="status"),
     sort_by: str = Query("created_at"),
     sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db),
@@ -37,7 +53,13 @@ def list_clients(
         query = query.filter(Client.tenant_id == effective_tenant)
     if search:
         term = f"%{search.strip()}%"
-        query = query.filter(or_(Client.full_name.ilike(term), Client.username.ilike(term), Client.phone.ilike(term)))
+        query = query.filter(
+            or_(Client.full_name.ilike(term), Client.username.ilike(term), Client.phone.ilike(term))
+        )
+    if status_filter in {"archived", "archivado"}:
+        query = query.filter(Client.status == "archived")
+    elif status_filter not in {"all", "todos", "todo"}:
+        query = query.filter(or_(Client.status != "archived", Client.status.is_(None)))
     sortable = {"created_at": Client.created_at, "full_name": Client.full_name, "id": Client.id}
     column = sortable.get(sort_by, Client.created_at)
     query = query.order_by(column.asc() if sort_order == "asc" else column.desc())
@@ -108,6 +130,43 @@ def update_client(
     return updated
 
 
+@router.patch("/{client_id}/archive", response_model=ClientResponse)
+def archive_client(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_admin_or_above),
+):
+    existing = client_repository.get_client(db, client_id)
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
+    if current_user.primary_role != "superadmin" and existing.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    existing.status = "archived"
+    existing.archived_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(existing)
+    return existing
+
+
+@router.patch("/{client_id}/restore", response_model=ClientResponse)
+def restore_client(
+    client_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_tenant_admin_or_above),
+):
+    existing = client_repository.get_client(db, client_id)
+    if not existing:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
+    if current_user.primary_role != "superadmin" and existing.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    existing.status = "active"
+    existing.archived_at = None
+    existing.deleted_at = None
+    db.commit()
+    db.refresh(existing)
+    return existing
+
+
 @router.delete("/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_client(
     client_id: int,
@@ -119,5 +178,6 @@ def delete_client(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cliente no encontrado")
     if current_user.primary_role != "superadmin" and existing.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    if _client_has_history(db, client_id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=CLIENT_HISTORY_MESSAGE)
     client_repository.delete_client(db, client_id)
-

@@ -11,9 +11,15 @@ from app.core.database import get_db
 from app.core.security import hash_password
 from app.core.slug import ensure_unique_slug
 from app.bot.telegram_bot import request_telegram_reload
+from app.models.appointment import Appointment
+from app.models.client import Client
+from app.models.conversation import Conversation
 from app.models.location import City
 from app.models.person import Person
 from app.models.plan import Plan
+from app.models.service import Service
+from app.models.support import SupportTicket
+from app.models.telegram_config import TelegramConfig
 from app.models.tenant import Tenant
 from app.models.user import Role, User
 from app.schemas.tenant import TenantCreate, TenantResponse, TenantUpdate, TenantWithAdminCreate
@@ -30,6 +36,10 @@ PLAN_ALIASES = {
 ALL_PLAN_VALUES = {"", "all", "todos", "todo"}
 PUBLIC_PLAN_NAMES = ("free", "premium")
 BUSINESS_STATUSES = {"active", "inactive", "archived"}
+BUSINESS_HISTORY_MESSAGE = (
+    "Este negocio tiene historial asociado. "
+    "Puedes archivarlo, pero no eliminarlo definitivamente."
+)
 
 
 def _normalize_plan_filter(plan: Optional[str]) -> Optional[str]:
@@ -86,6 +96,19 @@ def _sort_tenants(query, sort_by: str, sort_order: str):
 
 def _tenant_response_not_found() -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Negocio no encontrado.")
+
+
+def _business_has_delete_blockers(db: Session, tenant_id: int) -> bool:
+    checks = (
+        db.query(Appointment.id).filter(Appointment.tenant_id == tenant_id).first(),
+        db.query(Client.id).filter(Client.tenant_id == tenant_id).first(),
+        db.query(Conversation.id).filter(Conversation.tenant_id == tenant_id).first(),
+        db.query(SupportTicket.id).filter(SupportTicket.tenant_id == tenant_id).first(),
+        db.query(Service.id).filter(Service.tenant_id == tenant_id).first(),
+        db.query(User.id).filter(User.tenant_id == tenant_id).first(),
+        db.query(TelegramConfig.id).filter(TelegramConfig.tenant_id == tenant_id).first(),
+    )
+    return any(checks)
 
 
 @router.get("/")
@@ -487,8 +510,8 @@ def delete_business(
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if not tenant:
         raise _tenant_response_not_found()
-    tenant.is_active = False
-    tenant.status = "archived"
-    tenant.archived_at = datetime.now(timezone.utc)
+    if _business_has_delete_blockers(db, tenant_id):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=BUSINESS_HISTORY_MESSAGE)
+    db.delete(tenant)
     db.commit()
     request_telegram_reload()

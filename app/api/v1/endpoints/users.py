@@ -9,6 +9,7 @@ from app.core.auth import get_current_user, require_superadmin, require_tenant_a
 from app.core.database import get_db
 from app.core.security import hash_password
 from app.models.person import Person
+from app.models.support import SupportTicket, SupportTicketMessage
 from app.models.tenant import Tenant
 from app.models.user import Role, User
 from app.schemas.user import (
@@ -24,6 +25,10 @@ router = APIRouter()
 
 MANAGEABLE_BY_TENANT_ADMIN = {"staff", "customer"}
 VALID_ROLES = {"superadmin", "tenant_admin", "staff", "customer"}
+USER_HISTORY_MESSAGE = (
+    "Este usuario tiene actividad asociada. "
+    "Puedes desactivarlo, pero no eliminarlo definitivamente."
+)
 
 
 def _role(db: Session, name: str) -> Role:
@@ -61,6 +66,21 @@ def _assert_can_manage_user(current_user: User, target: User) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Solo puedes administrar personal de tu negocio.",
         )
+
+
+def _user_has_activity(db: Session, user: User) -> bool:
+    return bool(
+        db.query(SupportTicket.id)
+        .filter(
+            or_(
+                SupportTicket.created_by_user_id == user.id,
+                SupportTicket.assigned_to_user_id == user.id,
+            )
+        )
+        .first()
+        or db.query(SupportTicketMessage.id).filter(SupportTicketMessage.sender_user_id == user.id).first()
+        or db.query(Tenant.id).filter(Tenant.owner_user_id == user.id).first()
+    )
 
 
 def _create_user_with_person(
@@ -383,6 +403,12 @@ def delete_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuario no encontrado.")
+    if _user_has_activity(db, user):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=USER_HISTORY_MESSAGE)
+    person = user.person
+    user.roles = []
+    user.permissions = []
     db.delete(user)
+    if person:
+        db.delete(person)
     db.commit()
-

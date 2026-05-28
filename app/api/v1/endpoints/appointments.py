@@ -16,6 +16,10 @@ from app.schemas.appointment import AppointmentCreate, AppointmentResponse, Appo
 from app.services.pagination import paginate_query
 
 router = APIRouter()
+APPOINTMENT_HISTORY_MESSAGE = (
+    "Esta cita tiene historial asociado. "
+    "Puedes cancelarla, pero no eliminarla definitivamente."
+)
 
 
 @router.get("/")
@@ -166,4 +170,28 @@ def mark_no_show(
     if current_user.primary_role != "superadmin" and appt.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
     return appointment_repository.mark_no_show(db, appointment_id)
+
+
+@router.delete("/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_appointment(
+    appointment_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    appt = appointment_repository.get_appointment(db, appointment_id)
+    if not appt:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cita no encontrada")
+    if current_user.primary_role != "superadmin" and appt.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    if current_user.primary_role not in ("superadmin", "tenant_admin"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    has_history = (
+        appt.status not in {"pending"}
+        or bool(appt.reminder_30_sent_at)
+        or bool(appt.reminder_15_sent_at)
+    )
+    if has_history:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=APPOINTMENT_HISTORY_MESSAGE)
+    db.delete(appt)
+    db.commit()
 

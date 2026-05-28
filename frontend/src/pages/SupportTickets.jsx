@@ -18,6 +18,7 @@ const STATUSES = [
   { value: 'waiting_user', label: 'Esperando respuesta' },
   { value: 'resolved', label: 'Resuelto' },
   { value: 'closed', label: 'Cerrado' },
+  { value: 'archived', label: 'Archivado' },
 ]
 
 const CATEGORIES = [
@@ -252,6 +253,41 @@ export default function SupportTickets() {
     }
   }
 
+  const archiveTicket = async (ticket) => {
+    try {
+      const updated = await api.archiveSupportTicket(ticket.id)
+      setSelected(current => current?.id === ticket.id ? updated : current)
+      await load()
+      setFeedback({ type: 'success', msg: 'Ticket archivado.' })
+    } catch (err) {
+      setFeedback({ type: 'error', msg: err.message })
+    }
+  }
+
+  const restoreTicket = async (ticket) => {
+    try {
+      const updated = await api.restoreSupportTicket(ticket.id)
+      setSelected(current => current?.id === ticket.id ? updated : current)
+      await load()
+      setFeedback({ type: 'success', msg: 'Ticket restaurado.' })
+    } catch (err) {
+      setFeedback({ type: 'error', msg: err.message })
+    }
+  }
+
+  const deleteTicket = async (ticket) => {
+    const typed = window.prompt('Esta acción eliminará definitivamente el registro y no se podrá recuperar. Escribe ELIMINAR para continuar.')
+    if (typed !== 'ELIMINAR') return
+    try {
+      await api.deleteSupportTicket(ticket.id)
+      setSelected(null)
+      await load()
+      setFeedback({ type: 'success', msg: 'Ticket eliminado definitivamente.' })
+    } catch (err) {
+      setFeedback({ type: 'error', msg: err.message })
+    }
+  }
+
   const clearFilters = () => {
     setSearch('')
     setFilterStatus('')
@@ -263,6 +299,7 @@ export default function SupportTickets() {
 
   if (loading && tickets.length === 0) return <div className="spinner" />
   if (error) return <div className="alert alert-error">Error: {error}</div>
+  const canManageSelected = selected && (isSuperadmin || Number(selected.created_by_user_id) === Number(user?.id))
 
   return (
     <div>
@@ -410,8 +447,21 @@ export default function SupportTickets() {
               })}
             </div>
 
-            {selected.status === 'closed' ? (
-              <button type="button" className="btn btn-outline" onClick={() => reopenTicket(selected)}>Reabrir ticket</button>
+            {selected.status === 'closed' || selected.status === 'archived' ? (
+              <div className="reply-actions">
+                {selected.status === 'closed' && canManageSelected && (
+                  <button type="button" className="btn btn-outline" onClick={() => reopenTicket(selected)}>Reabrir ticket</button>
+                )}
+                {selected.status === 'archived' && canManageSelected && (
+                  <button type="button" className="btn btn-outline" onClick={() => restoreTicket(selected)}>Restaurar ticket</button>
+                )}
+                {selected.status !== 'archived' && canManageSelected && (
+                  <button type="button" className="btn btn-outline" onClick={() => archiveTicket(selected)}>Archivar ticket</button>
+                )}
+                {canManageSelected && (
+                  <button type="button" className="btn btn-danger" onClick={() => deleteTicket(selected)}>Eliminar definitivamente</button>
+                )}
+              </div>
             ) : (
               <form className="reply-form" onSubmit={handleReply}>
                 <textarea
@@ -422,7 +472,15 @@ export default function SupportTickets() {
                   placeholder="Escribe una respuesta..."
                 />
                 <div className="reply-actions">
-                  <button type="button" className="btn btn-outline" onClick={() => closeTicket(selected)}>Cerrar ticket</button>
+                  {canManageSelected && (
+                    <button type="button" className="btn btn-outline" onClick={() => closeTicket(selected)}>Cerrar ticket</button>
+                  )}
+                  {canManageSelected && (
+                    <button type="button" className="btn btn-outline" onClick={() => archiveTicket(selected)}>Archivar ticket</button>
+                  )}
+                  {canManageSelected && (
+                    <button type="button" className="btn btn-danger" onClick={() => deleteTicket(selected)}>Eliminar definitivamente</button>
+                  )}
                   <button type="submit" className="btn btn-primary" disabled={sending || !reply.trim()}>
                     {sending ? 'Enviando...' : 'Responder'}
                   </button>

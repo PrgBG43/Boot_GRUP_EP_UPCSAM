@@ -31,7 +31,12 @@ function validationMessage(item) {
 
 function normalizeDetail(detail, status) {
   if (status === 401) return 'La sesión expiró. Inicia sesión nuevamente.'
-  if (status === 403) return 'Permiso insuficiente.'
+  if (status === 403) {
+    if (typeof detail === 'string') return detail
+    if (detail?.detail && typeof detail.detail === 'string') return detail.detail
+    if (detail?.message) return detail.message
+    return 'Permiso insuficiente.'
+  }
   if (status >= 500) return 'Ocurrió un error en el servidor. Intenta nuevamente.'
 
   if (detail && Array.isArray(detail)) {
@@ -130,6 +135,7 @@ export const api = {
   deactivateTenant: (id) => request(`/businesses/${id}/deactivate`, { method: 'PATCH' }),
   archiveTenant: (id) => request(`/businesses/${id}/archive`, { method: 'PATCH' }),
   restoreTenant: (id) => request(`/businesses/${id}/restore`, { method: 'PATCH' }),
+  deleteBusiness: (id) => request(`/businesses/${id}`, { method: 'DELETE' }),
   assignPlan: (id, plan) => request(`/businesses/${id}/plan?plan_name=${encodeURIComponent(plan)}`, { method: 'PATCH' }),
   getBusinessUsage: (id) => request(`/businesses/${id}/usage`),
 
@@ -147,6 +153,9 @@ export const api = {
   getClient: (id) => request(`/clients/${id}`),
   createClient: (data) => request('/clients/', { method: 'POST', body: JSON.stringify(data) }),
   updateClient: (id, data) => request(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  archiveClient: (id) => request(`/clients/${id}/archive`, { method: 'PATCH' }),
+  restoreClient: (id) => request(`/clients/${id}/restore`, { method: 'PATCH' }),
+  deleteClient: (id) => request(`/clients/${id}`, { method: 'DELETE' }),
 
   getAppointments: (params) => request(`/appointments/?${new URLSearchParams(params || {})}`),
   getAppointment: (id) => request(`/appointments/${id}`),
@@ -155,6 +164,7 @@ export const api = {
   cancelAppointment: (id) => request(`/appointments/${id}/cancel`, { method: 'PATCH' }),
   completeAppointment: (id) => request(`/appointments/${id}/complete`, { method: 'PATCH' }),
   markNoShowAppointment: (id) => request(`/appointments/${id}/no-show`, { method: 'PATCH' }),
+  deleteAppointment: (id) => request(`/appointments/${id}`, { method: 'DELETE' }),
 
   getAvailability: (params) => request(`/availability/?${new URLSearchParams(params)}`),
   getAvailableDates: (params) => request(`/availability/dates?${new URLSearchParams(params)}`),
@@ -174,6 +184,9 @@ export const api = {
   addSupportTicketMessage: (id, data) => request(`/support/tickets/${id}/messages`, { method: 'POST', body: JSON.stringify(data) }),
   closeSupportTicket: (id) => request(`/support/tickets/${id}/close`, { method: 'POST' }),
   reopenSupportTicket: (id) => request(`/support/tickets/${id}/reopen`, { method: 'POST' }),
+  archiveSupportTicket: (id) => request(`/support/tickets/${id}/archive`, { method: 'POST' }),
+  restoreSupportTicket: (id) => request(`/support/tickets/${id}/restore`, { method: 'POST' }),
+  deleteSupportTicket: (id) => request(`/support/tickets/${id}`, { method: 'DELETE' }),
 
   getSuperadminDashboard: (params = {}) => request(`/dashboard/superadmin?${new URLSearchParams(params || {})}`),
   getTenantDashboard: (tenantId, params = {}) => {

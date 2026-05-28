@@ -11,6 +11,7 @@ from app.core.auth import require_staff_or_above
 from app.core.database import get_db
 from app.models.client import Client
 from app.models.conversation import Conversation
+from app.models.message import Message
 from app.models.telegram_config import TelegramConfig
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -22,6 +23,10 @@ from app.services.telegram_token_service import decrypt_token
 
 router = APIRouter()
 TELEGRAM_API = "https://api.telegram.org/bot{token}/{method}"
+CONVERSATION_HISTORY_MESSAGE = (
+    "Esta conversación tiene mensajes asociados. "
+    "Puedes archivarla, pero no eliminarla definitivamente."
+)
 
 
 def _assert_conversation_access(current_user: User, conversation) -> None:
@@ -75,6 +80,8 @@ def list_conversations(
         query = query.filter(Conversation.tenant_id == effective_tenant)
     if status_filter:
         query = query.filter(Conversation.status == status_filter)
+    else:
+        query = query.filter(or_(Conversation.status != "archived", Conversation.status.is_(None)))
     if search:
         term = f"%{search.strip()}%"
         query = (
@@ -145,7 +152,41 @@ def delete_conversation(
     if not conversation:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversación no encontrada.")
     _assert_conversation_access(current_user, conversation)
+    if db.query(Message.id).filter(Message.conversation_id == conversation_id).first():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=CONVERSATION_HISTORY_MESSAGE)
     conversation_repository.delete_conversation(db, conversation_id)
+
+
+@router.patch("/{conversation_id}/archive", response_model=ConversationResponse)
+def archive_conversation(
+    conversation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_staff_or_above),
+):
+    conversation = conversation_repository.get_conversation(db, conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversación no encontrada.")
+    _assert_conversation_access(current_user, conversation)
+    conversation.status = "archived"
+    db.commit()
+    db.refresh(conversation)
+    return conversation
+
+
+@router.patch("/{conversation_id}/restore", response_model=ConversationResponse)
+def restore_conversation(
+    conversation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_staff_or_above),
+):
+    conversation = conversation_repository.get_conversation(db, conversation_id)
+    if not conversation:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversación no encontrada.")
+    _assert_conversation_access(current_user, conversation)
+    conversation.status = "active"
+    db.commit()
+    db.refresh(conversation)
+    return conversation
 
 
 @router.get("/{conversation_id}/messages", response_model=List[MessageResponse])

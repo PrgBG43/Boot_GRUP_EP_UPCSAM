@@ -22,9 +22,14 @@ from app.core.database import Base, SessionLocal, engine
 from app.core.schema_migrations import ensure_schema_compatibility
 from app.core.security import hash_password
 from app.core.slug import ensure_unique_slug
+from sqlalchemy import or_
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RAW_DIR = os.path.join(HERE, "raw")
+DEMO_TENANT_SLUGS = {"barberia-centro-turnix", "barberia-demo"}
+DEMO_TENANT_SLUG_PREFIXES = ("salon-estado-",)
+DEMO_TICKET_SUBJECT_PREFIXES = ("Aislamiento soporte Codex", "Ticket de prueba")
+DEMO_USER_EMAILS = {"negocio@turnix.com", "staff@turnix.com"}
 
 
 def _read_sql(path: str) -> str:
@@ -65,7 +70,6 @@ def _warn_missing_env():
         "TURNIX_SUPERADMIN_PASSWORD",
         "TURNIX_SUPERADMIN_FIRST_NAME",
         "TURNIX_SUPERADMIN_LAST_NAME",
-        "TURNIX_DEMO_SEED",
     ]
 
     missing = [name for name in expected if os.getenv(name) is None]
@@ -249,6 +253,75 @@ def _seed_superadmin(db, roles):
     db.refresh(user)
 
     return user
+
+
+def _cleanup_demo_data(db):
+    from app.models.support import SupportTicket
+    from app.models.tenant import Tenant
+    from app.models.user import Role, User
+
+    tenant_filters = [
+        Tenant.is_test_environment == True,
+        Tenant.slug.in_(DEMO_TENANT_SLUGS),
+    ]
+    tenant_filters.extend(Tenant.slug.ilike(f"{prefix}%") for prefix in DEMO_TENANT_SLUG_PREFIXES)
+
+    demo_tenants = (
+        db.query(Tenant)
+        .filter(or_(*tenant_filters))
+        .all()
+    )
+    demo_tenant_ids = [tenant.id for tenant in demo_tenants]
+
+    ticket_filters = [
+        SupportTicket.subject.ilike(f"{prefix}%")
+        for prefix in DEMO_TICKET_SUBJECT_PREFIXES
+    ]
+    deleted_tickets = 0
+    if ticket_filters:
+        for ticket in db.query(SupportTicket).filter(or_(*ticket_filters)).all():
+            db.delete(ticket)
+            deleted_tickets += 1
+
+    for tenant in demo_tenants:
+        tenant.owner_user_id = None
+    db.flush()
+
+    user_filters = [User.email.in_(DEMO_USER_EMAILS)]
+    if demo_tenant_ids:
+        user_filters.append(User.tenant_id.in_(demo_tenant_ids))
+
+    demo_users = db.query(User).filter(or_(*user_filters)).all()
+    deleted_users = 0
+    for user in demo_users:
+        if user.primary_role == "superadmin":
+            user.tenant_id = None
+            continue
+        person = user.person
+        user.roles = []
+        user.permissions = []
+        db.delete(user)
+        if person:
+            db.delete(person)
+        deleted_users += 1
+    db.flush()
+
+    deleted_tenants = len(demo_tenants)
+    for tenant in demo_tenants:
+        db.delete(tenant)
+
+    for superadmin in db.query(User).filter(User.roles.any(Role.name == "superadmin")).all():
+        superadmin.tenant_id = None
+
+    db.commit()
+
+    if deleted_tenants or deleted_users or deleted_tickets:
+        print(
+            "Datos demo limpiados: "
+            f"{deleted_tenants} negocio(s) demo, "
+            f"{deleted_users} usuario(s) demo y "
+            f"{deleted_tickets} ticket(s) demo."
+        )
 
 
 def _create_demo_data(db, plans, roles, locations):
@@ -586,6 +659,7 @@ def run_seed():
             print("TURNIX_DEMO_SEED=true: creando datos de prueba...")
             _create_demo_data(db, plans, roles, locations)
         else:
+            _cleanup_demo_data(db)
             print("TURNIX_DEMO_SEED=false: no se crean negocio ni usuarios demo.")
 
         print("Seed completado correctamente.")

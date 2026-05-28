@@ -84,6 +84,17 @@ export default function Services() {
     catch(e) { setFeedback({ type: 'error', msg: e.message }) }
   }
 
+  const handleDelete = async (s) => {
+    const typed = window.prompt('Esta acción eliminará definitivamente el servicio y no se podrá recuperar. Escribe ELIMINAR para continuar.')
+    if (typed !== 'ELIMINAR') return
+    try {
+      await api.deleteService(s.id)
+      load()
+    } catch (e) {
+      setFeedback({ type: 'error', msg: e.message })
+    }
+  }
+
   const businessName = (id) => businesses.find(b => b.id === id)?.name || 'Negocio sin nombre'
   const groupedServices = isSuperadmin && !activeTenantId ? groupByBusiness(services, businesses) : []
 
@@ -124,6 +135,9 @@ export default function Services() {
                   >
                     {s.is_active ? 'Desactivar' : 'Activar'}
                   </button>
+                  <button className="btn btn-outline btn-sm" onClick={() => handleDelete(s)}>
+                    Eliminar servicio
+                  </button>
                 </div>
               </td>
             </tr>
@@ -145,6 +159,8 @@ export default function Services() {
         </div>
         <button className="btn btn-primary" onClick={openCreate}>+ Nuevo servicio</button>
       </div>
+
+      {feedback && <div className={`alert alert-${feedback.type}`}>{feedback.msg}</div>}
 
       <div className="page-toolbar">
         <div className="filter-group">

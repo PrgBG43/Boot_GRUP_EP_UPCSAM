@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.auth import get_current_user, require_tenant_admin_or_above
+from app.models.appointment import Appointment
 from app.models.user import User
 from app.models.service import Service
 from app.models.tenant import Tenant
@@ -13,6 +14,10 @@ from app.schemas.service import ServiceCreate, ServiceResponse, ServiceUpdate
 from app.services.pagination import paginate_query
 
 router = APIRouter()
+SERVICE_HISTORY_MESSAGE = (
+    "Este servicio tiene citas asociadas. "
+    "Puedes desactivarlo, pero no eliminarlo definitivamente."
+)
 
 
 def _check_plan_service_limit(db: Session, tenant_id: int):
@@ -144,6 +149,7 @@ def delete_service(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Service not found")
     if current_user.primary_role != "superadmin" and service.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Acceso denegado")
+    if db.query(Appointment.id).filter(Appointment.service_id == service.id).first():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=SERVICE_HISTORY_MESSAGE)
     db.delete(service)
     db.commit()
-

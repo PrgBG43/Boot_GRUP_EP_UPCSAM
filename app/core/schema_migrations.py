@@ -85,6 +85,15 @@ def ensure_schema_compatibility(engine) -> None:
     )
     _add_columns_if_missing(
         engine,
+        "clients",
+        {
+            "status": "VARCHAR DEFAULT 'active'",
+            "archived_at": "DATETIME",
+            "deleted_at": "DATETIME",
+        },
+    )
+    _add_columns_if_missing(
+        engine,
         "conversations",
         {
             "bot_id": "VARCHAR",

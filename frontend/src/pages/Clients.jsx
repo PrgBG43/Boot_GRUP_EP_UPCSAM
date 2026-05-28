@@ -18,6 +18,7 @@ export default function Clients() {
   const [saving,     setSaving]     = useState(false)
   const [feedback,   setFeedback]   = useState(null)
   const [search,     setSearch]     = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
   const [page,       setPage]       = useState(1)
   const [pagination, setPagination] = useState({ total: 0, page: 1, page_size: 20, pages: 0 })
   const [lastUpdated, setLastUpdated] = useState(null)
@@ -28,6 +29,7 @@ export default function Clients() {
       const params = { page, page_size: 20 }
       if (isSuperadmin && activeTenantId) params.tenant_id = activeTenantId
       if (search.trim()) params.search = search.trim()
+      if (statusFilter) params.status = statusFilter
       const [c, b] = await Promise.all([
         api.getClients(params),
         isSuperadmin ? api.getBusinesses({ page_size: 100 }) : Promise.resolve([]),
@@ -46,7 +48,7 @@ export default function Clients() {
     load()
     const timer = setInterval(load, 10000)
     return () => clearInterval(timer)
-  }, [activeTenantId, page])
+  }, [activeTenantId, page, statusFilter])
   useEffect(() => {
     const timer = setTimeout(() => { setPage(1); load() }, 350)
     return () => clearTimeout(timer)
@@ -96,6 +98,35 @@ export default function Clients() {
     setSaving(false)
   }
 
+  const archiveClient = async (client) => {
+    try {
+      await api.archiveClient(client.id)
+      load()
+    } catch (e) {
+      setFeedback({ type: 'error', msg: e.message })
+    }
+  }
+
+  const restoreClient = async (client) => {
+    try {
+      await api.restoreClient(client.id)
+      load()
+    } catch (e) {
+      setFeedback({ type: 'error', msg: e.message })
+    }
+  }
+
+  const deleteClient = async (client) => {
+    const typed = window.prompt('Esta acción eliminará definitivamente el cliente y no se podrá recuperar. Escribe ELIMINAR para continuar.')
+    if (typed !== 'ELIMINAR') return
+    try {
+      await api.deleteClient(client.id)
+      load()
+    } catch (e) {
+      setFeedback({ type: 'error', msg: e.message })
+    }
+  }
+
   const renderClientsTable = (items, showBusinessColumn = isSuperadmin && !!activeTenantId) => (
     <div className="table-responsive">
       <table className="data-table clients-table">
@@ -106,6 +137,7 @@ export default function Clients() {
             <th>Usuario Telegram</th>
             <th>Teléfono</th>
             <th>ID Telegram</th>
+            <th>Estado</th>
             <th>Registrado</th>
             <th>Acciones</th>
           </tr>
@@ -118,10 +150,21 @@ export default function Clients() {
               <td className="cell-nowrap">{c.username ? `@${c.username}` : '-'}</td>
               <td className="cell-nowrap">{c.phone || '-'}</td>
               <td className="cell-nowrap">{c.telegram_user_id || '-'}</td>
+              <td>
+                <span className={`badge ${c.status === 'archived' ? 'badge-neutral' : 'badge-success'}`}>
+                  {c.status === 'archived' ? 'Archivado' : 'Activo'}
+                </span>
+              </td>
               <td className="cell-nowrap">{c.created_at ? new Date(c.created_at).toLocaleDateString('es-CO') : '-'}</td>
               <td className="cell-actions">
                 <div className="table-actions">
                   <button className="btn btn-outline btn-sm" onClick={() => openEdit(c)}>Editar</button>
+                  {c.status === 'archived' ? (
+                    <button className="btn btn-success btn-sm" onClick={() => restoreClient(c)}>Restaurar</button>
+                  ) : (
+                    <button className="btn btn-outline btn-sm" onClick={() => archiveClient(c)}>Archivar cliente</button>
+                  )}
+                  <button className="btn btn-danger btn-sm" onClick={() => deleteClient(c)}>Eliminar cliente</button>
                 </div>
               </td>
             </tr>
@@ -152,6 +195,8 @@ export default function Clients() {
         </div>
       </div>
 
+      {feedback && <div className={`alert alert-${feedback.type}`}>{feedback.msg}</div>}
+
       {/* Filtros */}
       <div className="page-toolbar">
         <div className="filter-group">
@@ -161,10 +206,15 @@ export default function Clients() {
             onChange={e => setSearch(e.target.value)}
             className="search-input"
           />
+          <select className="filter-select" value={statusFilter} onChange={e => { setPage(1); setStatusFilter(e.target.value) }}>
+            <option value="">Activos</option>
+            <option value="archived">Archivados</option>
+            <option value="all">Todos</option>
+          </select>
         </div>
-        {search && (
+        {(search || statusFilter) && (
           <div className="action-group">
-            <button type="button" className="btn btn-outline" onClick={() => { setSearch(''); setPage(1) }}>
+            <button type="button" className="btn btn-outline" onClick={() => { setSearch(''); setStatusFilter(''); setPage(1) }}>
               Limpiar filtros
             </button>
           </div>

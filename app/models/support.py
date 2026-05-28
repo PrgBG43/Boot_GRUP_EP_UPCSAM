@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship
 from app.core.database import Base
 
 
-SUPPORT_TICKET_STATUSES = ("open", "in_progress", "waiting_user", "resolved", "closed")
+SUPPORT_TICKET_STATUSES = ("open", "in_progress", "waiting_user", "resolved", "closed", "archived")
 SUPPORT_TICKET_PRIORITIES = ("low", "normal", "high", "urgent")
 
 

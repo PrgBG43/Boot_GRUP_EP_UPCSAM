@@ -48,6 +48,7 @@ const STAFF_NAV = [
   { to: '/', label: 'Mi agenda', end: true },
   { to: '/appointments', label: 'Citas' },
   { to: '/clients', label: 'Clientes' },
+  { to: '/support', label: 'Soporte asignado' },
 ]
 
 function RoleBadge({ role }) {
@@ -189,7 +190,7 @@ function Layout({ navItems }) {
               </ProtectedRoute>
             } />
             <Route path="/support" element={
-              <ProtectedRoute roles={['superadmin', 'tenant_admin']}>
+              <ProtectedRoute roles={['superadmin', 'tenant_admin', 'staff']}>
                 <SupportTickets />
               </ProtectedRoute>
             } />

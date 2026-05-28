@@ -111,6 +111,11 @@ export default function Appointments() {
   const handleNoShow = async id => {
     try { await api.markNoShowAppointment(id); load() } catch (e) { setFeedback({ type: 'error', msg: e.message }) }
   }
+  const handleDelete = async id => {
+    const typed = window.prompt('Esta acción eliminará definitivamente la cita y no se podrá recuperar. Escribe ELIMINAR para continuar.')
+    if (typed !== 'ELIMINAR') return
+    try { await api.deleteAppointment(id); load() } catch (e) { setFeedback({ type: 'error', msg: e.message }) }
+  }
 
   const groupedAppointments = isSuperadmin && !activeTenantId ? groupByBusiness(appointments, businesses) : []
 
@@ -150,7 +155,7 @@ export default function Appointments() {
                   )}
                   {!isStaff && !['cancelled', 'completed'].includes(a.status) && (
                     <button className="btn btn-danger btn-sm" onClick={() => handleCancel(a.id)}>
-                      Cancelar
+                      Cancelar cita
                     </button>
                   )}
                   {!isStaff && ['pending', 'confirmed'].includes(a.status) && (
@@ -161,6 +166,11 @@ export default function Appointments() {
                   {isStaff && a.status === 'confirmed' && (
                     <button className="btn btn-success btn-sm" onClick={() => handleComplete(a.id)}>
                       Completar
+                    </button>
+                  )}
+                  {!isStaff && a.status === 'pending' && (
+                    <button className="btn btn-outline btn-sm" onClick={() => handleDelete(a.id)}>
+                      Eliminar definitivamente
                     </button>
                   )}
                 </div>
@@ -201,6 +211,8 @@ export default function Appointments() {
           {!isStaff && <button className="btn btn-primary" onClick={openCreate}>+ Nueva cita</button>}
         </div>
       </div>
+
+      {feedback && <div className={`alert alert-${feedback.type}`}>{feedback.msg}</div>}
 
       {/* Filtros */}
       <div className="page-toolbar">

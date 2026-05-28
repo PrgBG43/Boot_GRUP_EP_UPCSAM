@@ -389,6 +389,17 @@ export default function AdminTenants() {
     }
   }
 
+  const deleteTenant = async (t) => {
+    const typed = window.prompt('Esta acción eliminará definitivamente el negocio y no se podrá recuperar. Escribe ELIMINAR para continuar.')
+    if (typed !== 'ELIMINAR') return
+    try {
+      await api.deleteBusiness(t.id)
+      load()
+    } catch (err) {
+      setFeedback(err.message)
+    }
+  }
+
   // -- Descargar PDF ----------------------------------------
   const downloadPDF = async () => {
     const { jsPDF }             = await import('jspdf')
@@ -594,7 +605,12 @@ export default function AdminTenants() {
                         Editar
                       </button>
                       {t.status === 'archived' ? (
-                        <button className="btn btn-success btn-sm" onClick={() => restoreTenant(t)}>Restaurar</button>
+                        <>
+                          <button className="btn btn-success btn-sm" onClick={() => restoreTenant(t)}>Restaurar</button>
+                          <button className="btn btn-outline btn-sm" onClick={() => deleteTenant(t)}>
+                            Eliminar definitivamente
+                          </button>
+                        </>
                       ) : (
                         <>
                           <button
@@ -604,7 +620,10 @@ export default function AdminTenants() {
                             {t.is_active ? 'Desactivar' : 'Activar'}
                           </button>
                           <button className="btn btn-outline btn-sm" onClick={() => archiveTenant(t)}>
-                            Archivar
+                            Archivar negocio
+                          </button>
+                          <button className="btn btn-outline btn-sm" onClick={() => deleteTenant(t)}>
+                            Eliminar definitivamente
                           </button>
                         </>
                       )}

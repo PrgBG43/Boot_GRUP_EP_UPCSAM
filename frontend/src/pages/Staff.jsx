@@ -101,6 +101,12 @@ export default function Staff() {
     try { await action(s.id); load() } catch(e) { setFeedback({ type: 'error', msg: e.message }) }
   }
 
+  const deleteStaff = async (s) => {
+    const typed = window.prompt('Esta acción eliminará definitivamente el usuario y no se podrá recuperar. Escribe ELIMINAR para continuar.')
+    if (typed !== 'ELIMINAR') return
+    try { await api.deleteUser(s.id); load() } catch(e) { setFeedback({ type: 'error', msg: e.message }) }
+  }
+
   if (loading) return <div className="spinner" />
   if (error)   return <div className="alert alert-error">Error: {error}</div>
 
@@ -153,6 +159,11 @@ export default function Staff() {
                       >
                         {s.is_active ? 'Desactivar' : 'Activar'}
                       </button>
+                      {isSuperadmin && (
+                        <button className="btn btn-outline btn-sm" onClick={() => deleteStaff(s)}>
+                          Eliminar definitivamente
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
