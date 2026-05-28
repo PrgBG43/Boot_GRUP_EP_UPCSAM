@@ -27,6 +27,7 @@ PLAN_ALIASES = {
     "premium": "premium",
 }
 ALL_PLAN_VALUES = {"", "all", "todos", "todo"}
+PUBLIC_PLAN_NAMES = ("free", "premium")
 
 
 def _normalize_plan_filter(plan: Optional[str]) -> Optional[str]:
@@ -53,8 +54,12 @@ def _get_city_for_business(db: Session, state_id: Optional[int], city_id: Option
 
 def _get_plan(db: Session, plan_id: Optional[int]) -> Optional[Plan]:
     if plan_id is None:
-        return None
-    plan = db.query(Plan).filter(Plan.id == plan_id, Plan.is_active == True).first()
+        raise HTTPException(status_code=400, detail="Selecciona un plan.")
+    plan = db.query(Plan).filter(
+        Plan.id == plan_id,
+        Plan.is_active == True,
+        Plan.name.in_(PUBLIC_PLAN_NAMES),
+    ).first()
     if not plan:
         raise HTTPException(status_code=400, detail="Selecciona un plan.")
     return plan
@@ -102,7 +107,11 @@ def list_businesses(
         page = int(skip / (limit or page_size)) + 1
         page_size = limit or page_size
 
-    query = db.query(Tenant)
+    query = (
+        db.query(Tenant)
+        .filter(or_(Tenant.is_test_environment == False, Tenant.is_test_environment.is_(None)))
+        .filter(Tenant.plan.has(Plan.name.in_(PUBLIC_PLAN_NAMES)))
+    )
     normalized_plan = _normalize_plan_filter(plan)
     if normalized_plan:
         query = query.join(Plan, Tenant.plan_id == Plan.id).filter(Plan.name == normalized_plan)
@@ -453,4 +462,3 @@ def delete_business(
     tenant.status = "archived"
     tenant.archived_at = datetime.now(timezone.utc)
     db.commit()
-

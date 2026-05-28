@@ -15,11 +15,15 @@ from app.models.client import Client
 from app.models.conversation import Conversation
 from app.models.plan import Plan
 from app.models.service import Service
+from app.models.support import SupportTicket
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.plan_usage_service import get_plan_usage_summary
 
 router = APIRouter()
+
+PUBLIC_PLAN_NAMES = ("free", "premium")
+OPEN_SUPPORT_STATUSES = ("open", "in_progress", "waiting_user")
 
 
 def _add_months(value: date, months: int) -> date:
@@ -72,7 +76,12 @@ def _money(value) -> float:
 
 
 def _tenant_query(db: Session, *, tenant_id: Optional[int], plan: Optional[str], city: Optional[str], status_filter: Optional[str]):
-    query = db.query(Tenant).options(joinedload(Tenant.plan))
+    query = (
+        db.query(Tenant)
+        .options(joinedload(Tenant.plan))
+        .filter(or_(Tenant.is_test_environment == False, Tenant.is_test_environment.is_(None)))
+        .filter(Tenant.plan.has(Plan.name.in_(PUBLIC_PLAN_NAMES)))
+    )
     if tenant_id:
         query = query.filter(Tenant.id == tenant_id)
     if plan:
@@ -123,6 +132,11 @@ def _conversations_in_range(db: Session, tenant_ids: list[int], start: date, end
     return _filter_by_tenants(query, Conversation, tenant_ids).all()
 
 
+def _support_tickets_for_tenants(db: Session, tenant_ids: list[int]):
+    query = db.query(SupportTicket).options(joinedload(SupportTicket.tenant).joinedload(Tenant.plan))
+    return _filter_by_tenants(query, SupportTicket, tenant_ids).all()
+
+
 def _chart_from_counter(counter: Counter, label_key: str, value_key: str, ordered_keys: Optional[list[str]] = None):
     keys = ordered_keys if ordered_keys is not None else list(counter.keys())
     return [{label_key: key, value_key: int(counter.get(key, 0))} for key in keys]
@@ -145,6 +159,7 @@ def superadmin_dashboard(
     appointments = _appointments_in_range(db, tenant_ids, start, end)
     clients = _clients_in_range(db, tenant_ids, start, end)
     conversations = _conversations_in_range(db, tenant_ids, start, end)
+    support_tickets = _support_tickets_for_tenants(db, tenant_ids)
 
     plan_counts = Counter((tenant.plan.name if tenant.plan else "sin_plan") for tenant in tenants)
     plan_labels = {tenant.plan.name: tenant.plan.display_name for tenant in tenants if tenant.plan}
@@ -154,6 +169,8 @@ def superadmin_dashboard(
     monthly_appts = Counter(_month_key(appt.appointment_date) for appt in appointments)
     monthly_clients = Counter(_month_key(client.created_at) for client in clients if client.created_at)
     monthly_conversations = Counter(_month_key(conv.last_interaction_at) for conv in conversations if conv.last_interaction_at)
+    ticket_status_counts = Counter(ticket.status for ticket in support_tickets)
+    ticket_priority_counts = Counter(ticket.priority for ticket in support_tickets)
     city_appts = Counter((appt.tenant.city if appt.tenant and appt.tenant.city else "Sin ciudad") for appt in appointments)
     business_growth = Counter(_month_key(tenant.created_at) for tenant in tenants if tenant.created_at)
     top_businesses_counter = Counter()
@@ -168,7 +185,7 @@ def superadmin_dashboard(
     usage_rows = []
     for tenant in tenants:
         usage = get_plan_usage_summary(db, tenant.id)
-        if usage["near_limit"] or usage["limit_reached"] or usage["plan"] == "free":
+        if usage["near_limit"] or usage["limit_reached"] or usage["plan_name"] == "free":
             usage_rows.append(usage)
 
     top_plan = plan_counts.most_common(1)[0][0] if plan_counts else None
@@ -177,6 +194,7 @@ def superadmin_dashboard(
     free_volume = appts_by_plan.get("free", 0)
     near_limit = [item for item in usage_rows if item["near_limit"] and not item["limit_reached"]]
     limit_reached = [item for item in usage_rows if item["limit_reached"]]
+    premium_ticket_count = sum(1 for ticket in support_tickets if ticket.is_premium)
 
     insights = []
     if top_plan:
@@ -213,6 +231,9 @@ def superadmin_dashboard(
         "near_limit_businesses": len(near_limit),
         "limit_reached_businesses": len(limit_reached),
         "appointments_in_range": len(appointments),
+        "open_tickets": sum(ticket_status_counts.get(status, 0) for status in OPEN_SUPPORT_STATUSES),
+        "urgent_tickets": ticket_priority_counts.get("urgent", 0),
+        "premium_tickets": premium_ticket_count,
     }
 
     charts = {
@@ -234,6 +255,8 @@ def superadmin_dashboard(
         ],
         "free_plan_usage": usage_rows[:12],
         "business_growth": _chart_from_counter(business_growth, "month", "businesses", months),
+        "support_tickets_by_status": _chart_from_counter(ticket_status_counts, "status", "count"),
+        "support_tickets_by_priority": _chart_from_counter(ticket_priority_counts, "priority", "count"),
     }
 
     return {
@@ -290,6 +313,12 @@ def tenant_dashboard(
     all_clients = db.query(func.count(Client.id)).filter(Client.tenant_id == tid).scalar() or 0
     active_services = db.query(func.count(Service.id)).filter(Service.tenant_id == tid, Service.is_active == True).scalar() or 0
     total_services = db.query(func.count(Service.id)).filter(Service.tenant_id == tid).scalar() or 0
+    open_tickets = (
+        db.query(func.count(SupportTicket.id))
+        .filter(SupportTicket.tenant_id == tid, SupportTicket.status.in_(OPEN_SUPPORT_STATUSES))
+        .scalar()
+        or 0
+    )
 
     status_counts = Counter(appt.status for appt in appointments)
     top_services = Counter(appt.service.name if appt.service else "Sin servicio" for appt in appointments)
@@ -358,6 +387,7 @@ def tenant_dashboard(
         "estimated_income": estimated_income,
         "active_services": active_services,
         "total_services": total_services,
+        "open_tickets": open_tickets,
     }
 
     charts = {

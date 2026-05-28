@@ -34,7 +34,7 @@ function FieldError({ msg }) {
 const EMPTY_TENANT = {
   name: '', description: '', phone: '', address: '', city: '', city_id: '',
   state_id: '', slug: '', opening_time: '08:00', closing_time: '20:00',
-  plan_id: '', is_active: true, is_test_environment: false,
+  plan_id: '', is_active: true,
 }
 const EMPTY_ADMIN = {
   first_name: '', last_name: '', email: '', password: '', confirm_password: '', phone: '',
@@ -166,7 +166,6 @@ export default function AdminTenants() {
       closing_time: t.closing_time || '20:00',
       plan_id: t.plan?.id || '',
       is_active: t.is_active,
-      is_test_environment: !!t.is_test_environment,
     })
     setEditing(t.id)
     setModal('edit')
@@ -276,7 +275,6 @@ export default function AdminTenants() {
           closing_time: tenantForm.closing_time,
           plan_id:      parseInt(tenantForm.plan_id),
           is_active:    tenantForm.is_active,
-          is_test_environment: tenantForm.is_test_environment,
         },
         admin: {
           first_name:       adminForm.first_name.trim(),
@@ -309,6 +307,7 @@ export default function AdminTenants() {
   const validateEdit = () => {
     const errs = {}
     if (!tenantForm.name.trim()) errs.name = 'El nombre del negocio es obligatorio.'
+    if (!tenantForm.plan_id) errs.plan_id = 'Selecciona un plan.'
     if (tenantForm.phone) {
       const phoneErr = validatePhone(tenantForm.phone)
       if (phoneErr) errs.phone = phoneErr
@@ -339,7 +338,6 @@ export default function AdminTenants() {
         closing_time: tenantForm.closing_time || null,
         plan_id:      tenantForm.plan_id ? parseInt(tenantForm.plan_id) : null,
         is_active:    tenantForm.is_active,
-        is_test_environment: tenantForm.is_test_environment,
         state_id:     tenantForm.state_id ? parseInt(tenantForm.state_id) : null,
         city_id:      tenantForm.city_id ? parseInt(tenantForm.city_id) : null,
       }
@@ -518,7 +516,7 @@ export default function AdminTenants() {
           <select className="filter-select" value={usageFilter} onChange={e => { setPage(1); setUsageFilter(e.target.value) }}>
             <option value="">Uso del plan</option>
             <option value="near">Cerca del límite</option>
-            <option value="reached">Limite alcanzado</option>
+            <option value="reached">Límite alcanzado</option>
           </select>
         </div>
         <div className="action-group">
@@ -559,7 +557,6 @@ export default function AdminTenants() {
                 <th>Administrador</th>
                 <th>Correo admin</th>
                 <th>Plan</th>
-                <th>Tipo</th>
                 <th>Uso del plan</th>
                 <th>Estado</th>
                 <th>Acciones</th>
@@ -584,7 +581,6 @@ export default function AdminTenants() {
                     <span className="cell-email">{adminEmail(t)}</span>
                   </td>
                   <td><span className={`badge badge-plan ${planBadgeClass(t)}`}>{planName(t)}</span></td>
-                  <td>{t.is_test_environment ? <span className="badge badge-warning">Prueba</span> : <span className="badge badge-neutral">Real</span>}</td>
                   <td><span className={`badge ${usageClass(t)}`}>{usageText(t)}</span></td>
                   <td>{statusBadge(t)}</td>
                   <td className="cell-actions">
@@ -793,16 +789,6 @@ export default function AdminTenants() {
                       onChange={handleTenantChange}
                     />
                     <label htmlFor="is_active_create">Negocio activo</label>
-                  </div>
-                  <div className="form-check form-check-bottom">
-                    <input
-                      type="checkbox"
-                      id="is_test_environment_create"
-                      name="is_test_environment"
-                      checked={tenantForm.is_test_environment}
-                      onChange={handleTenantChange}
-                    />
-                    <label htmlFor="is_test_environment_create">Entorno de prueba</label>
                   </div>
                 </div>
               </div>
@@ -1014,9 +1000,10 @@ export default function AdminTenants() {
               <div className="form-group">
                 <label>Plan</label>
                 <select name="plan_id" value={tenantForm.plan_id} onChange={handleTenantChange}>
-                  <option value="">Sin plan asignado</option>
+                  <option value="">Selecciona un plan</option>
                   {plans.map(p => <option key={p.id} value={p.id}>{p.display_name}</option>)}
                 </select>
+                <FieldError msg={fieldErrors.plan_id} />
               </div>
 
               <div className="form-group form-check">
@@ -1028,17 +1015,6 @@ export default function AdminTenants() {
                   onChange={handleTenantChange}
                 />
                 <label htmlFor="is_active_edit">Negocio activo</label>
-              </div>
-
-              <div className="form-group form-check">
-                <input
-                  type="checkbox"
-                  id="is_test_environment_edit"
-                  name="is_test_environment"
-                  checked={tenantForm.is_test_environment}
-                  onChange={handleTenantChange}
-                />
-                <label htmlFor="is_test_environment_edit">Entorno de prueba</label>
               </div>
 
               <div className="modal-footer">

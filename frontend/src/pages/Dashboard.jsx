@@ -252,6 +252,8 @@ function SuperadminDashboard() {
   const conversationsByMonth = chartData(charts.conversations_by_month, 'month', 'conversations')
   const appointmentsByCity = chartData(charts.appointments_by_city, 'city', 'appointments')
   const growthRows = chartData(charts.business_growth, 'month', 'businesses')
+  const ticketStatusRows = chartData(charts.support_tickets_by_status, 'status', 'count', statusLabel)
+  const ticketPriorityRows = chartData(charts.support_tickets_by_priority, 'priority', 'count', statusLabel)
 
   return (
     <div>
@@ -284,6 +286,9 @@ function SuperadminDashboard() {
         <StatCard label="Conversaciones Telegram" value={summary.total_conversations} color="#ec4899" />
         <StatCard label="Cerca del límite" value={summary.near_limit_businesses} color="#f59e0b" />
         <StatCard label="Límite alcanzado" value={summary.limit_reached_businesses} color="#ef4444" />
+        <StatCard label="Tickets abiertos" value={summary.open_tickets} color="#10b981" />
+        <StatCard label="Tickets urgentes" value={summary.urgent_tickets} color="#ef4444" />
+        <StatCard label="Tickets Premium" value={summary.premium_tickets} color="#8b5cf6" />
       </div>
 
       <Insights items={data?.insights || []} />
@@ -384,6 +389,30 @@ function SuperadminDashboard() {
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
+
+        <ChartCard title="Tickets por estado" empty={ticketStatusRows.length === 0}>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={ticketStatusRows}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
+              <XAxis dataKey="label" />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="value" name="Tickets" fill="#6c3fc5" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+
+        <ChartCard title="Tickets por prioridad" empty={ticketPriorityRows.length === 0}>
+          <ResponsiveContainer width="100%" height={250}>
+            <BarChart data={ticketPriorityRows}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#eef2f7" />
+              <XAxis dataKey="label" />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="value" name="Tickets" fill="#ef4444" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
       </div>
     </div>
   )
@@ -474,6 +503,7 @@ function TenantDashboard() {
         <StatCard label="Canceladas" value={summary.cancelled_appointments} color="#ef4444" />
         <StatCard label="Clientes registrados" value={summary.clients_registered} color="#14b8a6" />
         <StatCard label="Conversaciones recibidas" value={summary.conversations_received} color="#ec4899" />
+        <StatCard label="Tickets abiertos" value={summary.open_tickets} color="#f59e0b" />
         <StatCard
           label="Uso del plan"
           value={summary.plan_limit ? `${summary.plan_used} / ${summary.plan_limit}` : 'Ilimitado'}

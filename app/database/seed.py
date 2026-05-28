@@ -133,6 +133,10 @@ def _seed_plans(db):
         enterprise.allows_advanced_reminders = True
         enterprise.allows_analytics = True
 
+    db.query(Tenant).filter(Tenant.plan_id.is_(None)).update(
+        {"plan_id": result["free"].id}
+    )
+
     db.commit()
     return result
 
