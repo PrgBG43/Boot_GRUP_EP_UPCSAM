@@ -74,7 +74,7 @@ function TenantSelector() {
 
   return (
     <div className="tenant-selector">
-      <label className="tenant-selector-label">Negocio activo</label>
+      <label className="tenant-selector-label">Negocio seleccionado</label>
       <select className="tenant-selector-select" value={activeTenant?.id || ''} onChange={handleChange}>
         <option value="">Vista global</option>
         {tenants.map(tenant => (
@@ -106,7 +106,7 @@ function Layout({ navItems }) {
 
         {!isSuperadmin && user?.tenant_name && (
           <div className="sidebar-tenant">
-            <span className="tenant-label">Negocio activo</span>
+            <span className="tenant-label">Negocio seleccionado</span>
             <span className="tenant-name">{user.tenant_name}</span>
           </div>
         )}

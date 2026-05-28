@@ -51,7 +51,10 @@ export default function BusinessAccordion({
               aria-expanded={isOpen}
             >
               <span className="business-group-toggle" aria-hidden="true">{isOpen ? '-' : '+'}</span>
-              <span className="business-group-title">{group.tenantName}</span>
+              <span className="business-group-title-wrap">
+                <span className="business-group-title">{group.tenantName}</span>
+                {group.internalCode && <span className="business-group-code">Código interno: {group.internalCode}</span>}
+              </span>
               <span className="business-group-count">
                 {group.items.length} {group.items.length === 1 ? itemLabel.singular : itemLabel.plural}
               </span>

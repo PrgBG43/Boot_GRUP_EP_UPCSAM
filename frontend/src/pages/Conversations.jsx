@@ -192,7 +192,7 @@ export default function Conversations() {
           {items.map(c => (
             <tr key={c.id} className="clickable-row" onClick={() => openConversation(c)}>
               <td className="cell-nowrap">#{c.id}</td>
-              {showBusinessColumn && <td className="cell-nowrap">{c.tenant_name || `#${c.tenant_id}`}</td>}
+              {showBusinessColumn && <td className="cell-nowrap">{c.tenant_name || 'Negocio sin nombre'}</td>}
               <td className="cell-nowrap">{c.client_name || `Chat ${c.chat_id}`}</td>
               <td className="cell-nowrap">{channelLabel(c.channel)}</td>
               <td><span className={`badge ${statusBadgeClass(c.status)}`}>{statusLabel(c.status)}</span></td>

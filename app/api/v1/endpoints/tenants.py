@@ -10,6 +10,7 @@ from app.core.auth import get_current_user, require_staff_or_above, require_supe
 from app.core.database import get_db
 from app.core.security import hash_password
 from app.core.slug import ensure_unique_slug
+from app.bot.telegram_bot import request_telegram_reload
 from app.models.location import City
 from app.models.person import Person
 from app.models.plan import Plan
@@ -28,6 +29,7 @@ PLAN_ALIASES = {
 }
 ALL_PLAN_VALUES = {"", "all", "todos", "todo"}
 PUBLIC_PLAN_NAMES = ("free", "premium")
+BUSINESS_STATUSES = {"active", "inactive", "archived"}
 
 
 def _normalize_plan_filter(plan: Optional[str]) -> Optional[str]:
@@ -209,10 +211,10 @@ def create_business(
     data["slug"] = ensure_unique_slug(db, base_slug)
     if city:
         data["city"] = city.description
+    data["is_active"] = True
+    data["status"] = "active"
 
     new_tenant = Tenant(**data)
-    if not new_tenant.status:
-        new_tenant.status = "active" if new_tenant.is_active else "inactive"
     db.add(new_tenant)
     try:
         db.commit()
@@ -258,9 +260,9 @@ def create_business_with_admin(
         blocked_dates=business.blocked_dates,
         blocked_time_ranges=business.blocked_time_ranges,
         plan_id=business.plan_id,
-        is_active=business.is_active,
+        is_active=True,
         is_test_environment=business.is_test_environment,
-        status="active" if business.is_active else "inactive",
+        status="active",
     )
     db.add(new_tenant)
 
@@ -319,6 +321,13 @@ def update_business(
         data.pop("status", None)
         data.pop("is_active", None)
         data.pop("is_test_environment", None)
+    status_value = data.pop("status", None)
+    if status_value is not None:
+        status_value = status_value.strip().lower()
+        if status_value not in BUSINESS_STATUSES:
+            raise HTTPException(status_code=400, detail="Estado de negocio inválido.")
+        data.pop("is_active", None)
+
     if "plan_id" in data:
         _get_plan(db, data.get("plan_id"))
 
@@ -336,10 +345,26 @@ def update_business(
     for key, value in data.items():
         setattr(tenant, key, value)
 
-    if "is_active" in data and "status" not in data and tenant.status != "archived":
+    if status_value == "active":
+        tenant.is_active = True
+        tenant.status = "active"
+        tenant.archived_at = None
+        tenant.deleted_at = None
+    elif status_value == "inactive":
+        tenant.is_active = False
+        tenant.status = "inactive"
+        tenant.archived_at = None
+        tenant.deleted_at = None
+    elif status_value == "archived":
+        tenant.is_active = False
+        tenant.status = "archived"
+        tenant.archived_at = tenant.archived_at or datetime.now(timezone.utc)
+    elif "is_active" in data and tenant.status != "archived":
         tenant.status = "active" if tenant.is_active else "inactive"
 
     db.commit()
+    if status_value is not None:
+        request_telegram_reload()
     db.refresh(tenant)
     return tenant
 
@@ -358,6 +383,7 @@ def activate_business(
     tenant.archived_at = None
     tenant.deleted_at = None
     db.commit()
+    request_telegram_reload()
     db.refresh(tenant)
     return tenant
 
@@ -375,6 +401,7 @@ def deactivate_business(
     if tenant.status != "archived":
         tenant.status = "inactive"
     db.commit()
+    request_telegram_reload()
     db.refresh(tenant)
     return tenant
 
@@ -416,6 +443,7 @@ def archive_business(
     tenant.status = "archived"
     tenant.archived_at = datetime.now(timezone.utc)
     db.commit()
+    request_telegram_reload()
     db.refresh(tenant)
     return tenant
 
@@ -434,6 +462,7 @@ def restore_business(
     tenant.archived_at = None
     tenant.deleted_at = None
     db.commit()
+    request_telegram_reload()
     db.refresh(tenant)
     return tenant
 
@@ -462,3 +491,4 @@ def delete_business(
     tenant.status = "archived"
     tenant.archived_at = datetime.now(timezone.utc)
     db.commit()
+    request_telegram_reload()

@@ -84,7 +84,7 @@ export default function Services() {
     catch(e) { setFeedback({ type: 'error', msg: e.message }) }
   }
 
-  const businessName = (id) => businesses.find(b => b.id === id)?.name || `Negocio #${id}`
+  const businessName = (id) => businesses.find(b => b.id === id)?.name || 'Negocio sin nombre'
   const groupedServices = isSuperadmin && !activeTenantId ? groupByBusiness(services, businesses) : []
 
   const renderServicesTable = (items, showBusinessColumn = isSuperadmin && !!activeTenantId) => (

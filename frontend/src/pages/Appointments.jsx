@@ -76,7 +76,7 @@ export default function Appointments() {
 
   const clientName   = id => clients.find(c => c.id === id)?.full_name || `#${id}`
   const serviceName  = id => services.find(s => s.id === id)?.name     || `#${id}`
-  const businessName = id => businesses.find(b => b.id === id)?.name   || `#${id}`
+  const businessName = id => businesses.find(b => b.id === id)?.name   || 'Negocio sin nombre'
 
   const openCreate = () => { setForm(emptyForm()); setModal(true); setFeedback(null) }
   const handleChange = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))

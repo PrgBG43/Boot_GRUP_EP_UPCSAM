@@ -34,7 +34,7 @@ function FieldError({ msg }) {
 const EMPTY_TENANT = {
   name: '', description: '', phone: '', address: '', city: '', city_id: '',
   state_id: '', slug: '', opening_time: '08:00', closing_time: '20:00',
-  plan_id: '', is_active: true,
+  plan_id: '', is_active: true, status: 'active',
 }
 const EMPTY_ADMIN = {
   first_name: '', last_name: '', email: '', password: '', confirm_password: '', phone: '',
@@ -53,6 +53,11 @@ const STATUS_FILTERS = [
   { value: 'inactive', label: 'Inactivos' },
   { value: 'archived', label: 'Archivados' },
 ]
+
+function businessStatusValue(t) {
+  if (t?.status === 'archived') return 'archived'
+  return t?.is_active ? 'active' : 'inactive'
+}
 
 // -- Función de normalización para PDF -----------------------
 function pdfText(text) {
@@ -166,6 +171,7 @@ export default function AdminTenants() {
       closing_time: t.closing_time || '20:00',
       plan_id: t.plan?.id || '',
       is_active: t.is_active,
+      status: businessStatusValue(t),
     })
     setEditing(t.id)
     setModal('edit')
@@ -274,7 +280,6 @@ export default function AdminTenants() {
           opening_time: tenantForm.opening_time,
           closing_time: tenantForm.closing_time,
           plan_id:      parseInt(tenantForm.plan_id),
-          is_active:    tenantForm.is_active,
         },
         admin: {
           first_name:       adminForm.first_name.trim(),
@@ -337,7 +342,7 @@ export default function AdminTenants() {
         opening_time: tenantForm.opening_time || null,
         closing_time: tenantForm.closing_time || null,
         plan_id:      tenantForm.plan_id ? parseInt(tenantForm.plan_id) : null,
-        is_active:    tenantForm.is_active,
+        status:       tenantForm.status || 'active',
         state_id:     tenantForm.state_id ? parseInt(tenantForm.state_id) : null,
         city_id:      tenantForm.city_id ? parseInt(tenantForm.city_id) : null,
       }
@@ -779,18 +784,6 @@ export default function AdminTenants() {
                   </select>
                   <FieldError msg={fieldErrors.plan_id} />
                 </div>
-                <div className="form-group form-group-end">
-                  <div className="form-check form-check-bottom">
-                    <input
-                      type="checkbox"
-                      id="is_active_create"
-                      name="is_active"
-                      checked={tenantForm.is_active}
-                      onChange={handleTenantChange}
-                    />
-                    <label htmlFor="is_active_create">Negocio activo</label>
-                  </div>
-                </div>
               </div>
 
               {/* -- Sección: Accesos del administrador ---- */}
@@ -1006,15 +999,23 @@ export default function AdminTenants() {
                 <FieldError msg={fieldErrors.plan_id} />
               </div>
 
-              <div className="form-group form-check">
-                <input
-                  type="checkbox"
-                  id="is_active_edit"
-                  name="is_active"
-                  checked={tenantForm.is_active}
+              <div className="modal-section-header modal-section-header-spaced">Estado del negocio</div>
+
+              <div className="form-group">
+                <label htmlFor="business_status">Estado</label>
+                <select
+                  id="business_status"
+                  name="status"
+                  value={tenantForm.status || 'active'}
                   onChange={handleTenantChange}
-                />
-                <label htmlFor="is_active_edit">Negocio activo</label>
+                >
+                  <option value="active">Activo</option>
+                  <option value="inactive">Inactivo</option>
+                  <option value="archived">Archivado</option>
+                </select>
+                <small className="field-hint">
+                  Un negocio inactivo no podrá recibir nuevas citas ni operar con Telegram, pero conservará su historial.
+                </small>
               </div>
 
               <div className="modal-footer">

@@ -60,7 +60,7 @@ export default function AdminUsers() {
     return () => clearTimeout(timer)
   }, [search])  // eslint-disable-line react-hooks/exhaustive-deps
 
-  const tenantName = (id) => businesses.find(b => b.id === id)?.name || `Negocio #${id}`
+  const tenantName = (id) => businesses.find(b => b.id === id)?.name || 'Negocio sin nombre'
 
   const filtered = users
 

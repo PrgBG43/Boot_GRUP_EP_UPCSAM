@@ -53,7 +53,7 @@ export default function Clients() {
   }, [search])  // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setPage(1) }, [activeTenantId])
 
-  const businessName = (tid) => businesses.find(b => b.id === tid)?.name || `Negocio #${tid}`
+  const businessName = (tid) => businesses.find(b => b.id === tid)?.name || 'Negocio sin nombre'
 
   const groupedClients = isSuperadmin && !activeTenantId ? groupByBusiness(clients, businesses) : []
 
